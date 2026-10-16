@@ -82,21 +82,28 @@
 			grid.append(b); return b;
 		});
 		const selInfo = h('span', {}, 'No LEDs selected');
-		const updSel = () => { selInfo.textContent = sel.size ? sel.size + ' selected' : 'No LEDs selected'; applyBtn.disabled = !sel.size; };
+		const updSel = () => {
+			selInfo.textContent = sel.size ? sel.size + ' selected' : 'No LEDs selected';
+			applyBtn.disabled = !sel.size;
+			// one LED selected: show its current settings in the editor
+			if (sel.size === 1) { const l = leds[[...sel][0]]; col.value = rgbToHex(l[0], l[1], l[2]); setMode(l[3]); spd.value = l[4]; spd.dispatchEvent(new Event('input')); }
+		};
 		const selectAll = () => { cells.forEach((c, i) => { sel.add(i); c.classList.add('on'); }); updSel(); };
 		const selectNone = () => { sel.clear(); cells.forEach(c => c.classList.remove('on')); updSel(); };
 
 		// editor for the selected LEDs
 		const col = h('input', { id: 'stLedCol', type: 'color', value: '#ff2e93', class: 'colbtn', 'aria-label': 'LED color' });
 		let mode = 0;
-		const modeBtns = MODES.map(m => h('button', { type: 'button', class: 'seg' + (m.id === 0 ? ' sel' : ''), onclick: () => { mode = m.id; modeBtns.forEach((b, j) => b.classList.toggle('sel', j === m.id)); } }, m.name));
+		const setMode = id => { mode = id; modeBtns.forEach((b, j) => b.classList.toggle('sel', j === id)); };
+		const modeBtns = MODES.map(m => h('button', { type: 'button', class: 'seg' + (m.id === 0 ? ' sel' : ''), onclick: () => setMode(m.id) }, m.name));
 		const spd = track(h('input', { id: 'stLedSpd', type: 'range', min: '0', max: '255', value: '128', 'aria-label': 'Speed' }));
 		const wave = h('input', { id: 'stWave', type: 'checkbox' });
 		const applyBtn = h('button', { class: 'btn primary', type: 'button', disabled: '' }, 'Apply to selected');
 		applyBtn.onclick = () => {
 			const c = hexToRgb(col.value), idx = [...sel].sort((a, b) => a - b);
 			idx.forEach((i, k) => { leds[i] = [c[0], c[1], c[2], mode, +spd.value, wave.checked ? Math.round(k * 256 / idx.length) & 255 : 0]; });
-			save(); toast('Applied. Tap "Send to lights" to see it.');
+			save(); selectNone();   // start the next selection from scratch
+			toast('Applied to ' + idx.length + (idx.length === 1 ? ' LED' : ' LEDs') + '. Select others or tap "Send to lights".');
 		};
 
 		// live preview: same maths as the firmware effect
