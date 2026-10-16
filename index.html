@@ -101,6 +101,10 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 .pgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .pgrid button { padding: 12px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--raise); font-weight: 700; font-variant-numeric: tabular-nums; }
 .pgrid button.sel { background: var(--ag); color: #fff; border-color: transparent; }
+.pgrid.saving button { border: 2px dashed var(--amber); }
+.prow { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.prow .note { flex: 1; font-size: 13px; color: var(--muted); }
+#psSave.on { background: var(--amber); color: #1a1205; border-color: transparent; font-weight: 700; }
 .wifi { display: flex; flex-direction: column; gap: 6px; }
 .wifi label { font-size: 13px; color: var(--muted); }
 .wifi .search { margin-bottom: 6px; }
@@ -342,6 +346,10 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 		<section class="card">
 			<div class="ct">Presets</div>
 			<div class="pgrid" id="presets"></div>
+			<div class="prow">
+				<span class="note" id="psNote">Tap a number to load it.</span>
+				<button class="btn" id="psSave" type="button" aria-pressed="false">Save</button>
+			</div>
 		</section>
 	</div>
 	</section>
@@ -441,9 +449,27 @@ $('pal').onchange = e => { state.pal = +e.target.value; send({ seg: { pal: state
 });
 for (let i = 1; i <= 10; i++) {
 	const b = document.createElement('button'); b.type = 'button'; b.dataset.id = i; b.textContent = i; b.title = 'Load preset ' + i;
-	b.onclick = () => { state.ps = i; render(); send({ ps: i }); };
+	b.onclick = () => {
+		if (psSaving) {
+			// same JSON as the web UI's "Save preset": current look incl. brightness and segment layout
+			send({ psave: i, n: 'Preset ' + i, ib: true, sb: true });
+			state.ps = i; setPsSaving(false); render(); toast('Saved to preset ' + i);
+			return;
+		}
+		state.ps = i; render(); send({ ps: i });
+	};
 	$('presets').appendChild(b);
 }
+let psSaving = false;
+function setPsSaving(on) {
+	psSaving = on;
+	$('presets').classList.toggle('saving', on);
+	$('psSave').classList.toggle('on', on);
+	$('psSave').setAttribute('aria-pressed', on);
+	$('psSave').textContent = on ? 'Cancel' : 'Save';
+	$('psNote').textContent = on ? 'Tap a number to save what the lights show now.' : 'Tap a number to load it.';
+}
+$('psSave').onclick = () => setPsSaving(!psSaving);
 
 // ---- UI -> device ----
 function throttle(fn, ms) { let t = 0, h; return (...a) => { const now = Date.now(); clearTimeout(h); if (now - t > ms) { t = now; fn(...a); } else h = setTimeout(() => { t = Date.now(); fn(...a); }, ms); }; }
@@ -623,9 +649,9 @@ $('paSend').onclick = async () => {
 	$('paSend').disabled = true; $('paMsg').textContent = 'Sending…';
 	try {
 		await sendNow({ on: true, seg: { fx: 0 } });
-		for (let i = 0; i < paPixels.length; i += 200) {
-			await sendNow({ seg: { i: [i, ...paPixels.slice(i, i + 200)] } });
-			$('paMsg').textContent = 'Sending… ' + Math.round(100 * Math.min(1, (i + 200) / paPixels.length)) + '%';
+		for (let i = 0; i < paPixels.length; i += 150) {
+			await sendNow({ seg: { i: [i, ...paPixels.slice(i, i + 150)] } });
+			$('paMsg').textContent = 'Sending… ' + Math.round(100 * Math.min(1, (i + 150) / paPixels.length)) + '%';
 		}
 		$('paMsg').textContent = 'Done. To keep it, save a preset in the full LED4YOU page.';
 	} catch (e) { $('paMsg').textContent = 'Could not send. Move closer and try again.'; }
