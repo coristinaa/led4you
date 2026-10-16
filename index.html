@@ -100,6 +100,9 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 /* presets */
 .pgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .pgrid button { padding: 12px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--raise); font-weight: 700; font-variant-numeric: tabular-nums; }
+.pgrid button { position: relative; color: var(--muted); }
+.pgrid button.has { color: var(--fg); border-color: var(--violet); background: color-mix(in srgb, var(--violet) 22%, var(--raise)); }
+.pgrid button.has::after { content: ""; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); }
 .pgrid button.sel { background: var(--ag); color: #fff; border-color: transparent; }
 .pgrid.saving button { border: 2px dashed var(--amber); }
 .prow { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
@@ -422,7 +425,7 @@ function render() {
 	$('pal').value = state.pal;
 	const f = FX.find(e => e[0] === state.fx); $('fxName').textContent = f ? f[1] : '#' + state.fx;
 	document.querySelectorAll('#fxlist button').forEach(b => b.classList.toggle('sel', +b.dataset.id === state.fx));
-	document.querySelectorAll('#presets button').forEach(b => b.classList.toggle('sel', +b.dataset.id === state.ps));
+	document.querySelectorAll('#presets button').forEach(b => { const id = +b.dataset.id; b.classList.toggle('sel', id === state.ps); b.classList.toggle('has', !!((state.psl | 0) & (1 << id))); b.title = (b.classList.contains('has') ? 'Load preset ' : 'Empty preset ') + id; });
 	if ($('ipText')) renderWifi();
 }
 
@@ -453,7 +456,7 @@ for (let i = 1; i <= 10; i++) {
 		if (psSaving) {
 			// same JSON as the web UI's "Save preset": current look incl. brightness and segment layout
 			send({ psave: i, n: 'Preset ' + i, ib: true, sb: true });
-			state.ps = i; setPsSaving(false); render(); toast('Saved to preset ' + i);
+			state.ps = i; state.psl = (state.psl | 0) | (1 << i); setPsSaving(false); render(); toast('Saved to preset ' + i);
 			return;
 		}
 		state.ps = i; render(); send({ ps: i });
