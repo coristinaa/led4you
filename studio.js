@@ -310,6 +310,7 @@
 		const dayBtns = DAYS.map((d, i) => h('button', { type: 'button', class: 'seg day', title: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][i], onclick: () => { days ^= 1 << i; updDays(); } }, d));
 		const updDays = () => dayBtns.forEach((b, i) => b.classList.toggle('sel', !!(days & (1 << i))));
 		const sunInfo = h('div', { class: 'note' }, '');
+		const schHouse = h('input', { type: 'checkbox' });
 		const updSch = () => {
 			onTimeF.hidden = onMode.value !== 1; onOffF.hidden = onMode.value !== 2; onPsF.hidden = onMode.value === 0;
 			offTimeF.hidden = offMode.value !== 1; offOffF.hidden = offMode.value !== 2;
@@ -324,7 +325,7 @@
 		};
 		const saveSch = () => {
 			const sch = { om: onMode.value, ot: onMode.value === 1 ? toMin(onTime.value) : +onOff.value, ops: +onPs.value,
-				fm: offMode.value, ft: offMode.value === 1 ? toMin(offTime.value) : +offOff.value, d: days };
+				fm: offMode.value, ft: offMode.value === 1 ? toMin(offTime.value) : +offOff.value, d: days, h: schHouse.checked };
 			t.send({ time: Math.floor(Date.now() / 1000), l4y: { tz: -new Date().getTimezoneOffset() * 60, sch } }).then(ok('Schedule saved on the lights.')).catch(fail());
 		};
 		const cSched = h('section', { class: 'card' },
@@ -332,6 +333,7 @@
 			h('div', { class: 'lab' }, 'Switch on'), onMode, onTimeF, onOffF, onPsF,
 			h('div', { class: 'lab sp' }, 'Switch off'), offMode, offTimeF, offOffF,
 			h('div', { class: 'lab sp' }, 'Days'), h('div', { class: 'segs' }, dayBtns),
+			h('label', { class: 'chk' }, schHouse, ' Whole house: switch every LED4YOU light (scene with the same preset number)'),
 			sunInfo,
 			h('div', { class: 'row' }, h('button', { class: 'btn primary', type: 'button', onclick: saveSch }, 'Save schedule'), geoBtn));
 
@@ -383,6 +385,25 @@
 			field('Label', cdName), field('Count down to', cdWhen),
 			h('div', { class: 'row' }, cdCol, h('button', { class: 'btn primary', type: 'button', onclick: startCd }, 'Start countdown'),
 				h('button', { class: 'btn', type: 'button', onclick: () => t.send({ l4y: { cd: { on: false } } }).then(ok('Countdown stopped.')).catch(fail()) }, 'Stop')));
+
+		// ---- house scenes: every LED4YOU plays its own preset with the same number ----
+		const sceneBox = h('div', { class: 'themes' });
+		const hsJoin = h('input', { type: 'checkbox', checked: '' });
+		const hsId = h('select', {}, [1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => h('option', { value: String(n) }, 'House ' + n)));
+		const saveHs = () => t.send({ l4y: { hs: { j: hsJoin.checked, id: +hsId.value } } }).then(ok('Saved.')).catch(fail());
+		hsJoin.onchange = saveHs; hsId.onchange = saveHs;
+		const scene = (n, label) => t.send({ l4y: { scene: n } }).then(ok(n ? label + ' on the whole house.' : 'Whole house off.')).catch(fail());
+		const renderScenes = () => {
+			sceneBox.replaceChildren(...st.p.map(([id, name]) => h('button', { type: 'button', class: 'theme house', onclick: () => scene(id, name) }, h('b', {}, id + ' '), name)),
+				h('button', { type: 'button', class: 'theme', onclick: () => scene(0) }, 'All off'));
+		};
+		const cHouse = h('section', { class: 'card' },
+			h('div', { class: 'ct' }, 'House scenes'),
+			h('div', { class: 'note' }, 'One tap changes every LED4YOU light on your Wi-Fi. Each light plays its own preset with the same number, so save preset 1 as "Halloween" on every light (pumpkin GIF on the window, orange chase on the roof, purple on the trees…).'),
+			sceneBox,
+			h('details', { class: 'more' }, h('summary', {}, 'House settings'),
+				h('label', { class: 'chk' }, hsJoin, ' This light follows house scenes'),
+				field('House number (change it only if a neighbour also has LED4YOU)', hsId)));
 
 		// ---- preset loop (temporary playlist of the saved presets) ----
 		const loopSec = track(h('input', { type: 'range', min: '5', max: '600', step: '5', value: '60', 'aria-label': 'Seconds per preset' }));
@@ -477,13 +498,17 @@
 				pwTxt.textContent = x.pwr + ' / ' + x.ma + ' mA';
 				pwNote.textContent = pc >= 90 ? 'At the limit: the lights are dimmed to protect the power supply.' : 'Estimated current. The limit is set in LED setup.';
 			} else { pwTxt.textContent = x.pwr ? x.pwr + ' mA' : ''; pwNote.textContent = 'No current limit set. Set one in LED setup to protect the power supply.'; }
+			const pk = JSON.stringify(st.p);
+			if (pk !== renderScenes.k) { renderScenes.k = pk; renderScenes(); }
 			if (!first) return;
 			first = false;   // form fields: only once, so they do not jump while you edit them
+			if (x.hs) { hsJoin.checked = !!x.hs.j; hsId.value = String(x.hs.id || 1); }
 			const s = x.sch || {};
 			onMode.set(s.om || 0); offMode.set(s.fm || 0);
 			if (s.om === 1) onTime.value = hhmm(s.ot); else if (s.om === 2) onOff.value = s.ot;
 			if (s.fm === 1) offTime.value = hhmm(s.ft); else if (s.fm === 2) offOff.value = s.ft;
 			days = s.d === undefined ? 0x7F : s.d; updDays();
+			schHouse.checked = !!s.h;
 			onPs.fill(s.ops); updSch();
 			if (x.cd && x.cd.n) cdName.value = x.cd.n;
 			if (x.cd && x.cd.t) { const d = new Date((x.cd.t + new Date().getTimezoneOffset() * 60) * 1000); cdWhen.value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
@@ -495,7 +520,7 @@
 		t.send({ time: Math.floor(Date.now() / 1000), l4y: { tz: -new Date().getTimezoneOffset() * 60 } }).catch(() => {}).finally(() => setTimeout(refresh, 500));
 		const timer = setInterval(() => { if (document.body.contains(cPower)) refresh(); else clearInterval(timer); }, 4000);
 		updDays(); updSch();
-		return [cSleep, cSeasons, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
+		return [cSleep, cSeasons, cHouse, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
 	}
 
 	// ---------- GIF pack: original 16×16 animations hosted with the app ----------
@@ -549,11 +574,67 @@
 		return card;
 	}
 
+	// ---------- House (Wi-Fi only): every LED4YOU / WLED on the network, names, scenes, xLights ----------
+	function houseCards(toast) {
+		const list = h('div', { class: 'hlist' });
+		const xl = h('div', { class: 'note' });
+		const get = (ip, path) => fetch('http://' + ip + path, { cache: 'no-store' }).then(r => r.json());
+		const post = (ip, path, obj) => fetch('http://' + ip + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
+		const load = async () => {
+			list.replaceChildren(h('div', { class: 'note' }, 'Looking for lights…'));
+			let me, nodes = [];
+			try { me = await (await fetch('/json/info', { cache: 'no-store' })).json(); } catch (e) {}
+			try { nodes = (await (await fetch('/json/nodes', { cache: 'no-store' })).json()).nodes || []; } catch (e) {}
+			const all = [{ name: me ? me.name : 'This light', ip: me ? me.ip : location.hostname, self: true }].concat(nodes.filter(n => !me || n.ip !== me.ip));
+			list.replaceChildren();
+			const rows = [];
+			for (const n of all) {
+				const name = h('input', { class: 'search', type: 'text', maxlength: '32', value: n.name || '' });
+				const info = h('span', { class: 'note' }, n.ip);
+				const chips = h('div', { class: 'pschips' });
+				const rt = h('input', { type: 'checkbox' });
+				const row = h('div', { class: 'hrow' },
+					h('div', { class: 'hname' }, name, h('a', { class: 'btn small', href: 'http://' + n.ip + '/', target: '_blank', rel: 'noopener' }, 'Open')),
+					info, chips,
+					h('label', { class: 'chk' }, rt, ' xLights can control this light'));
+				list.append(row);
+				name.onchange = () => post(n.ip, '/json/cfg', { id: { name: name.value.trim() || 'LED4YOU' } }).then(() => toast('Name saved.')).catch(() => toast('Could not reach ' + n.ip + '.'));
+				rt.onchange = () => post(n.ip, '/json/state', { l4y: { rt: rt.checked } }).then(() => toast('Saved.')).catch(() => toast('Could not reach ' + n.ip + '.'));
+				// details from the light itself (answers with CORS, so this page can ask other lights)
+				Promise.all([get(n.ip, '/json/si').catch(() => null), get(n.ip, '/presets.json').catch(() => null)]).then(([si, ps]) => {
+					if (!si) { info.textContent = n.ip + ' · not answering'; return; }
+					const leds = si.info && si.info.leds ? si.info.leds.count : 0;
+					const isL4y = !!(si.state && si.state.l4y);
+					info.textContent = n.ip + ' · ' + leds + ' LEDs' + (si.info && si.info.live ? ' · xLights playing now' : '') + (isL4y ? '' : ' · not LED4YOU (no scenes)');
+					rt.checked = isL4y ? !!si.state.l4y.rt : true; rt.disabled = !isL4y;
+					rows.push({ name: name.value, ip: n.ip, leds });
+					chips.replaceChildren(...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => h('span', { class: 'pschip' + (ps && ps[i] && ps[i].n ? ' has' : ''), title: ps && ps[i] ? ps[i].n || '' : 'empty' }, String(i))));
+					xl.replaceChildren(h('b', {}, 'In xLights (Setup → Controllers → Add Ethernet), one controller per light:'),
+						h('div', { class: 'xltab' }, rows.map(r => h('div', {}, h('span', {}, r.name), h('span', {}, r.ip), h('span', {}, 'DDP'), h('span', {}, r.leds * 3 + ' channels')))));
+				});
+			}
+			if (!nodes.length) list.append(h('div', { class: 'note' }, 'Only this light was found. Other lights appear here about a minute after they start. In Config → Sync Interfaces → Instance List, "Enable instance list" and "Make this instance discoverable" must be on (they are by default).'));
+		};
+		load();
+		return [
+			h('section', { class: 'card' },
+				h('div', { class: 'ct' }, 'My house'),
+				h('div', { class: 'note' }, 'Every light on your Wi-Fi. Give each one a clear name (Roof, Garden tree, Window…). The numbers show which presets each light has: for house scenes, save the same number on every light.'),
+				list,
+				h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: load }, 'Search again'))),
+			h('section', { class: 'card' },
+				h('div', { class: 'ct' }, 'xLights show'),
+				h('div', { class: 'note' }, 'For shows timed to music, xLights on your computer sends the animation to every light at once. While it plays, the lights follow xLights; when it stops they go back to their own effect.'),
+				xl)
+		];
+	}
+
 	window.L4YStudio = {
 		textCard,
 		myLedsCards,
 		extrasCards,
 		gifPackCard,
+		houseCards,
 		// styles shared by both pages (they already define the colour tokens)
 		css: `
 .card input[type=range] { --fill: var(--hot); }
@@ -600,6 +681,19 @@ details.more summary { cursor: pointer; font-weight: 600; color: var(--fg); }
 .gpitem { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 14px; border: 1px solid var(--line); background: var(--raise); font-size: 12px; }
 .gpitem img { width: 64px; height: 64px; image-rendering: pixelated; border-radius: 6px; background: #000; }
 .gpitem[disabled] { opacity: .5; }
+.theme.house { background: linear-gradient(135deg, #1a1440, #0b2a3a); border-color: #34306a; }
+.theme.house b { color: var(--cyan); }
+.hlist { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.hrow { border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: var(--raise); display: flex; flex-direction: column; gap: 6px; }
+.hrow .search { margin: 0; flex: 1; }
+.hname { display: flex; gap: 8px; align-items: center; }
+.hname a.btn { text-decoration: none; color: var(--fg); }
+.hrow .chk { margin: 0; }
+.pschips { display: flex; gap: 4px; flex-wrap: wrap; }
+.pschip { min-width: 24px; text-align: center; font-size: 12px; padding: 2px 4px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+.pschip.has { background: var(--violet); color: #fff; border-color: transparent; }
+.xltab { display: grid; gap: 4px; margin-top: 8px; font-size: 13px; }
+.xltab div { display: grid; grid-template-columns: 1.3fr 1.2fr .6fr 1fr; gap: 6px; padding: 6px 8px; background: var(--raise); border-radius: 8px; }
 `
 	};
 })();
