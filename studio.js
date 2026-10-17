@@ -37,29 +37,118 @@
 	const rgbToHex = (r, g, b) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 
 	// ---------- Text ----------
+	// a tiny 3x5 font, only used to draw the preview of the message in the page
+	const F35 = { A: '010101111101101', B: '110101110101110', C: '011100100100011', D: '110101101101110', E: '111100110100111', F: '111100110100100',
+		G: '011100101101011', H: '101101111101101', I: '111010010010111', J: '001001001101010', K: '101101110101101', L: '100100100100111', M: '101111111101101',
+		N: '110101101101101', O: '010101101101010', P: '110101110100100', Q: '010101101110011', R: '110101110101101', S: '011100010001110', T: '111010010010010',
+		U: '101101101101111', V: '101101101101010', W: '101101111111101', X: '101101010101101', Y: '101101010010010', Z: '111001010100111',
+		0: '111101101101111', 1: '010110010010111', 2: '110001010100111', 3: '110001010001110', 4: '101101111001001', 5: '111100110001110',
+		6: '011100111101111', 7: '111001010010010', 8: '111101111101111', 9: '111101111001110', ' ': '000000000000000', '!': '010010010000010',
+		'?': '110001010000010', '.': '000000000000010', ',': '000000000010100', ':': '000010000010000', '-': '000000111000000', "'": '010010000000000',
+		'+': '000010111010000', '/': '001001010100100', '#': '101111101111101', '♥': '000101111111010', '*': '101010101000000' };
+	// WLED's built-in fonts for Scrolling Text (custom2 0..255 picks font 0..4)
+	const FONTS = [['Mini', 4, 6, 0], ['Small', 5, 8, 64], ['Normal', 6, 8, 128], ['Retro', 7, 9, 192], ['Tall', 5, 12, 255]];
+	const DIRS = [['←', 'Left'], ['→', 'Right'], ['↑', 'Up'], ['↓', 'Down']];
+	const CSTYLES = ['One colour', 'Two-colour fade', 'Rainbow', 'Rainbow letters'];
+
+	const PVwh = hue => { hue = ((hue % 1) + 1) % 1 * 6; const i = Math.floor(hue), f = hue - i, q = 255 * (1 - f), u = 255 * f;
+		return [[255, u, 0], [q, 255, 0], [0, 255, u], [0, q, 255], [u, 0, 255], [255, 0, q]][i]; };
 	function textCard(t, toast) {
 		const inf = t.info();
+		const MW = inf.mw && inf.mh ? inf.mw : 32, MH = inf.mw && inf.mh ? inf.mh : 8;
+		let o = { dir: 0, font: 2, cs: 0 };
+		try { Object.assign(o, JSON.parse(localStorage.getItem('l4yText') || '{}')); } catch (e) {}
 		const txt = h('input', { class: 'search', id: 'stText', type: 'text', maxlength: '60', placeholder: 'HAPPY HALLOWEEN' });
-		const col = h('input', { id: 'stTextCol', type: 'color', value: '#ff7a00', class: 'colbtn', 'aria-label': 'Text color' });
-		const spd = track(h('input', { id: 'stTextSpd', type: 'range', min: '0', max: '255', value: '128', 'aria-label': 'Speed' }));
-		const size = track(h('input', { id: 'stTextSize', type: 'range', min: '0', max: '255', value: '128', 'aria-label': 'Letter size' }));
+		if (o.msg) txt.value = o.msg;
+		const col = h('input', { id: 'stTextCol', type: 'color', value: o.c1 || '#ff7a00', class: 'colbtn', 'aria-label': 'Text color' });
+		const col2 = h('input', { id: 'stTextCol2', type: 'color', value: o.c2 || '#8b5cff', class: 'colbtn', 'aria-label': 'Second color' });
+		const spd = track(h('input', { id: 'stTextSpd', type: 'range', min: '0', max: '255', value: String(o.sx ?? 128), 'aria-label': 'Speed' }));
+		const trail = track(h('input', { id: 'stTextTrail', type: 'range', min: '0', max: '255', value: String(o.tr ?? 0), 'aria-label': 'Trail' }));
 		const warn = h('div', { class: 'note warnline' }, 'Text needs a matrix. Set the matrix size in LED setup first.');
 		warn.hidden = !!(inf.mw && inf.mh);
-		const send = () => {
-			const s = txt.value.trim();
-			if (!s) { toast('Type a message first.'); return; }
-			t.send({ on: true, seg: { fx: TEXT_FX, n: s, sx: +spd.value, c2: +size.value, col: [hexToRgb(col.value)] }, l4y: { cd: { on: false } } })
-				.then(() => toast('Showing your text.')).catch(() => toast('Could not send the text.'));
+		let shown = false, again = 0;
+		const segBtns = (list, key, label) => {
+			const bs = list.map((x, i) => h('button', { type: 'button', class: 'seg' + (o[key] === i ? ' sel' : ''), onclick: () => { o[key] = i; bs.forEach((b, j) => b.classList.toggle('sel', j === i)); changed(); } }, label(x)));
+			return h('div', { class: 'segs' }, bs);
 		};
+		const dirRow = segBtns(DIRS, 'dir', d => [d[0] + ' ', h('span', {}, d[1])]);
+		const fontRow = segBtns(FONTS, 'font', f => f[0]);
+		const csRow = segBtns(CSTYLES, 'cs', c => c);
+		const col2Wrap = h('span', {}, col2);
+		const seg = () => {
+			const v = o.dir >= 2, c1 = hexToRgb(col.value), c2 = hexToRgb(col2.value);
+			const s = { fx: TEXT_FX, n: txt.value.trim(), sx: +spd.value, ix: 128, c1: +trail.value, c2: FONTS[o.font][3],
+				// up and down: the text runs along the matrix turned on its side, with the letters turned back upright
+				c3: v ? 8 : 16, tp: v, o3: o.dir === 1 || o.dir === 3, o2: false,
+				o1: o.cs === 1 || o.cs === 3, pal: o.cs >= 2 ? 11 : o.cs === 1 ? 0 : 2, col: [c1, [0, 0, 0], c2] };
+			return s;
+		};
+		const remember = () => { try { localStorage.setItem('l4yText', JSON.stringify(Object.assign(o, { msg: txt.value, c1: col.value, c2: col2.value, sx: +spd.value, tr: +trail.value }))); } catch (e) {} };
+		const send = quiet => {
+			const s = txt.value.trim();
+			if (!s) { quiet || toast('Type a message first.'); return; }
+			remember();
+			t.send({ on: true, seg: seg(), l4y: { cd: { on: false }, txv: o.dir >= 2 } })
+				.then(() => { shown = true; quiet || toast('Showing your text.'); }).catch(() => quiet || toast('Could not send the text.'));
+		};
+		// after the text is on, every change goes to the lights straight away
+		const changed = () => { col2Wrap.hidden = o.cs !== 1; if (shown) { clearTimeout(again); again = setTimeout(() => send(true), 350); } };
+		[col, col2, spd, trail].forEach(e => e.addEventListener('input', changed));
+		txt.addEventListener('change', changed);
+
+		// preview: the message moving over a matrix of the same size
+		const cv = h('canvas', { class: 'txtpv', 'aria-hidden': 'true' });
+		const pv = () => {
+			if (!cv.isConnected && pv.seen) return;   // the card was closed: stop
+			requestAnimationFrame(pv);
+			if (!cv.isConnected || !cv.clientWidth) return;
+			pv.seen = true;
+			const now = performance.now();
+			if (now - (pv.last || 0) < 50) return; pv.last = now;
+			const w = cv.clientWidth || 320, cell = Math.max(3, Math.min(14, Math.floor(w / MW))), W = cell * MW, H = cell * MH;
+			if (cv.width !== W * 2) { cv.width = W * 2; cv.height = H * 2; cv.style.height = H + 'px'; }
+			const g = cv.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); g.fillStyle = '#05060a'; g.fillRect(0, 0, W, H);
+			const msg = (txt.value.trim() || txt.placeholder).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+			const [, fw, fh] = FONTS[o.font], vert = o.dir >= 2;
+			const runLen = vert ? MH : MW, cross = vert ? MW : MH;   // along the movement / across it
+			const gw = vert ? fh : fw, gh = vert ? fw : fh, step = gw + 1, total = msg.length * step;
+			const sp = 4 + (+spd.value) / 18, pos = Math.floor(now / 1000 * sp) % (total + runLen);
+			const c1 = hexToRgb(col.value), c2 = hexToRgb(col2.value), hue = now / 4000;
+			const lit = new Map(), fwd = o.dir === 0 || o.dir === 2;   // left / up: text comes in from the far side
+			const start = fwd ? runLen - pos : pos - total;
+			for (let k = 0; k < msg.length; k++) {
+				const bits = F35[msg[k]] || F35['?'];
+				for (let gy = 0; gy < fh; gy++) for (let gx = 0; gx < fw - 1; gx++) {
+					if (bits[Math.floor(gy * 5 / fh) * 3 + Math.floor(gx * 3 / (fw - 1))] !== '1') continue;
+					const along = start + k * step + (vert ? gy : gx), acr = Math.floor((cross - gh) / 2) + (vert ? gx : gy);
+					const x = vert ? acr : along, y = vert ? along : acr;
+					if (x < 0 || y < 0 || x >= MW || y >= MH) continue;
+					const f = gy / Math.max(1, fh - 1);
+					lit.set(y * MW + x, o.cs === 0 ? c1 : o.cs === 1 ? [c1[0] + (c2[0] - c1[0]) * f, c1[1] + (c2[1] - c1[1]) * f, c1[2] + (c2[2] - c1[2]) * f]
+						: o.cs === 2 ? PVwh(hue) : PVwh(hue + f * .6));
+				}
+			}
+			for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+				const c = lit.get(y * MW + x);
+				g.fillStyle = c ? 'rgb(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0) + ')' : '#151823';
+				g.beginPath(); g.arc(x * cell + cell / 2, y * cell + cell / 2, cell * .4, 0, 6.283); g.fill();
+			}
+		};
+		requestAnimationFrame(pv);
+		col2Wrap.hidden = o.cs !== 1;
 		return h('section', { class: 'card' },
 			h('div', { class: 'ct' }, 'Text'),
 			warn,
 			h('label', { for: 'stText', class: 'lab' }, 'Message'),
 			txt,
-			h('div', { class: 'rowc' }, col, h('div', { class: 'grow' },
+			h('div', { class: 'gridwrap' }, cv),
+			h('div', { class: 'lab sp' }, 'Movement'), dirRow,
+			h('div', { class: 'lab sp' }, 'Letters'), fontRow,
+			h('div', { class: 'lab sp' }, 'Colours'), csRow,
+			h('div', { class: 'rowc' }, col, col2Wrap, h('div', { class: 'grow' },
 				h('div', { class: 'lbl' }, h('span', {}, 'Speed')), spd,
-				h('div', { class: 'lbl' }, h('span', {}, 'Letter size')), size)),
-			h('button', { class: 'btn primary', type: 'button', onclick: send }, 'Show text'));
+				h('div', { class: 'lbl' }, h('span', {}, 'Trail')), trail)),
+			h('button', { class: 'btn primary', type: 'button', onclick: () => send(false) }, 'Show text'));
 	}
 
 	// ---------- My LEDs ----------
@@ -587,7 +676,7 @@
 			const d = new Date(cdWhen.value);
 			if (isNaN(d)) { toast('Pick a date and time.'); return; }
 			const local = Math.floor(d.getTime() / 1000) - d.getTimezoneOffset() * 60;   // the lights count in local time
-			t.send({ on: true, time: Math.floor(Date.now() / 1000), seg: { fx: FX.scroll, col: [hexToRgb(cdCol.value)] },
+			t.send({ on: true, time: Math.floor(Date.now() / 1000), seg: { fx: FX.scroll, col: [hexToRgb(cdCol.value)], tp: false, c3: 16, o3: false },
 				l4y: { tz: -new Date().getTimezoneOffset() * 60, cd: { on: true, t: local, n: cdName.value.trim() } } })
 				.then(ok('Countdown started.')).catch(fail());
 		};
@@ -1105,6 +1194,7 @@
 .ledgrid { display: grid; gap: 4px; min-width: min-content; }
 .led { aspect-ratio: 1; min-width: 22px; border-radius: 6px; border: 1px solid var(--line); font-size: 10px; color: rgba(255,255,255,.8); text-shadow: 0 0 3px #000; padding: 0; }
 .led.on { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.txtpv { display: block; width: 100%; border-radius: 10px; }
 .segs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
 .seg { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--raise); font-size: 14px; }
 .seg.sel { background: var(--ag); color: #fff; border-color: transparent; }
