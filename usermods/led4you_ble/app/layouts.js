@@ -186,7 +186,7 @@
 				h('div', { class: 'lay-row' }, cols, h('span', { class: 'note' }, 'Colours')),
 				h('label', { class: 'lab' }, 'Palette'), palSel,
 				h('div', { class: 'lbl' }, h('span', {}, 'Speed')), spd,
-				z.def.min === z.def.max ? '' : [h('div', { class: 'lbl' }, h('span', {}, 'LEDs in this zone'), cntL), cnt],
+				...(z.def.min === z.def.max ? [] : [h('div', { class: 'lbl' }, h('span', {}, 'LEDs in this zone'), cntL), cnt]),
 				h('div', { class: 'row' },
 					opts.current ? h('button', { class: 'btn', type: 'button', onclick: useNow }, 'Use the look of my lights') : '',
 					opts.send ? h('button', { class: 'btn primary', type: 'button', onclick: sendNow }, 'Show it on my lights') : ''));
