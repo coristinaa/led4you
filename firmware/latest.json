@@ -1,1 +1,1 @@
-{"version":24,"chip":"ESP32-C3","date":"2026-10-17","update":"LED4YOU_v24_ESP32-C3_update.bin","full":"LED4YOU_v24_ESP32-C3_completo.bin","notes":"Text: move left, right, up or down, 5 letter styles, colour fades and rainbow, trail, and a preview of the message"}
+{"version":25,"chip":"ESP32-C3","date":"2026-10-17","update":"LED4YOU_v25_ESP32-C3_update.bin","full":"LED4YOU_v25_ESP32-C3_completo.bin","notes":"Emoji and letters with accents (á, ã, ç) in the scrolling text"}
