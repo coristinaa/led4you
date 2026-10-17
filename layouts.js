@@ -60,6 +60,7 @@
 			return out; }),
 		circle: (o, n) => Array.from({ length: n }, (_, i) => { const a = (i / n) * Math.PI * 2 - Math.PI / 2; return { x: o.cx + Math.cos(a) * o.r, y: o.cy + Math.sin(a) * o.r * (o.sy || 1), z: 1 }; }),
 		star: (o, n) => along(Array.from({ length: 10 }, (_, i) => { const a = (i / 10) * Math.PI * 2 - Math.PI / 2, r = i & 1 ? o.r * .45 : o.r; return [o.cx + Math.cos(a) * r, o.cy + Math.sin(a) * r]; }), n, true),
+		custom: o => o.pts.map(p => ({ x: p[0], y: p[1], z: 1 })),
 		stakes: (o, n) => { const out = [], per = Math.max(1, Math.round(n / o.pts.length));
 			o.pts.forEach(([x, y, s]) => { for (let j = 0; j < per; j++) { const a = (j / per) * Math.PI * 2; out.push({ x: x + Math.cos(a) * 7 * s, y: y - 10 * s + Math.sin(a) * 4 * s, z: 1 }); } });
 			return out; }
@@ -120,7 +121,17 @@
 	function mount(box, opts) {
 		const fxList = opts.fx.slice().sort((a, b) => a[1].localeCompare(b[1]));
 		const byName = n => opts.fx.find(f => f[1].toLowerCase() === String(n).toLowerCase());
-		let sc = SCENES[0], zones = [], bgCache = null, sel = 0, selT = -9999;   // the chosen zone stands out for a moment
+		// "My lights": the photo and LED positions from the camera scan (scanner.js)
+		const scenes = SCENES.slice();
+		if (opts.custom && opts.custom.pts) {
+			const c = opts.custom, ar = c.ar || 4 / 3, w = ar > 4 / 3 ? 800 : 600 * ar, hh = ar > 4 / 3 ? 800 / ar : 600, x0 = (800 - w) / 2, y0 = (600 - hh) / 2;
+			const img = new Image(); if (c.photo) { img.onload = () => { bgCache = null; }; img.src = c.photo; }
+			scenes.unshift({ id: 'mine', name: 'My lights', bg: (g, W, H) => {
+				g.fillStyle = '#05070d'; g.fillRect(0, 0, W, H);
+				if (img.complete && img.naturalWidth) { g.drawImage(img, x0, y0, w, hh); g.fillStyle = 'rgba(0,0,8,.55)'; g.fillRect(0, 0, W, H); }
+			}, zones: [Z('My lights', 'custom', { pts: c.pts.map(p => [x0 + p[0] * w, y0 + p[1] * hh]) }, c.n, { fx: 'Rainbow', col: [[255, 0, 0]], pal: 0, sx: 128 }, c.n, c.n)] });
+		}
+		let sc = scenes[0], zones = [], bgCache = null, sel = 0, selT = -9999;   // the chosen zone stands out for a moment
 		const KEY = 'l4yLayout';
 		let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
 		const keep = () => { try { saved[sc.id] = zones.map(z => ({ fx: z.fx, col: z.col, pal: z.pal, sx: z.sx, n: z.n })); localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {} };
@@ -140,13 +151,13 @@
 			});
 			zones.forEach(mk);
 			bgCache = null; sel = Math.min(sel, zones.length - 1);
-			pick.replaceChildren(...SCENES.map(s => h('button', { type: 'button', class: 'seg' + (s === sc ? ' sel' : ''), onclick: () => { sc = s; sel = 0; build(); } }, s.name)));
+			pick.replaceChildren(...scenes.map(s => h('button', { type: 'button', class: 'seg' + (s === sc ? ' sel' : ''), onclick: () => { sc = s; sel = 0; build(); } }, s.name)));
 			tabs.replaceChildren(...zones.map((z, i) => h('button', { type: 'button', class: 'seg' + (i === sel ? ' sel' : ''), onclick: () => { sel = i; selT = performance.now(); build(); } }, z.def.name)));
 			editor();
 		};
 		const mk = z => {
 			const f = opts.fx.find(x => x[0] === z.fx) || [-1, z.nm || 'Solid', 0];
-			z.smp = L4YStudio.sampler({ name: f[1], d2: !!f[2] && z.def.shape === 'grid', col: z.col, pal: z.pal >= 2 ? opts.palStops(z.pal) : null, speed: z.sx });
+			z.smp = L4YStudio.sampler({ name: f[1], d2: !!f[2] && (z.def.shape === 'grid' || z.def.shape === 'custom'), col: z.col, pal: z.pal >= 2 ? opts.palStops(z.pal) : null, speed: z.sx });
 			z.pts = SH[z.def.shape](z.def.o, z.n);
 			const xs = z.pts.map(p => p.x), ys = z.pts.map(p => p.y);
 			z.bx = [Math.min(...xs), Math.max(...xs) - Math.min(...xs) || 1, Math.min(...ys), Math.max(...ys) - Math.min(...ys) || 1];
@@ -175,7 +186,7 @@
 				h('div', { class: 'lay-row' }, cols, h('span', { class: 'note' }, 'Colours')),
 				h('label', { class: 'lab' }, 'Palette'), palSel,
 				h('div', { class: 'lbl' }, h('span', {}, 'Speed')), spd,
-				h('div', { class: 'lbl' }, h('span', {}, 'LEDs in this zone'), cntL), cnt,
+				z.def.min === z.def.max ? '' : [h('div', { class: 'lbl' }, h('span', {}, 'LEDs in this zone'), cntL), cnt],
 				h('div', { class: 'row' },
 					opts.current ? h('button', { class: 'btn', type: 'button', onclick: useNow }, 'Use the look of my lights') : '',
 					opts.send ? h('button', { class: 'btn primary', type: 'button', onclick: sendNow }, 'Show it on my lights') : ''));
