@@ -593,7 +593,7 @@
 				const info = h('span', { class: 'note' }, n.ip);
 				const chips = h('div', { class: 'pschips' });
 				const rt = h('input', { type: 'checkbox' });
-				const row = h('div', { class: 'hrow' },
+				const row = h('div', { class: 'housecard' },
 					h('div', { class: 'hname' }, name, h('a', { class: 'btn small', href: 'http://' + n.ip + '/', target: '_blank', rel: 'noopener' }, 'Open')),
 					info, chips,
 					h('label', { class: 'chk' }, rt, ' xLights can control this light'));
@@ -684,11 +684,11 @@ details.more summary { cursor: pointer; font-weight: 600; color: var(--fg); }
 .theme.house { background: linear-gradient(135deg, #1a1440, #0b2a3a); border-color: #34306a; }
 .theme.house b { color: var(--cyan); }
 .hlist { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-.hrow { border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: var(--raise); display: flex; flex-direction: column; gap: 6px; }
-.hrow .search { margin: 0; flex: 1; }
+.housecard { border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: var(--raise); display: flex; flex-direction: column; gap: 6px; }
+.housecard .search { margin: 0; flex: 1; }
 .hname { display: flex; gap: 8px; align-items: center; }
 .hname a.btn { text-decoration: none; color: var(--fg); }
-.hrow .chk { margin: 0; }
+.housecard .chk { margin: 0; }
 .pschips { display: flex; gap: 4px; flex-wrap: wrap; }
 .pschip { min-width: 24px; text-align: center; font-size: 12px; padding: 2px 4px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
 .pschip.has { background: var(--violet); color: #fff; border-color: transparent; }

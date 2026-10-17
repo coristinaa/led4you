@@ -1,5 +1,5 @@
 // LED4YOU app: keep the app shell available offline (lights are often used where there is no internet)
-const CACHE = 'led4you-v11';
+const CACHE = 'led4you-v12';
 const FILES = ['./', 'index.html', 'studio.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'gifs/pack.json'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(n => n !== CACHE).map(n => caches.delete(n))))); self.clients.claim(); });
