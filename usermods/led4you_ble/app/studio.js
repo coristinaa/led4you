@@ -827,8 +827,56 @@
 		return [cImg, cGif, cList];
 	}
 
+	// ---------- "?" help on card titles ----------
+	const HELP = {
+		'Live on your lights': 'What your lights show right now, updated several times a second.',
+		'Color': 'The main colour used by most effects. Tap a circle for a quick colour.',
+		'Effect': 'The animation. Tap one to see it on your lights. The sliders below change with the effect and only show what that effect uses.',
+		'Palette': 'A set of colours that many effects blend through. Effects that only use your colour hide this card.',
+		'Presets': 'Save what the lights show now under a number (Save), and bring it back later with one tap.',
+		'Text': 'Scrolls a message across a LED matrix.',
+		'My LEDs': 'Give every LED its own colour and behaviour. Select: pick LEDs and edit them. Draw: paint with your finger. Erase: switch LEDs off.',
+		'Pixel art': 'Shows a photo or drawing on your LEDs.',
+		'Your image': 'Shows a photo or drawing on your LEDs. "Keep on the lights" keeps it after a restart.',
+		'GIF animation': 'Plays an animated GIF, best on a matrix.',
+		'Your GIF': 'Plays an animated GIF, best on a matrix.',
+		'On the lights': 'Animations stored on the lights. Play one or delete it to free space.',
+		'Sleep timer': 'Slowly dims and switches the lights off after the time you pick.',
+		'Seasons': 'Ready-made looks for Halloween and Christmas. Tap one; if you like it, save it as a preset.',
+		'Schedule': 'Switches the lights on and off by themselves every day, at a set time or with the sunset and sunrise.',
+		'Countdown': 'Counts down to a date on a matrix, for example to Christmas.',
+		'Preset loop': 'Plays your saved presets one after another, again and again.',
+		'Sound': 'Effects that move with music. They need a microphone connected to the board.',
+		'Motion scare': 'With a motion sensor connected, plays a preset when someone walks by.',
+		'Light group': 'Makes several lights copy each other over Wi-Fi.',
+		'Power': 'How much current the LEDs use now, compared with your power supply limit.',
+		'LED setup': 'Tells the board how your LEDs are connected. Wrong values here give wrong colours or no light at all.',
+		'My house': 'Every LED4YOU light on your Wi-Fi, with its name and the scenes it already has.',
+		'xLights show': 'For shows timed to music made in xLights on a computer.'
+	};
+	function helpify(root) {
+		(root || document.body).querySelectorAll('.ct:not([data-help])').forEach(ct => {
+			const first = [...ct.childNodes].find(n => n.nodeType === 3 && n.nodeValue.trim());
+			const key = first && (first.l4yKey || first.nodeValue.trim());
+			const text = key && HELP[key];
+			ct.dataset.help = '';
+			if (!text) return;
+			const tip = h('div', { class: 'helptip', hidden: '' }, text);
+			const b = h('button', { type: 'button', class: 'helpbtn', 'aria-label': 'What is this?', title: 'What is this?', onclick: () => { tip.hidden = !tip.hidden; b.classList.toggle('on', !tip.hidden); } }, '?');
+			ct.append(b);
+			ct.after(tip);
+		});
+	}
+	// help for everything already on the page and for cards added later
+	function autoHelp() {
+		helpify(document.body);
+		new MutationObserver(() => helpify(document.body)).observe(document.body, { childList: true, subtree: true });
+	}
+
 	window.L4YStudio = {
 		textCard,
+		helpify,
+		autoHelp,
 		myImagesCards,
 		updateCard,
 		myLedsCards,
@@ -880,6 +928,10 @@ details.more summary { cursor: pointer; font-weight: 600; color: var(--fg); }
 .giflist2 { display: flex; flex-direction: column; gap: 6px; }
 .gifrow2 { display: flex; gap: 8px; align-items: center; }
 .gifrow2 span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct { align-items: center; }
+.helpbtn { margin-left: 8px; width: 22px; height: 22px; flex: none; border-radius: 50%; border: 1px solid var(--line); background: var(--raise); color: var(--muted); font-size: 12px; font-weight: 700; padding: 0; line-height: 20px; text-transform: none; letter-spacing: 0; }
+.helpbtn.on { background: var(--violet); color: #fff; border-color: transparent; }
+.helptip { font-size: 13px; color: var(--fg); background: var(--raise); border-left: 3px solid var(--violet); border-radius: 8px; padding: 8px 10px; margin: -4px 0 10px; }
 .card.upd { border-color: var(--cyan); background: linear-gradient(135deg, #0b2a3a, #171a22 60%); }
 .gifpack { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; margin-top: 8px; }
 .gphead { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }

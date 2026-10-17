@@ -42,6 +42,8 @@ void l4yExtrasStatus(JsonObject o);   // l4y_extras.cpp
 #define L4Y_STATE    "c0de4c45-4434-594f-55aa-000000000002"
 #define L4Y_FILE     "c0de4c45-4434-594f-55aa-000000000003"
 #define L4Y_LIST     "c0de4c45-4434-594f-55aa-000000000004"
+#define L4Y_PEEK     "c0de4c45-4434-594f-55aa-000000000005"   // live preview: [cols][rows] + RGB per sampled LED
+#define L4Y_PEEK_MAX 160         // LEDs per preview frame (fits one BLE packet)
 
 #define L4Y_JSON_MAX   2048        // largest JSON command (the app sends pixel art in chunks of 150 LEDs, ~1.4 KB)
 #define L4Y_FILE_MAX   (64*1024)   // largest file accepted over Bluetooth
@@ -140,6 +142,8 @@ class Led4youBle : public Usermod {
     NimBLECharacteristic* ctlState = nullptr;
     NimBLECharacteristic* ctlFile  = nullptr;
     NimBLECharacteristic* ctlList  = nullptr;
+    NimBLECharacteristic* ctlPeek  = nullptr;
+    uint32_t lastPeek = 0;
 
     // Improv
     enum : uint8_t { ST_AUTHORIZED = 0x02, ST_PROVISIONING = 0x03, ST_PROVISIONED = 0x04 };
@@ -374,6 +378,38 @@ class Led4youBle : public Usermod {
     }
 
     // JSON array of GIF files for the LIST characteristic (max ~500 bytes)
+    // live preview for the app: a down-sampled copy of what the LEDs show, ~6 times a second, only while the app listens
+    void sendPeek() {
+      if (!ctlPeek || millis() - lastPeek < 160 || !ctlPeek->getSubscribedCount()) return;
+      lastPeek = millis();
+      uint8_t buf[2 + 3 * L4Y_PEEK_MAX];
+      unsigned cols, rows, step = 1;
+      #ifndef WLED_DISABLE_2D
+      const bool mx = strip.isMatrix && Segment::maxHeight > 1;
+      #else
+      const bool mx = false;
+      #endif
+      if (mx) {
+        cols = Segment::maxWidth; rows = Segment::maxHeight;
+        while ((cols / step) * (rows / step) > L4Y_PEEK_MAX) step++;
+        cols /= step; rows /= step;
+      } else {
+        const unsigned n = strip.getLengthTotal();
+        cols = n < L4Y_PEEK_MAX ? n : L4Y_PEEK_MAX; rows = 1;
+      }
+      if (!cols || !rows || cols > 255 || rows > 255) return;
+      buf[0] = cols; buf[1] = rows;
+      size_t p = 2;
+      for (unsigned y = 0; y < rows; y++) for (unsigned x = 0; x < cols; x++) {
+        uint32_t c;
+        if (mx) c = strip.getPixelColorXY(x * step, y * step);
+        else c = strip.getPixelColor((x * strip.getLengthTotal()) / cols);
+        buf[p++] = R(c); buf[p++] = G(c); buf[p++] = B(c);
+      }
+      ctlPeek->setValue(buf, p);
+      ctlPeek->notify();
+    }
+
     // GIF names, cached until a file is added or removed
     void updateGifs() {
       listDirty = false;
@@ -497,6 +533,7 @@ class Led4youBle : public Usermod {
       ctlState = ctl->createCharacteristic(L4Y_STATE, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
       ctlFile  = ctl->createCharacteristic(L4Y_FILE, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
       ctlList  = ctl->createCharacteristic(L4Y_LIST, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+      ctlPeek  = ctl->createCharacteristic(L4Y_PEEK, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
       cmd->setCallbacks(new CharCB(this, 2));
       ctlFile->setCallbacks(new CharCB(this, 3));
       ctl->start();
@@ -563,6 +600,7 @@ class Led4youBle : public Usermod {
       // so an open Bluetooth session (or the switch from Bluetooth to Wi-Fi in the app) is never cut off
       if (hasClient || keepOnWifi || !WLED_CONNECTED || improvState == ST_PROVISIONING) idleSince = millis();
       else if (millis() - idleSince > L4Y_BLE_IDLE_OFF) { stopBle(); return; }
+      if (hasClient) sendPeek();
       if (hasClient && millis() - lastStateCheck > 500) {
         lastStateCheck = millis();
         updateList();
@@ -583,7 +621,7 @@ class Led4youBle : public Usermod {
     void stopBle() {
       running = false;
       NimBLEDevice::deinit(true);
-      server = nullptr; impState = impError = impRes = ctlState = ctlFile = ctlList = nullptr;
+      server = nullptr; impState = impError = impRes = ctlState = ctlFile = ctlList = ctlPeek = nullptr;
       if (cmdBuf) { free(cmdBuf); cmdBuf = nullptr; }
       L4yBleMsg m;
       while (queue && xQueueReceive(queue, &m, 0) == pdTRUE) free(m.data);

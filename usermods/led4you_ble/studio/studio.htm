@@ -124,6 +124,7 @@ fetch('/json/si').then(r => r.json()).then(j => {
 	// the pack lives with the app on GitHub Pages (sent with CORS), so it needs internet on the phone or computer
 	document.getElementById('paneGifs').append(...L4YStudio.myImagesCards(wifi, toast), L4YStudio.gifPackCard(wifi, toast, 'https://coristinaa.github.io/led4you/gifs/'));
 	if (location.hash === '#gifs') show('Gifs');
+	L4YStudio.autoHelp();
 	let houseMounted = false;
 	const mountHouse = () => { if (!houseMounted) { houseMounted = true; document.getElementById('paneHouse').append(...L4YStudio.houseCards(toast)); } };
 	document.getElementById('tabHouse').addEventListener('click', mountHouse);
