@@ -498,10 +498,62 @@
 		return [cSleep, cSeasons, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
 	}
 
+	// ---------- GIF pack: original 16×16 animations hosted with the app ----------
+	function gifPackCard(t, toast, base) {
+		let stored = new Set();
+		const prog = h('div', { class: 'note' });
+		const grid = h('div', { class: 'gifpack' });
+		const send = async (f, play) => {
+			const name = f.f;
+			if (!stored.has(name)) {
+				prog.textContent = 'Sending ' + f.n + '…';
+				const r = await fetch(base + name);
+				if (!r.ok) throw new Error('download');
+				const bytes = new Uint8Array(await r.arrayBuffer());
+				const ok = await t.upload(name, bytes, play ? 1 : 0, p => { prog.textContent = 'Sending ' + f.n + '… ' + Math.round(p * 100) + '%'; });
+				if (!ok) throw new Error('upload');
+				stored.add(name);
+			} else if (play) await t.send({ on: true, seg: { fx: 53, n: name, frz: false } });
+			prog.textContent = '';
+		};
+		const card = h('section', { class: 'card' },
+			h('div', { class: 'ct' }, 'GIF pack'),
+			h('div', { class: 'note' }, 'Tap an animation to send it to the lights and play it. Made for matrices; on a strip it is squeezed into one line.'),
+			grid, prog);
+		const refreshStored = () => t.status ? t.status().then(s => { if (s && Array.isArray(s.g)) stored = new Set(s.g); }).catch(() => {}) : Promise.resolve();
+		fetch(base + 'pack.json').then(r => r.json()).then(async pack => {
+			await refreshStored();
+			const themes = [...new Set(pack.map(f => f.t))];
+			themes.forEach(th => {
+				const list = pack.filter(f => f.t === th);
+				const all = h('button', { type: 'button', class: 'btn small' }, 'Add all');
+				all.onclick = async () => {
+					all.disabled = true;
+					try { for (const f of list) await send(f, false); toast(th + ': ' + list.length + ' animations stored on the lights.'); }
+					catch (e) { toast('Stopped: not enough space or the lights did not answer.'); prog.textContent = ''; }
+					all.disabled = false;
+				};
+				grid.append(h('div', { class: 'gphead' }, h('span', {}, th), all));
+				list.forEach(f => {
+					const b = h('button', { type: 'button', class: 'gpitem', title: f.n }, h('img', { src: base + f.f, alt: '', width: '64', height: '64' }), h('span', {}, f.n));
+					b.onclick = async () => {
+						b.disabled = true;
+						try { await send(f, true); toast('Playing ' + f.n + '.'); }
+						catch (e) { toast('Could not send ' + f.n + '.'); prog.textContent = ''; }
+						b.disabled = false;
+					};
+					grid.append(b);
+				});
+			});
+		}).catch(() => { grid.append(h('div', { class: 'note warnline' }, 'The GIF pack needs internet on this phone or computer.')); });
+		return card;
+	}
+
 	window.L4YStudio = {
 		textCard,
 		myLedsCards,
 		extrasCards,
+		gifPackCard,
 		// styles shared by both pages (they already define the colour tokens)
 		css: `
 .card input[type=range] { --fill: var(--hot); }
@@ -542,6 +594,12 @@ details.more summary { cursor: pointer; font-weight: 600; color: var(--fg); }
 .pbar { height: 12px; border-radius: 999px; background: var(--raise); overflow: hidden; border: 1px solid var(--line); }
 .pbar i { display: block; height: 100%; width: 0; background: var(--ag); transition: width .4s; }
 .pbar.hi i { background: var(--amber); }
+.gifpack { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; margin-top: 8px; }
+.gphead { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.btn.small { padding: 6px 12px; font-size: 13px; text-transform: none; letter-spacing: 0; }
+.gpitem { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 14px; border: 1px solid var(--line); background: var(--raise); font-size: 12px; }
+.gpitem img { width: 64px; height: 64px; image-rendering: pixelated; border-radius: 6px; background: #000; }
+.gpitem[disabled] { opacity: .5; }
 `
 	};
 })();

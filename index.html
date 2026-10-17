@@ -262,6 +262,7 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 		<div id="paneLeds" class="pane" hidden></div>
 		<div id="paneMore" class="pane" hidden></div>
 		<div id="paneImg" class="pane" hidden>
+			<div id="gifPack"></div>
 			<section class="card">
 				<div class="ct">Pixel art <span id="paSize"></span></div>
 				<div class="note">Pick a photo or drawing. It is shrunk to your LEDs and shown right away.</div>
@@ -679,6 +680,7 @@ document.querySelectorAll('#bleTabs button').forEach(b => b.onclick = () => {
 	document.querySelectorAll('#sBle .pane').forEach(p => p.hidden = p.id !== (b.dataset.pane === 'paneCtl' ? 'controls' : b.dataset.pane));
 	if (b.dataset.pane === 'paneText' || b.dataset.pane === 'paneLeds') mountStudio();
 	if (b.dataset.pane === 'paneMore' && !moreMounted) { moreMounted = true; $('paneMore').replaceChildren(...L4YStudio.extrasCards(bleStudio, toast)); }
+	if (b.dataset.pane === 'paneImg' && !$('gifPack').firstChild) $('gifPack').append(L4YStudio.gifPackCard(bleStudio, toast, 'gifs/'));
 	if (b.dataset.pane === 'paneImg') { $('paSize').textContent = paW() + '×' + paH(); $('fsFree').textContent = state.fsf != null ? state.fsf + ' KB free' : ''; }
 	if (b.dataset.pane === 'paneSetup') fillSetup();
 });
