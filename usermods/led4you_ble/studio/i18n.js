@@ -311,6 +311,7 @@
 		['For shows timed to music, xLights on your computer sends the animation to every light at once. While it plays, the lights follow xLights; when it stops they go back to their own effect.', 'Para espetáculos ao ritmo da música, o xLights no computador envia a animação para todas as luzes ao mesmo tempo. Enquanto toca, as luzes seguem o xLights; quando para, voltam ao seu efeito.', 'Para espectáculos al ritmo de la música, xLights en tu ordenador envía la animación a todas las luces a la vez. Mientras suena, las luces siguen a xLights; al parar vuelven a su efecto.', 'Pour des spectacles en musique, xLights sur votre ordinateur envoie l’animation à toutes les lumières à la fois. Pendant la lecture elles suivent xLights, puis reviennent à leur effet.'],
 		['In xLights (Setup → Controllers → Add Ethernet), one controller per light:', 'No xLights (Setup → Controllers → Add Ethernet), um controlador por luz:', 'En xLights (Setup → Controllers → Add Ethernet), un controlador por luz:', 'Dans xLights (Setup → Controllers → Add Ethernet), un contrôleur par lumière :'],
 		['empty', 'vazio', 'vacío', 'vide'],
+		['Saved on the lights. Keep drawing or pick another behaviour.', 'Guardado nas luzes. Continua a desenhar ou escolhe outro comportamento.', 'Guardado en las luces. Sigue dibujando o elige otro comportamiento.', 'Enregistré sur les lumières. Continuez à dessiner ou choisissez un autre comportement.'],
 		// --- own images and GIFs ---
 		['Your image', 'A tua imagem', 'Tu imagen', 'Votre image'],
 		['Your GIF', 'O teu GIF', 'Tu GIF', 'Votre GIF'],

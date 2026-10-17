@@ -97,9 +97,14 @@ static void mode_myleds(void) {
       case 1: if (pos >= 128) c = BLACK; break;                                   // blink
       case 2: c = color_fade(c, 16 + (sin8_t(pos - 64) * 239 >> 8)); break;       // breathe
       case 3: {                                                                   // twinkle
-        uint32_t cycle = t / period;
-        if ((l4yHash(i * 7919 + cycle) & 3) != 0) c = color_fade(c, 24);          // mostly dim
-        else c = color_fade(c, 24 + (sin8_t(pos - 64) * 231 >> 8));               // sometimes flashes
+        // soft glow; in about half of the cycles (random per LED) a quick sparkle up to full brightness
+        const uint32_t cycle = t / period;
+        uint8_t lvl = 70;
+        if (l4yHash(i * 7919 + cycle) & 1) {
+          const uint8_t tri = pos < 128 ? pos * 2 : (255 - pos) * 2;
+          lvl = 70 + ((185 * tri) >> 8);
+        }
+        c = color_fade(c, lvl);
         break;
       }
       case 4: c = SEGMENT.color_wheel(pos + r[5]); break;                         // rainbow

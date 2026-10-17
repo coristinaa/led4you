@@ -164,7 +164,14 @@
 			paintAt(e);
 		});
 		grid.addEventListener('pointermove', e => { if (drawing) paintAt(e); });
-		const stopDraw = () => { if (!drawing) return; drawing = false; save(); clearTimeout(flushTimer); flush(); };
+		// after a stroke, store the design on the lights by itself, so blink, breathe, twinkle and rainbow run there too
+		let autoTimer = 0;
+		const stopDraw = () => {
+			if (!drawing) return;
+			drawing = false; save(); clearTimeout(flushTimer); flush();
+			clearTimeout(autoTimer);
+			autoTimer = setTimeout(() => sendTable(true), 1200);
+		};
 		grid.addEventListener('pointerup', stopDraw);
 		grid.addEventListener('pointercancel', stopDraw);
 		const toolBtns = [['select', 'Select'], ['draw', 'Draw'], ['erase', 'Erase']].map(([id, name]) => h('button', { type: 'button', class: 'seg' + (id === 'select' ? ' sel' : ''), onclick: () => setTool(id) }, name));
@@ -199,7 +206,7 @@
 				const tt = now + l[5] * period / 256, pos = Math.floor((tt % period) * 256 / period);
 				if (l[3] === 1) { if (pos >= 128) c = [0, 0, 0]; }
 				else if (l[3] === 2) c = fade(c, 16 + (sin8((pos - 64) & 255) * 239 >> 8));
-				else if (l[3] === 3) c = (hash(i * 7919 + Math.floor(tt / period)) & 3) ? fade(c, 24) : fade(c, 24 + (sin8((pos - 64) & 255) * 231 >> 8));
+				else if (l[3] === 3) c = (hash(i * 7919 + Math.floor(tt / period)) & 1) ? fade(c, 70 + ((185 * (pos < 128 ? pos * 2 : (255 - pos) * 2)) >> 8)) : fade(c, 70);
 				else if (l[3] === 4) c = hsv((pos + l[5]) & 255);
 				cells[i].style.background = 'rgb(' + c.join(',') + ')';
 			});
@@ -215,15 +222,18 @@
 		};
 		const prog = h('div', { class: 'note' });
 		const sendBtn = h('button', { class: 'btn primary', type: 'button' }, 'Send to lights');
-		sendBtn.onclick = async () => {
-			sendBtn.disabled = true; prog.textContent = 'Sending…';
+		let sending = false;
+		const sendTable = async quiet => {
+			if (sending) return;
+			sending = true; sendBtn.disabled = true; prog.textContent = 'Sending…';
 			try {
 				const ok = await t.upload('myleds.bin', toBin(), 2, p => { prog.textContent = 'Sending… ' + Math.round(p * 100) + '%'; });
-				prog.textContent = ok ? 'Done. Your design is playing and stays saved on the lights.' : 'The lights did not accept the design. Try again.';
+				prog.textContent = ok ? (quiet ? 'Saved on the lights. Keep drawing or pick another behaviour.' : 'Done. Your design is playing and stays saved on the lights.') : 'The lights did not accept the design. Try again.';
 				liveReady = false;
 			} catch (e) { prog.textContent = 'Could not send. Move closer and try again.'; }
-			sendBtn.disabled = false;
+			sending = false; sendBtn.disabled = false;
 		};
+		sendBtn.onclick = () => sendTable(false);
 		const clearAll = () => { leds = leds.map(() => [0, 0, 0, 0, 128, 0]); save(); liveReady = false; toast('All LEDs set to off. Tap "Send to lights" to keep it.'); };
 
 		// start from the design stored on the lights when the page can read it (Wi-Fi)
