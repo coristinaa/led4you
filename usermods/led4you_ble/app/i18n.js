@@ -311,6 +311,19 @@
 		['For shows timed to music, xLights on your computer sends the animation to every light at once. While it plays, the lights follow xLights; when it stops they go back to their own effect.', 'Para espetáculos ao ritmo da música, o xLights no computador envia a animação para todas as luzes ao mesmo tempo. Enquanto toca, as luzes seguem o xLights; quando para, voltam ao seu efeito.', 'Para espectáculos al ritmo de la música, xLights en tu ordenador envía la animación a todas las luces a la vez. Mientras suena, las luces siguen a xLights; al parar vuelven a su efecto.', 'Pour des spectacles en musique, xLights sur votre ordinateur envoie l’animation à toutes les lumières à la fois. Pendant la lecture elles suivent xLights, puis reviennent à leur effet.'],
 		['In xLights (Setup → Controllers → Add Ethernet), one controller per light:', 'No xLights (Setup → Controllers → Add Ethernet), um controlador por luz:', 'En xLights (Setup → Controllers → Add Ethernet), un controlador por luz:', 'Dans xLights (Setup → Controllers → Add Ethernet), un contrôleur par lumière :'],
 		['empty', 'vazio', 'vacío', 'vide'],
+		// --- house scenes ---
+		['Easter', 'Páscoa', 'Pascua', 'Pâques'],
+		['New Year', 'Ano Novo', 'Año Nuevo', 'Nouvel An'],
+		["Valentine's Day", 'Dia dos Namorados', 'San Valentín', 'Saint-Valentin'],
+		['Birthday', 'Aniversário', 'Cumpleaños', 'Anniversaire'],
+		['Every day', 'Dia a dia', 'Diario', 'Tous les jours'],
+		['Party', 'Festa', 'Fiesta', 'Fête'],
+		['✓ Ready on this light', '✓ Pronta nesta luz', '✓ Lista en esta luz', '✓ Prête sur cette lumière'],
+		['Not saved on this light', 'Ainda não guardada nesta luz', 'Aún no guardada en esta luz', 'Pas encore enregistrée ici'],
+		['Save again', 'Guardar outra vez', 'Guardar de nuevo', 'Réenregistrer'],
+		['On each light, make it look the way you want, then tap "Save here" on the scene.', 'Em cada luz, deixa-a como queres e toca em "Guardar aqui" na cena.', 'En cada luz, déjala como quieras y toca "Guardar aquí" en la escena.', 'Sur chaque lumière, réglez l’apparence voulue puis touchez « Enregistrer ici » sur la scène.'],
+		['Tap a scene to change every LED4YOU light at once. Each light shows its own look.', 'Toca numa cena para mudar todas as luzes LED4YOU de uma vez. Cada luz mostra o seu visual.', 'Toca una escena para cambiar todas las luces LED4YOU a la vez. Cada luz muestra su propio aspecto.', 'Touchez une scène pour changer toutes les lumières LED4YOU d’un coup. Chacune affiche son propre rendu.'],
+		['Every light on your Wi-Fi. Give each one a clear name (Roof, Garden tree, Window…). The icons show which house scenes each light already has (bright = saved).', 'Todas as luzes do teu Wi-Fi. Dá a cada uma um nome claro (Telhado, Árvore do jardim, Janela…). Os ícones mostram que cenas cada luz já tem (aceso = guardada).', 'Todas las luces de tu Wi-Fi. Dale a cada una un nombre claro (Tejado, Árbol del jardín, Ventana…). Los iconos muestran qué escenas tiene cada luz (encendido = guardada).', 'Toutes les lumières de votre Wi-Fi. Donnez à chacune un nom clair (Toit, Arbre du jardin, Fenêtre…). Les icônes montrent les scènes déjà enregistrées (allumée = enregistrée).'],
 		// --- firmware update ---
 		['Update available', 'Atualização disponível', 'Actualización disponible', 'Mise à jour disponible'],
 		['Update now', 'Atualizar agora', 'Actualizar ahora', 'Mettre à jour'],
@@ -325,6 +338,7 @@
 	// sentences with numbers or names inside: [regex on the English text, PT, ES, FR] ($1, $2 = captured parts)
 	const P = [
 		[/^LED (\d+)$/, 'LED $1', 'LED $1', 'LED $1'],
+		[/^Saved: this light now has its (.+) look\.$/, 'Guardado: esta luz já tem o visual de $1.', 'Guardado: esta luz ya tiene su aspecto de $1.', 'Enregistré : cette lumière a maintenant son rendu $1.'],
 		[/^Downloading the update… (\d+)%$/, 'A descarregar a atualização… $1%', 'Descargando la actualización… $1%', 'Téléchargement de la mise à jour… $1 %'],
 		[/^Sending to the lights… (\d+)%$/, 'A enviar para as luzes… $1%', 'Enviando a las luces… $1%', 'Envoi aux lumières… $1 %'],
 		[/^Done! LED4YOU v(\d+) is running\.$/, 'Feito! O LED4YOU v$1 está a funcionar.', '¡Hecho! LED4YOU v$1 está funcionando.', 'Terminé ! LED4YOU v$1 fonctionne.'],

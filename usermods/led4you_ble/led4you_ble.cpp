@@ -415,9 +415,11 @@ class Led4youBle : public Usermod {
       if (presetsModifiedTime == psMaskTime) return;
       uint16_t m = 0;
       String n, names = "[";
-      for (unsigned i = 1; i <= 10; i++) {
+      // presets 1-10 (the app's grid) and 241-248 (house scenes)
+      static const uint8_t ids[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 241, 242, 243, 244, 245, 246, 247, 248 };
+      for (uint8_t i : ids) {
         if (getPresetName(i, n)) {
-          m |= (1 << i);
+          if (i <= 10) m |= (1 << i);
           n.replace("\\", ""); n.replace("\"", "'");   // keep the hand-built JSON valid
           if (names.length() > 1) names += ',';
           names += '['; names += i; names += F(",\""); names += n; names += F("\"]");

@@ -260,6 +260,9 @@
 	const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 	// built-in WLED effects used by the themes and the sound list (ids from WLED FX.h)
 	const FX = { candle: 88, eyes: 82, lightning: 57, colortwinkle: 74, twinklefox: 80, fire: 66, scroll: 122 };
+	// house scenes: every light keeps its own look for each scene in these preset slots (hidden from the 1-10 grid)
+	const SCENES = [[241, '🎃', 'Halloween'], [242, '🎄', 'Christmas'], [243, '🐣', 'Easter'], [244, '🎆', 'New Year'],
+		[245, '❤️', "Valentine's Day"], [246, '🎂', 'Birthday'], [247, '🌙', 'Every day'], [248, '🎉', 'Party']];
 	const SOUND_FX = [['GEQ (matrix)', 139], ['Gravimeter', 132], ['Juggles', 130], ['Waterfall', 140], ['Pixelwave', 129], ['Ripple Peak', 148], ['Midnoise', 135], ['Puddles', 134], ['Noisemeter', 136], ['Plasmoid', 133]];
 
 	function extrasCards(t, toast) {
@@ -273,6 +276,7 @@
 					const f = st.p.find(p => p[0] === i);
 					s.append(h('option', { value: String(i) }, i + (f ? ' · ' + f[1] : ' · (empty)')));
 				}
+				SCENES.forEach(([id, ic, name]) => { if (st.p.find(p => p[0] === id)) s.append(h('option', { value: String(id) }, ic + ' ' + name)); });
 				s.value = String(cur || 0);
 			};
 			s.fill = fill; fill(0); return s;
@@ -386,20 +390,30 @@
 			h('div', { class: 'row' }, cdCol, h('button', { class: 'btn primary', type: 'button', onclick: startCd }, 'Start countdown'),
 				h('button', { class: 'btn', type: 'button', onclick: () => t.send({ l4y: { cd: { on: false } } }).then(ok('Countdown stopped.')).catch(fail()) }, 'Stop')));
 
-		// ---- house scenes: every LED4YOU plays its own preset with the same number ----
-		const sceneBox = h('div', { class: 'themes' });
+		// ---- house scenes: one tap changes every LED4YOU; each light keeps its own look per scene ----
+		const sceneBox = h('div', { class: 'scenes' });
 		const hsJoin = h('input', { type: 'checkbox', checked: '' });
 		const hsId = h('select', {}, [1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => h('option', { value: String(n) }, 'House ' + n)));
 		const saveHs = () => t.send({ l4y: { hs: { j: hsJoin.checked, id: +hsId.value } } }).then(ok('Saved.')).catch(fail());
 		hsJoin.onchange = saveHs; hsId.onchange = saveHs;
-		const scene = (n, label) => t.send({ l4y: { scene: n } }).then(ok(n ? label + ' on the whole house.' : 'Whole house off.')).catch(fail());
+		const play = (n, label) => t.send({ l4y: { scene: n } }).then(ok(n ? label + ' on the whole house.' : 'Whole house off.')).catch(fail());
+		const saveScene = (id, name) => t.send({ psave: id, n: 'Scene: ' + name, ib: true, sb: true })
+			.then(() => { toast('Saved: this light now has its ' + name + ' look.'); st.p = st.p.filter(p => p[0] !== id).concat([[id, 'Scene: ' + name]]); renderScenes(); setTimeout(refresh, 1500); }).catch(fail());
 		const renderScenes = () => {
-			sceneBox.replaceChildren(...st.p.map(([id, name]) => h('button', { type: 'button', class: 'theme house', onclick: () => scene(id, name) }, h('b', {}, id + ' '), name)),
-				h('button', { type: 'button', class: 'theme', onclick: () => scene(0) }, 'All off'));
+			sceneBox.replaceChildren(...SCENES.map(([id, ic, name]) => {
+				const has = !!st.p.find(p => p[0] === id);
+				return h('div', { class: 'scene' + (has ? ' has' : '') },
+					h('button', { type: 'button', class: 'sc-play', onclick: () => play(id, name) },
+						h('span', { class: 'sc-ic' }, ic), h('span', { class: 'sc-name' }, name),
+						h('span', { class: 'sc-st' }, has ? '✓ Ready on this light' : 'Not saved on this light')),
+					h('button', { type: 'button', class: 'sc-save', onclick: () => saveScene(id, name) }, has ? 'Save again' : 'Save here'));
+			}), h('button', { type: 'button', class: 'sc-off', onclick: () => play(0) }, 'All off'));
 		};
 		const cHouse = h('section', { class: 'card' },
 			h('div', { class: 'ct' }, 'House scenes'),
-			h('div', { class: 'note' }, 'One tap changes every LED4YOU light on your Wi-Fi. Each light plays its own preset with the same number, so save preset 1 as "Halloween" on every light (pumpkin GIF on the window, orange chase on the roof, purple on the trees…).'),
+			h('ol', { class: 'steps' },
+				h('li', {}, 'On each light, make it look the way you want, then tap "Save here" on the scene.'),
+				h('li', {}, 'Tap a scene to change every LED4YOU light at once. Each light shows its own look.')),
 			sceneBox,
 			h('details', { class: 'more' }, h('summary', {}, 'House settings'),
 				h('label', { class: 'chk' }, hsJoin, ' This light follows house scenes'),
@@ -411,7 +425,7 @@
 		loopSec.addEventListener('input', () => { loopLbl.textContent = loopSec.value >= 60 ? (loopSec.value / 60).toFixed(loopSec.value % 60 ? 1 : 0) + ' min' : loopSec.value + ' s'; });
 		const loopState = h('span', {}, '');
 		const startLoop = () => {
-			const ids = st.p.map(p => p[0]);
+			const ids = st.p.map(p => p[0]).filter(i => i <= 10);
 			if (ids.length < 2) { toast('Save at least two presets first.'); return; }
 			t.send({ on: true, playlist: { ps: ids, dur: ids.map(() => +loopSec.value * 10), transition: ids.map(() => 7), repeat: 0 } })
 				.then(() => { toast('Showing ' + ids.length + ' presets in a loop.'); setTimeout(refresh, 800); }).catch(fail());
@@ -608,7 +622,7 @@
 					info.textContent = n.ip + ' · ' + leds + ' LEDs' + (si.info && si.info.live ? ' · xLights playing now' : '') + (isL4y ? '' : ' · not LED4YOU (no scenes)');
 					rt.checked = isL4y ? !!si.state.l4y.rt : true; rt.disabled = !isL4y;
 					rows.push({ name: name.value, ip: n.ip, leds });
-					chips.replaceChildren(...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => h('span', { class: 'pschip' + (ps && ps[i] && ps[i].n ? ' has' : ''), title: ps && ps[i] ? ps[i].n || '' : 'empty' }, String(i))));
+					chips.replaceChildren(...SCENES.map(([id, ic, name]) => h('span', { class: 'pschip' + (ps && ps[id] && ps[id].n ? ' has' : ''), title: name }, ic)));
 					xl.replaceChildren(h('b', {}, 'In xLights (Setup → Controllers → Add Ethernet), one controller per light:'),
 						h('div', { class: 'xltab' }, rows.map(r => h('div', {}, h('span', {}, r.name), h('span', {}, r.ip), h('span', {}, 'DDP'), h('span', {}, r.leds * 3 + ' channels')))));
 				});
@@ -619,7 +633,7 @@
 		return [
 			h('section', { class: 'card' },
 				h('div', { class: 'ct' }, 'My house'),
-				h('div', { class: 'note' }, 'Every light on your Wi-Fi. Give each one a clear name (Roof, Garden tree, Window…). The numbers show which presets each light has: for house scenes, save the same number on every light.'),
+				h('div', { class: 'note' }, 'Every light on your Wi-Fi. Give each one a clear name (Roof, Garden tree, Window…). The icons show which house scenes each light already has (bright = saved).'),
 				list,
 				h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: load }, 'Search again'))),
 			h('section', { class: 'card' },
@@ -759,8 +773,17 @@ details.more summary { cursor: pointer; font-weight: 600; color: var(--fg); }
 .gpitem { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 14px; border: 1px solid var(--line); background: var(--raise); font-size: 12px; }
 .gpitem img { width: 64px; height: 64px; image-rendering: pixelated; border-radius: 6px; background: #000; }
 .gpitem[disabled] { opacity: .5; }
-.theme.house { background: linear-gradient(135deg, #1a1440, #0b2a3a); border-color: #34306a; }
-.theme.house b { color: var(--cyan); }
+.steps { margin: 0 0 10px; padding-left: 20px; font-size: 14px; color: var(--muted); display: grid; gap: 4px; }
+.scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.scene { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--raise); }
+.scene.has { border-color: var(--violet); background: linear-gradient(135deg, #1a1440, #0b2a3a); }
+.sc-play { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px; border: 0; background: none; text-align: left; }
+.sc-ic { font-size: 26px; line-height: 1; }
+.sc-name { font-weight: 700; }
+.sc-st { font-size: 12px; color: var(--muted); }
+.scene.has .sc-st { color: var(--cyan); }
+.sc-save { border: 0; border-top: 1px solid var(--line); background: rgba(255,255,255,.04); padding: 8px; font-size: 13px; color: var(--fg); }
+.sc-off { grid-column: 1 / -1; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--raise); font-weight: 600; }
 .hlist { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
 .housecard { border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: var(--raise); display: flex; flex-direction: column; gap: 6px; }
 .housecard .search { margin: 0; flex: 1; }
@@ -768,8 +791,8 @@ details.more summary { cursor: pointer; font-weight: 600; color: var(--fg); }
 .hname a.btn { text-decoration: none; color: var(--fg); }
 .housecard .chk { margin: 0; }
 .pschips { display: flex; gap: 4px; flex-wrap: wrap; }
-.pschip { min-width: 24px; text-align: center; font-size: 12px; padding: 2px 4px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
-.pschip.has { background: var(--violet); color: #fff; border-color: transparent; }
+.pschip { min-width: 28px; text-align: center; font-size: 16px; opacity: .35; padding: 2px 4px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+.pschip.has { opacity: 1; background: var(--violet); border-color: transparent; }
 .xltab { display: grid; gap: 4px; margin-top: 8px; font-size: 13px; }
 .xltab div { display: grid; grid-template-columns: 1.3fr 1.2fr .6fr 1fr; gap: 6px; padding: 6px 8px; background: var(--raise); border-radius: 8px; }
 `

@@ -90,7 +90,7 @@ const wifi = {
 		let p = [];
 		try {
 			const ps = await (await fetch('/presets.json', { cache: 'no-store' })).json();
-			for (let i = 1; i <= 10; i++) if (ps[i] && ps[i].n) p.push([i, ps[i].n]);
+			for (const i of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 241, 242, 243, 244, 245, 246, 247, 248]) if (ps[i] && ps[i].n) p.push([i, ps[i].n]);
 		} catch (e) {}
 		let g = [];
 		try { g = (await (await fetch('/edit?list=/', { cache: 'no-store' })).json()).map(f => String(f.name || '').replace(/^\//, '')).filter(n => /\.gif$/i.test(n)); } catch (e) {}
