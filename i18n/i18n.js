@@ -366,6 +366,8 @@
 		['Party', 'Festa', 'Fiesta', 'Fête'],
 		['✓ Ready on this light', '✓ Pronta nesta luz', '✓ Lista en esta luz', '✓ Prête sur cette lumière'],
 		['Not saved on this light', 'Ainda não guardada nesta luz', 'Aún no guardada en esta luz', 'Pas encore enregistrée ici'],
+		['Your look', 'O teu visual', 'Tu aspecto', 'Votre rendu'],
+		['Example', 'Exemplo', 'Ejemplo', 'Exemple'],
 		['Save again', 'Guardar outra vez', 'Guardar de nuevo', 'Réenregistrer'],
 		['On each light, make it look the way you want, then tap "Save here" on the scene.', 'Em cada luz, deixa-a como queres e toca em "Guardar aqui" na cena.', 'En cada luz, déjala como quieras y toca "Guardar aquí" en la escena.', 'Sur chaque lumière, réglez l’apparence voulue puis touchez « Enregistrer ici » sur la scène.'],
 		['Tap a scene to change every LED4YOU light at once. Each light shows its own look.', 'Toca numa cena para mudar todas as luzes LED4YOU de uma vez. Cada luz mostra o seu visual.', 'Toca una escena para cambiar todas las luces LED4YOU a la vez. Cada luz muestra su propio aspecto.', 'Touchez une scène pour changer toutes les lumières LED4YOU d’un coup. Chacune affiche son propre rendu.'],
