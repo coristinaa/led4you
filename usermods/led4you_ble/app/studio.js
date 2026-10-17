@@ -355,7 +355,11 @@
 	// ---------- Mini previews: a small animated strip that imitates what an effect looks like ----------
 	const PV = (() => {
 		const hsh = x => { x = (x | 0) ^ 0x9e3779b9; x = Math.imul(x ^ (x >>> 16), 0x85ebca6b); x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35); return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
-		const wh = hue => { hue = ((hue % 1) + 1) % 1 * 6; const i = Math.floor(hue), f = hue - i, q = 255 * (1 - f), u = 255 * f;
+		let curPal = null;   // colour stops of the palette picked in the app: colourful effects then use it, like on the lights
+		const palAt = (st, x) => { x = ((x % 1) + 1) % 1 * 255; for (let i = 4; i < st.length; i += 4) if (x <= st[i]) { const a = i - 4, k = (x - st[a]) / Math.max(1, st[i] - st[a]);
+			return [st[a + 1] + (st[i + 1] - st[a + 1]) * k, st[a + 2] + (st[i + 2] - st[a + 2]) * k, st[a + 3] + (st[i + 3] - st[a + 3]) * k]; } return [st[st.length - 3], st[st.length - 2], st[st.length - 1]]; };
+		const wh = hue => curPal ? palAt(curPal, hue) : wh0(hue);
+		const wh0 = hue => { hue = ((hue % 1) + 1) % 1 * 6; const i = Math.floor(hue), f = hue - i, q = 255 * (1 - f), u = 255 * f;
 			return [[255, u, 0], [q, 255, 0], [0, 255, u], [0, q, 255], [u, 0, 255], [255, 0, q]][i]; };
 		const sc = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
 		const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
@@ -499,6 +503,7 @@
 		};
 		const draw = (cv, t) => {
 			const o = cv._pv, g = cv.getContext('2d'), w = cv.width, hgt = cv.height;
+			curPal = o.P || null;
 			g.fillStyle = '#06070c'; g.fillRect(0, 0, w, hgt);
 			const pix = (x, y, cell, c) => {
 				const r = Math.round(c[0]), gg = Math.round(c[1]), b = Math.round(c[2]), m = Math.max(r, gg, b);
@@ -524,13 +529,13 @@
 			const cv = h('canvas', { class: 'pv ' + (spec.cls || ''), width: String(W2), height: String(H2), 'aria-hidden': 'true' });
 			const k = spec.sim ? { s: spec.sim } : of(spec.name, spec.d2);
 			const C = [0, 1, 2].map(i => { const c = spec.col && spec.col[i]; return c && c.length >= 3 ? c.slice(0, 3) : DEF[i]; });
-			cv._pv = Object.assign(k, { C, n: spec.n || (k.g ? 0 : 20), v: spec.speed == null ? 1 : .35 + spec.speed / 160, frames: spec.frames && spec.frames.length ? spec.frames : null });
+			cv._pv = Object.assign(k, { C, P: spec.pal || null, n: spec.n || (k.g ? 0 : 20), v: spec.speed == null ? 1 : .35 + spec.speed / 160, frames: spec.frames && spec.frames.length ? spec.frames : null });
 			cv._pvOn = true; live.add(cv); io && io.observe(cv);
 			if (!raf) raf = requestAnimationFrame(tick);
 			return cv;
 		};
 		const set = (cv, spec) => { const nw = mini(spec); live.delete(nw); cv._pv = nw._pv; };
-		return { mini, set, of };
+		return { mini, set, of, palAt };
 	})();
 
 	// ---------- Snapshots of what each house scene really looks like (kept on this phone / computer) ----------
@@ -1179,6 +1184,7 @@
 		gifPackCard,
 		houseCards,
 		preview: PV.mini,
+		palAt: PV.palAt,
 		// styles shared by both pages (they already define the colour tokens)
 		css: `
 .card input[type=range] { --fill: var(--hot); }

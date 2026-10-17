@@ -77,6 +77,7 @@
 		['Pick a color', 'Escolhe uma cor', 'Elige un color', 'Choisissez une couleur'],
 		['Effect', 'Efeito', 'Efecto', 'Effet'],
 		['Effects', 'Efeitos', 'Efectos', 'Effets'],
+		['Search palettes', 'Procurar paletas', 'Buscar paletas', 'Chercher une palette'],
 		['Search effects', 'Procurar efeitos', 'Buscar efectos', 'Chercher un effet'],
 		['Strip', 'Fita', 'Tira', 'Bande'],
 		['Matrix', 'Matriz', 'Matriz', 'Matrice'],
