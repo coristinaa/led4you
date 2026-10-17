@@ -310,11 +310,29 @@
 		['xLights show', 'Espetáculo xLights', 'Espectáculo xLights', 'Spectacle xLights'],
 		['For shows timed to music, xLights on your computer sends the animation to every light at once. While it plays, the lights follow xLights; when it stops they go back to their own effect.', 'Para espetáculos ao ritmo da música, o xLights no computador envia a animação para todas as luzes ao mesmo tempo. Enquanto toca, as luzes seguem o xLights; quando para, voltam ao seu efeito.', 'Para espectáculos al ritmo de la música, xLights en tu ordenador envía la animación a todas las luces a la vez. Mientras suena, las luces siguen a xLights; al parar vuelven a su efecto.', 'Pour des spectacles en musique, xLights sur votre ordinateur envoie l’animation à toutes les lumières à la fois. Pendant la lecture elles suivent xLights, puis reviennent à leur effet.'],
 		['In xLights (Setup → Controllers → Add Ethernet), one controller per light:', 'No xLights (Setup → Controllers → Add Ethernet), um controlador por luz:', 'En xLights (Setup → Controllers → Add Ethernet), un controlador por luz:', 'Dans xLights (Setup → Controllers → Add Ethernet), un contrôleur par lumière :'],
-		['empty', 'vazio', 'vacío', 'vide']
+		['empty', 'vazio', 'vacío', 'vide'],
+		// --- firmware update ---
+		['Update available', 'Atualização disponível', 'Actualización disponible', 'Mise à jour disponible'],
+		['Update now', 'Atualizar agora', 'Actualizar ahora', 'Mettre à jour'],
+		['Tap again to start', 'Toca outra vez para começar', 'Toca de nuevo para empezar', 'Touchez encore pour commencer'],
+		['Do not switch the lights off during the update.', 'Não desligues as luzes durante a atualização.', 'No apagues las luces durante la actualización.', 'N’éteignez pas les lumières pendant la mise à jour.'],
+		['Updated. The lights restart…', 'Atualizado. As luzes estão a reiniciar…', 'Actualizado. Las luces se reinician…', 'Mis à jour. Les lumières redémarrent…'],
+		['The lights restarted. Reload the page in a moment.', 'As luzes reiniciaram. Recarrega a página daqui a pouco.', 'Las luces se reiniciaron. Recarga la página en un momento.', 'Les lumières ont redémarré. Rechargez la page dans un instant.'],
+		['The update could not be downloaded. Check the internet on this phone or computer.', 'Não foi possível descarregar a atualização. Confirma a internet neste telemóvel ou computador.', 'No se pudo descargar la actualización. Revisa internet en este móvil u ordenador.', 'Impossible de télécharger la mise à jour. Vérifiez Internet sur cet appareil.'],
+		['Open the Studio to update', 'Abrir o Studio para atualizar', 'Abrir el Studio para actualizar', 'Ouvrir le Studio pour mettre à jour'],
+		['Connect the lights to Wi-Fi to update them.', 'Liga as luzes ao Wi-Fi para as atualizar.', 'Conecta las luces al Wi-Fi para actualizarlas.', 'Connectez les lumières au Wi-Fi pour les mettre à jour.']
 	];
 	// sentences with numbers or names inside: [regex on the English text, PT, ES, FR] ($1, $2 = captured parts)
 	const P = [
 		[/^LED (\d+)$/, 'LED $1', 'LED $1', 'LED $1'],
+		[/^Downloading the update… (\d+)%$/, 'A descarregar a atualização… $1%', 'Descargando la actualización… $1%', 'Téléchargement de la mise à jour… $1 %'],
+		[/^Sending to the lights… (\d+)%$/, 'A enviar para as luzes… $1%', 'Enviando a las luces… $1%', 'Envoi aux lumières… $1 %'],
+		[/^Done! LED4YOU v(\d+) is running\.$/, 'Feito! O LED4YOU v$1 está a funcionar.', '¡Hecho! LED4YOU v$1 está funcionando.', 'Terminé ! LED4YOU v$1 fonctionne.'],
+		[/^The update failed: (.+)$/, 'A atualização falhou: $1', 'La actualización falló: $1', 'La mise à jour a échoué : $1'],
+		[/^LED4YOU v(\d+) is ready \(these lights have v(\d+)\)\.$/, 'O LED4YOU v$1 está pronto (estas luzes têm o v$2).', 'LED4YOU v$1 está listo (estas luces tienen la v$2).', 'LED4YOU v$1 est prêt (ces lumières ont la v$2).'],
+		[/^LED4YOU v(\d+) is ready\.$/, 'O LED4YOU v$1 está pronto.', 'LED4YOU v$1 está listo.', 'LED4YOU v$1 est prêt.'],
+		[/^LED4YOU v(\d+) is available\. Tap to update\.$/, 'O LED4YOU v$1 está disponível. Toca para atualizar.', 'LED4YOU v$1 está disponible. Toca para actualizar.', 'LED4YOU v$1 est disponible. Touchez pour mettre à jour.'],
+		[/^Firmware v(\d+) is available for these lights\.$/, 'Há o firmware v$1 disponível para estas luzes.', 'Hay firmware v$1 disponible para estas luces.', 'Le firmware v$1 est disponible pour ces lumières.'],
 		[/^Empty preset (\d+)$/, 'Preset $1 vazio', 'Preset $1 vacío', 'Préréglage $1 vide'],
 		[/^Preset (\d+)$/, 'Preset $1', 'Preset $1', 'Préréglage $1'],
 		[/^House (\d)$/, 'Casa $1', 'Casa $1', 'Maison $1'],

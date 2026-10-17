@@ -25,6 +25,24 @@
 		if (bar) bar.insertBefore(s, document.getElementById('buttonPower'));
 		else { s.style.cssText += 'position:fixed;top:8px;right:8px;z-index:9999;'; document.body.appendChild(s); }
 		load();
+		if (bar) checkUpdate();
+	}
+	// main page: tell when a newer LED4YOU is on the site (the update itself runs in the Studio page)
+	function checkUpdate() {
+		Promise.all([
+			fetch('/json/state', { cache: 'no-store' }).then(function (r) { return r.json(); }),
+			fetch('https://coristinaa.github.io/led4you/firmware/latest.json', { cache: 'no-store' }).then(function (r) { return r.json(); })
+		]).then(function (a) {
+			var cur = (a[0].l4y && a[0].l4y.fw) || 0, v = a[1].version || 0;
+			if (v <= cur) return;
+			var d = document.createElement('a');
+			d.href = '/studio#update';
+			d.style.cssText = 'display:block;margin:8px auto;max-width:600px;padding:10px 14px;border-radius:14px;background:linear-gradient(90deg,#ff2e93,#8b5cff,#00d4ff);color:#fff;font-weight:700;text-align:center;text-decoration:none;';
+			var t = document.createElement('span'); t.textContent = 'LED4YOU v' + v + ' is available. Tap to update.';
+			d.appendChild(t);
+			var bar = document.getElementById('l4ybar');
+			bar.parentNode.insertBefore(d, bar.nextSibling);
+		}).catch(function () {});
 	}
 	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ui); else ui();
 })();

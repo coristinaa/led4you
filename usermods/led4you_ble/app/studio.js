@@ -629,8 +629,85 @@
 		];
 	}
 
+	// ---------- Firmware update (Wi-Fi only): newest version from the LED4YOU site, one tap to install ----------
+	const FW_URL = 'https://coristinaa.github.io/led4you/firmware/';
+	function updateCard(toast) {
+		const title = h('div', { class: 'ct' }, 'Update available');
+		const info = h('div', { class: 'note' }, '');
+		const notes = h('div', { class: 'note' }, '');
+		const bar = h('div', { class: 'pbar' }, h('i'));
+		const status = h('div', { class: 'note' }, '');
+		const btn = h('button', { class: 'btn primary', type: 'button' }, 'Update now');
+		bar.hidden = true;
+		const card = h('section', { class: 'card upd', hidden: '' }, title, info, notes, h('div', { class: 'note warnline' }, 'Do not switch the lights off during the update.'), bar, status, h('div', { class: 'row' }, btn));
+		let latest = null, armed = false;
+		const setBar = f => { bar.hidden = false; bar.firstChild.style.width = Math.round(f * 100) + '%'; };
+		// download the .bin from the site, counting the bytes so the bar moves
+		const download = async () => {
+			const r = await fetch(FW_URL + latest.update, { cache: 'no-store' });
+			if (!r.ok) throw new Error('download');
+			const total = +r.headers.get('content-length') || 1500000, rd = r.body.getReader(), parts = [];
+			let got = 0;
+			for (;;) {
+				const { done, value } = await rd.read();
+				if (done) break;
+				parts.push(value); got += value.length;
+				setBar(0.5 * Math.min(1, got / total)); status.textContent = 'Downloading the update… ' + Math.round(100 * Math.min(1, got / total)) + '%';
+			}
+			return new Blob(parts, { type: 'application/octet-stream' });
+		};
+		// send it to the lights' own update page (the same as Config → Security & Updates → Manual upload)
+		const upload = blob => new Promise((ok, bad) => {
+			const fd = new FormData();
+			fd.append('update', blob, latest.update);
+			const x = new XMLHttpRequest();
+			x.open('POST', '/update');
+			x.upload.onprogress = e => { if (e.lengthComputable) { setBar(0.5 + 0.5 * e.loaded / e.total); status.textContent = 'Sending to the lights… ' + Math.round(100 * e.loaded / e.total) + '%'; } };
+			x.onload = () => x.status === 200 ? ok() : bad(new Error((x.responseText || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160) || ('HTTP ' + x.status)));
+			x.onerror = () => bad(new Error('network'));
+			x.send(fd);
+		});
+		// after the restart, wait until the lights answer with the new version
+		const waitBack = () => new Promise(done => {
+			const t0 = Date.now();
+			const tick = () => fetch('/json/state', { cache: 'no-store' }).then(r => r.json()).then(j => {
+				if (j.l4y && j.l4y.fw >= latest.version) done(true); else throw 0;
+			}).catch(() => { if (Date.now() - t0 < 90000) setTimeout(tick, 2500); else done(false); });
+			setTimeout(tick, 6000);
+		});
+		btn.onclick = async () => {
+			if (!armed) { armed = true; btn.textContent = 'Tap again to start'; setTimeout(() => { if (armed && !btn.disabled) { armed = false; btn.textContent = 'Update now'; } }, 4000); return; }
+			btn.disabled = true; btn.hidden = true;
+			try {
+				const blob = await download();
+				await upload(blob);
+				setBar(1); status.textContent = 'Updated. The lights restart…';
+				const ok = await waitBack();
+				status.textContent = ok ? 'Done! LED4YOU v' + latest.version + ' is running.' : 'The lights restarted. Reload the page in a moment.';
+				if (ok) { toast(status.textContent); setTimeout(() => location.reload(), 2500); }
+			} catch (e) {
+				status.textContent = e.message === 'download' || e.message === 'network' ? 'The update could not be downloaded. Check the internet on this phone or computer.' : 'The update failed: ' + e.message;
+				btn.disabled = false; btn.hidden = false; armed = false; btn.textContent = 'Update now';
+			}
+		};
+		Promise.all([
+			fetch('/json/state', { cache: 'no-store' }).then(r => r.json()),
+			fetch(FW_URL + 'latest.json', { cache: 'no-store' }).then(r => r.json())
+		]).then(([st, lt]) => {
+			const cur = (st.l4y && st.l4y.fw) || 0;   // 0: older LED4YOU that does not report its version yet
+			if (!lt || !lt.version || lt.version <= cur || !lt.update) return;
+			latest = lt;
+			info.textContent = cur ? 'LED4YOU v' + lt.version + ' is ready (these lights have v' + cur + ').' : 'LED4YOU v' + lt.version + ' is ready.';
+			notes.textContent = lt.notes || '';
+			card.hidden = false;
+			if (location.hash === '#update') card.scrollIntoView({ behavior: 'smooth' });
+		}).catch(() => {});
+		return card;
+	}
+
 	window.L4YStudio = {
 		textCard,
+		updateCard,
 		myLedsCards,
 		extrasCards,
 		gifPackCard,
@@ -675,6 +752,7 @@ details.more summary { cursor: pointer; font-weight: 600; color: var(--fg); }
 .pbar { height: 12px; border-radius: 999px; background: var(--raise); overflow: hidden; border: 1px solid var(--line); }
 .pbar i { display: block; height: 100%; width: 0; background: var(--ag); transition: width .4s; }
 .pbar.hi i { background: var(--amber); }
+.card.upd { border-color: var(--cyan); background: linear-gradient(135deg, #0b2a3a, #171a22 60%); }
 .gifpack { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; margin-top: 8px; }
 .gphead { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
 .btn.small { padding: 6px 12px; font-size: 13px; text-transform: none; letter-spacing: 0; }
