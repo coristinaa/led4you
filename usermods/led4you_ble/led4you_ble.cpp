@@ -9,7 +9,7 @@
  *                           plus {"l4ycfg":{...}} to change LED hardware settings (same format as /json/cfg)
  *       STATE (read/notify) compact state summary (power, brightness, effect, LED count, matrix size, IP...)
  *       FILE  (write/notify) small file upload (GIF images, My LEDs table) with an ack per transfer
- *       LIST  (read/notify) {"g":[GIF files],"p":[[preset id,"name"]],"x":{LED4YOU Extras status}} (read again after a notify)
+ *       LIST  (read/notify) {"f":text fonts,"g":[GIF files],"p":[[preset id,"name"]],"x":{LED4YOU Extras status}} (read again after a notify)
  *   BLE callbacks run in the NimBLE host task: they only hand data to a FreeRTOS queue.
  *   All WLED state changes and file system writes happen in loop() on the main task.
  *
@@ -300,7 +300,8 @@ class Led4youBle : public Usermod {
         char c = n[i];
         if (!(isalnum((unsigned char)c) || c == '-' || c == '_' || c == '.')) return false;
       }
-      // only images and the My LEDs table may be written over Bluetooth (never config files)
+      // only images, the My LEDs table and the LED4YOU text fonts (l4yf0..4.wbf) may be written over Bluetooth (never config files)
+      if (l == 9 && strncmp_P(n, PSTR("l4yf"), 4) == 0 && n[4] >= '0' && n[4] <= '4' && strcmp_P(n + 5, PSTR(".wbf")) == 0) return true;
       return strcmp_P(n, PSTR("myleds.bin")) == 0 || strcasecmp(n + l - 4, ".gif") == 0;
     }
 
@@ -411,16 +412,18 @@ class Led4youBle : public Usermod {
     }
 
     // GIF names, cached until a file is added or removed
+    uint8_t fontCount = 0;   // LED4YOU text fonts with emoji on the lights
     void updateGifs() {
       listDirty = false;
       gifJson = "[";
+      fontCount = 0;
       File root = WLED_FS.open("/");
       File f = root.openNextFile();
       while (f) {
         String n = f.name();
         if (n.startsWith("/")) n = n.substring(1);
-        if (n.endsWith(".gif") || n.endsWith(".GIF")) {
-          if (gifJson.length() + n.length() + 4 > 500) break;
+        if (n.startsWith("l4yf") && n.endsWith(".wbf")) fontCount++;
+        if ((n.endsWith(".gif") || n.endsWith(".GIF")) && gifJson.length() + n.length() + 4 <= 500) {
           if (gifJson.length() > 1) gifJson += ',';
           gifJson += '"'; gifJson += n; gifJson += '"';
         }
@@ -443,7 +446,7 @@ class Led4youBle : public Usermod {
       }
       String out;
       out.reserve(gifJson.length() + presetJson.length() + x.length() + 20);
-      out = F("{\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
+      out = F("{\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
       if (out == lastList) return;
       lastList = out;
       ctlList->setValue((const uint8_t*)out.c_str(), out.length());

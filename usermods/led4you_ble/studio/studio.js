@@ -46,6 +46,19 @@
 		6: '011100111101111', 7: '111001010010010', 8: '111101111101111', 9: '111101111001110', ' ': '000000000000000', '!': '010010010000010',
 		'?': '110001010000010', '.': '000000000000010', ',': '000000000010100', ':': '000010000010000', '-': '000000111000000', "'": '010010000000000',
 		'+': '000010111010000', '/': '001001010100100', '#': '101111101111101', '♥': '000101111111010', '*': '101010101000000' };
+	// accented letters and emoji: drawn by the LED4YOU text fonts (l4yf0..4.wbf, from the LED4YOU site), sent as Private Use Area characters
+	const TXT_ACC = 'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ';
+	const TXT_EMO = [["❤", "6cffffff7e3c1800"], ["⭐", "101038fe7c386c44"], ["🎃", "107cfeaafeaa7c00"], ["👻", "3c7edbffffffb500"], ["💀", "7eff9999ff662a3c"], ["🦇", "0099dbffff5a0800"], ["🕷", "995a3cbd7ebd4281"], ["🌙", "3860c0c0c0603800"], ["🎄", "103810387cfe1038"], ["❄", "925438fe38549200"], ["⛄", "3828387c82827c00"], ["🎁", "6c10fe92fe92fe00"], ["🔔", "10387c7c7cfe1000"], ["🌟", "925438ee38549200"], ["😀", "7c82aa82aa927c00"], ["😉", "7c82ae82aa927c00"], ["😢", "7c82aaa292aa7c00"], ["🎂", "545400feaafefe00"], ["🎉", "89522074f8f2e000"], ["🐰", "48484878b4fc7800"], ["🥚", "3078fca8fcfc7800"], ["🍀", "6cfe7cfe6c101000"], ["🎵", "3c2424246cee4400"], ["⚡", "1c3870fc18304000"], ["🔥", "1032767effe7663c"], ["🍬", "01ba7c7c7c5d8000"], ["☀", "924438ba38449200"], ["♪", "1814101070f06000"], ["✓", "0002048850200000"]];
+	const FONT_URL = 'https://coristinaa.github.io/led4you/fonts/';
+	const toLights = m => {
+		let out = '', special = false;
+		for (const ch of m.replace(/\uFE0F/g, '').replace(/♥/g, '❤')) {
+			let i = TXT_ACC.indexOf(ch);
+			if (i < 0) { i = TXT_EMO.findIndex(e => e[0] === ch); if (i >= 0) i += TXT_ACC.length; }
+			if (i >= 0) { out += String.fromCharCode(0xE000 + i); special = true; } else out += ch;
+		}
+		return { out, special };
+	};
 	// WLED's built-in fonts for Scrolling Text (custom2 0..255 picks font 0..4)
 	const FONTS = [['Mini', 4, 6, 0], ['Small', 5, 8, 64], ['Normal', 6, 8, 128], ['Retro', 7, 9, 192], ['Tall', 5, 12, 255]];
 	const DIRS = [['←', 'Left'], ['→', 'Right'], ['↑', 'Up'], ['↓', 'Down']];
@@ -75,22 +88,50 @@
 		const fontRow = segBtns(FONTS, 'font', f => f[0]);
 		const csRow = segBtns(CSTYLES, 'cs', c => c);
 		const col2Wrap = h('span', {}, col2);
-		const seg = () => {
+		const seg = conv => {
 			const v = o.dir >= 2, c1 = hexToRgb(col.value), c2 = hexToRgb(col2.value);
-			const s = { fx: TEXT_FX, n: txt.value.trim(), sx: +spd.value, ix: 128, c1: +trail.value, c2: FONTS[o.font][3],
+			const s = { fx: TEXT_FX, n: conv.out, sx: +spd.value, ix: 128, c1: +trail.value, c2: FONTS[o.font][3],
 				// up and down: the text runs along the matrix turned on its side, with the letters turned back upright
-				c3: v ? 8 : 16, tp: v, o3: o.dir === 1 || o.dir === 3, o2: false,
+				c3: v ? 8 : 16, tp: v, o3: o.dir === 1 || o.dir === 3, o2: conv.special,
 				o1: o.cs === 1 || o.cs === 3, pal: o.cs >= 2 ? 11 : o.cs === 1 ? 0 : 2, col: [c1, [0, 0, 0], c2] };
 			return s;
 		};
 		const remember = () => { try { localStorage.setItem('l4yText', JSON.stringify(Object.assign(o, { msg: txt.value, c1: col.value, c2: col2.value, sx: +spd.value, tr: +trail.value }))); } catch (e) {} };
-		const send = quiet => {
+		// the LED4YOU text fonts (with accents and emoji) go onto the lights the first time they are needed
+		let fontsOk = false;
+		const ensureFonts = async () => {
+			if (fontsOk) return true;
+			try { const st = await t.status(); if ((st.f | 0) >= 5) return (fontsOk = true); } catch (e) {}
+			toast('Putting the emoji letters on the lights (only the first time)…');
+			try {
+				for (let i = 0; i < 5; i++) {
+					const r = await fetch(FONT_URL + 'l4yf' + i + '.wbf', { cache: 'no-cache' });
+					if (!r.ok) throw new Error('net');
+					if (!await t.upload('l4yf' + i + '.wbf', new Uint8Array(await r.arrayBuffer()), 0)) throw new Error('up');
+				}
+				return (fontsOk = true);
+			} catch (e) {
+				toast(e.message === 'net' || e instanceof TypeError ? 'No internet: the emoji letters could not be downloaded.' : 'The lights did not take the emoji letters. Update the lights to the newest LED4YOU.');
+				return false;
+			}
+		};
+		const send = async quiet => {
 			const s = txt.value.trim();
 			if (!s) { quiet || toast('Type a message first.'); return; }
 			remember();
-			t.send({ on: true, seg: seg(), l4y: { cd: { on: false }, txv: o.dir >= 2 } })
+			const conv = toLights(s);
+			if (new TextEncoder().encode(conv.out).length > 64) { toast('Message too long for the lights. Use fewer emoji or accents.'); return; }
+			if (conv.special && !await ensureFonts()) return;
+			t.send({ on: true, seg: seg(conv), l4y: { cd: { on: false }, txv: o.dir >= 2 } })
 				.then(() => { shown = true; quiet || toast('Showing your text.'); }).catch(() => quiet || toast('Could not send the text.'));
 		};
+		const insert = ch => {
+			const a = txt.selectionStart ?? txt.value.length, b = txt.selectionEnd ?? a;
+			txt.value = txt.value.slice(0, a) + ch + txt.value.slice(b);
+			const p = a + ch.length; try { txt.setSelectionRange(p, p); } catch (e) {}
+			changed();
+		};
+		const emoRow = h('div', { class: 'emos', 'data-notr': '' }, TXT_EMO.map(e => h('button', { type: 'button', class: 'emo', title: e[0], onclick: () => insert(e[0]) }, e[0])));
 		// after the text is on, every change goes to the lights straight away
 		const changed = () => { col2Wrap.hidden = o.cs !== 1; if (shown) { clearTimeout(again); again = setTimeout(() => send(true), 350); } };
 		[col, col2, spd, trail].forEach(e => e.addEventListener('input', changed));
@@ -108,25 +149,34 @@
 			const w = cv.clientWidth || 320, cell = Math.max(3, Math.min(14, Math.floor(w / MW))), W = cell * MW, H = cell * MH;
 			if (cv.width !== W * 2) { cv.width = W * 2; cv.height = H * 2; cv.style.height = H + 'px'; }
 			const g = cv.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); g.fillStyle = '#05060a'; g.fillRect(0, 0, W, H);
-			const msg = (txt.value.trim() || txt.placeholder).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 			const [, fw, fh] = FONTS[o.font], vert = o.dir >= 2;
+			// glyphs of the message: letters from the tiny preview font, emoji from their own 8x8 pictures
+			const gl = Array.from((txt.value.trim() || txt.placeholder).replace(/\uFE0F/g, '')).map(ch => {
+				const e = TXT_EMO.find(x => x[0] === ch);
+				if (e) { const n = Math.min(8, fh); return { w: n, px: (gx, gy) => (parseInt(e[1].substr(Math.floor((gy + (fh - n) / -2) * 8 / n) * 2, 2), 16) >> (7 - Math.floor(gx * 8 / n))) & 1, oy: Math.floor((fh - n) / 2) }; }
+				const b = F35[ch.toUpperCase().normalize('NFD').charAt(0)] || F35['?'];
+				return { w: fw - 1, px: (gx, gy) => b[Math.floor(gy * 5 / fh) * 3 + Math.floor(gx * 3 / (fw - 1))] === '1', oy: 0 };
+			});
 			const runLen = vert ? MH : MW, cross = vert ? MW : MH;   // along the movement / across it
-			const gw = vert ? fh : fw, gh = vert ? fw : fh, step = gw + 1, total = msg.length * step;
+			const size = g1 => vert ? fh : g1.w;
+			const total = gl.reduce((a, g1) => a + size(g1) + 1, 0);
 			const sp = 4 + (+spd.value) / 18, pos = Math.floor(now / 1000 * sp) % (total + runLen);
 			const c1 = hexToRgb(col.value), c2 = hexToRgb(col2.value), hue = now / 4000;
 			const lit = new Map(), fwd = o.dir === 0 || o.dir === 2;   // left / up: text comes in from the far side
-			const start = fwd ? runLen - pos : pos - total;
-			for (let k = 0; k < msg.length; k++) {
-				const bits = F35[msg[k]] || F35['?'];
-				for (let gy = 0; gy < fh; gy++) for (let gx = 0; gx < fw - 1; gx++) {
-					if (bits[Math.floor(gy * 5 / fh) * 3 + Math.floor(gx * 3 / (fw - 1))] !== '1') continue;
-					const along = start + k * step + (vert ? gy : gx), acr = Math.floor((cross - gh) / 2) + (vert ? gx : gy);
+			let at = fwd ? runLen - pos : pos - total;
+			for (const g1 of gl) {
+				const gh = vert ? g1.w : fh;
+				const isE = g1.oy || g1.w !== fw - 1;
+				for (let gy = 0; gy < fh; gy++) for (let gx = 0; gx < g1.w; gx++) {
+					if (isE ? (gy < g1.oy || gy >= g1.oy + g1.w || !g1.px(gx, gy - g1.oy + (fh - g1.w) / 2)) : !g1.px(gx, gy)) continue;
+					const along = at + (vert ? gy : gx), acr = Math.floor((cross - gh) / 2) + (vert ? gx : gy);
 					const x = vert ? acr : along, y = vert ? along : acr;
 					if (x < 0 || y < 0 || x >= MW || y >= MH) continue;
 					const f = gy / Math.max(1, fh - 1);
 					lit.set(y * MW + x, o.cs === 0 ? c1 : o.cs === 1 ? [c1[0] + (c2[0] - c1[0]) * f, c1[1] + (c2[1] - c1[1]) * f, c1[2] + (c2[2] - c1[2]) * f]
 						: o.cs === 2 ? PVwh(hue) : PVwh(hue + f * .6));
 				}
+				at += size(g1) + 1;
 			}
 			for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
 				const c = lit.get(y * MW + x);
@@ -141,6 +191,8 @@
 			warn,
 			h('label', { for: 'stText', class: 'lab' }, 'Message'),
 			txt,
+			h('details', { class: 'more emobox' }, h('summary', {}, 'Emoji'), emoRow,
+				h('div', { class: 'note' }, 'Tap one to add it to the message. Letters with accents (á, ã, ç…) work too. The lights draw them in one colour, like the letters.')),
 			h('div', { class: 'gridwrap' }, cv),
 			h('div', { class: 'lab sp' }, 'Movement'), dirRow,
 			h('div', { class: 'lab sp' }, 'Letters'), fontRow,
@@ -1200,6 +1252,9 @@
 .ledgrid { display: grid; gap: 4px; min-width: min-content; }
 .led { aspect-ratio: 1; min-width: 22px; border-radius: 6px; border: 1px solid var(--line); font-size: 10px; color: rgba(255,255,255,.8); text-shadow: 0 0 3px #000; padding: 0; }
 .led.on { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.emos { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.emo { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--raise); font-size: 20px; padding: 0; }
+.emo:active { transform: scale(.92); }
 .txtpv { display: block; width: 100%; border-radius: 10px; }
 .segs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
 .seg { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--raise); font-size: 14px; }

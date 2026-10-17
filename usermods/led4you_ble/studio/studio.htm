@@ -101,9 +101,9 @@ const wifi = {
 			const ps = await (await fetch('/presets.json', { cache: 'no-store' })).json();
 			for (const i of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 241, 242, 243, 244, 245, 246, 247, 248]) if (ps[i] && ps[i].n) p.push([i, ps[i].n]);
 		} catch (e) {}
-		let g = [];
-		try { g = (await (await fetch('/edit?list=/', { cache: 'no-store' })).json()).map(f => String(f.name || '').replace(/^\//, '')).filter(n => /\.gif$/i.test(n)); } catch (e) {}
-		return { x: j.l4y || {}, p, g };
+		let g = [], f = 0;
+		try { const all = (await (await fetch('/edit?list=/', { cache: 'no-store' })).json()).map(f => String(f.name || '').replace(/^\//, '')); g = all.filter(n => /\.gif$/i.test(n)); f = all.filter(n => /^l4yf\d\.wbf$/.test(n)).length; } catch (e) {}
+		return { x: j.l4y || {}, p, g, f };
 	},
 	cfg: async obj => {
 		const r = await fetch('/json/cfg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
