@@ -22,7 +22,8 @@ header { max-width: 640px; margin: 0 auto; display: flex; align-items: center; g
 .logo { font-weight: 800; font-size: 20px; letter-spacing: 2px; }
 .logo b { background: var(--ag); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .logo small { display: block; font-size: 11px; letter-spacing: 1.6px; color: var(--muted); text-transform: uppercase; }
-a.back { margin-left: auto; color: var(--fg); text-decoration: none; border: 1px solid var(--line); background: var(--card); padding: 8px 14px; border-radius: 999px; font-size: 14px; }
+.langpick { margin-left: auto; background: var(--card); color: var(--fg); border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; font: inherit; font-size: 13px; }
+a.back { color: var(--fg); text-decoration: none; border: 1px solid var(--line); background: var(--card); padding: 8px 14px; border-radius: 999px; font-size: 14px; }
 .tabs { display: flex; gap: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 5px; }
 .tabs { overflow-x: auto; scrollbar-width: none; }
 .tabs button { flex: 1 0 auto; padding: 10px; border-radius: 12px; border: 0; background: none; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; }
@@ -45,6 +46,7 @@ input[type=range] { width: 100%; accent-color: var(--hot); }
 <body>
 <header>
 	<div class="logo">LED<b>4</b>YOU<small>Studio</small></div>
+	<span id="langBox"></span>
 	<a class="back" href="/">&#8592; Lights</a>
 </header>
 <main>
@@ -62,6 +64,7 @@ input[type=range] { width: 100%; accent-color: var(--hot); }
 	<div id="paneHouse" hidden></div>
 </main>
 <div id="toast" role="status"></div>
+<script src="i18n.js"></script>
 <script src="studio.js"></script>
 <script>
 // Wi-Fi transport for LED4YOU Studio: talks to the lights' own JSON API and file upload
@@ -99,6 +102,7 @@ const wifi = {
 	},
 	loadTable: () => fetch('/myleds.bin', { cache: 'no-store' }).then(r => r.ok ? r.arrayBuffer() : null).then(b => b ? new Uint8Array(b) : null)
 };
+document.getElementById('langBox').append(L4YI18n.picker());
 const style = document.createElement('style'); style.textContent = L4YStudio.css; document.head.append(style);
 function show(id) {
 	['Text', 'Leds', 'Gifs', 'More', 'House'].forEach(k => {
