@@ -105,6 +105,10 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 .pgrid button.has::after { content: ""; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); }
 .pgrid button.sel { background: var(--ag); color: #fff; border-color: transparent; }
 .pgrid.saving button { border: 2px dashed var(--amber); }
+#psCur { font-weight: 600; }
+.psedit { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.psedit label { font-size: 13px; color: var(--muted); }
+.psedit .prow { margin-top: 0; }
 .prow { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
 .prow .note { flex: 1; font-size: 13px; color: var(--muted); }
 #psSave.on { background: var(--amber); color: #1a1205; border-color: transparent; font-weight: 700; }
@@ -251,10 +255,12 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 			<button type="button" data-pane="paneText" role="tab">Text</button>
 			<button type="button" data-pane="paneLeds" role="tab">My LEDs</button>
 			<button type="button" data-pane="paneImg" role="tab">Images</button>
+			<button type="button" data-pane="paneMore" role="tab">More</button>
 			<button type="button" data-pane="paneSetup" role="tab">Setup</button>
 		</nav>
 		<div id="paneText" class="pane" hidden></div>
 		<div id="paneLeds" class="pane" hidden></div>
+		<div id="paneMore" class="pane" hidden></div>
 		<div id="paneImg" class="pane" hidden>
 			<section class="card">
 				<div class="ct">Pixel art <span id="paSize"></span></div>
@@ -347,11 +353,20 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 		</section>
 
 		<section class="card">
-			<div class="ct">Presets</div>
+			<div class="ct">Presets <span id="psCur"></span></div>
 			<div class="pgrid" id="presets"></div>
 			<div class="prow">
 				<span class="note" id="psNote">Tap a number to load it.</span>
 				<button class="btn" id="psSave" type="button" aria-pressed="false">Save</button>
+			</div>
+			<div class="psedit" id="psEdit" hidden>
+				<label for="psEditName">Name for preset <b id="psEditNum"></b></label>
+				<input id="psEditName" class="search" type="text" maxlength="32">
+				<div class="prow">
+					<button class="btn primary" id="psStore" type="button">Save here</button>
+					<button class="btn" id="psDel" type="button">Delete</button>
+					<button class="btn" id="psCancel" type="button">Cancel</button>
+				</div>
 			</div>
 		</section>
 	</div>
@@ -384,7 +399,13 @@ let busy = false, pending = null;
 // every GATT operation goes through this chain: Web Bluetooth rejects overlapping operations
 let gattChain = Promise.resolve();
 function gatt(fn) { const p = gattChain.then(fn); gattChain = p.catch(() => {}); return p; }
-function sendNow(obj) { if (!cmdChar) return Promise.reject(new Error('not connected')); return gatt(() => cmdChar.writeValueWithResponse(enc.encode(JSON.stringify(obj)))); }
+function writeJson(obj) {
+	const b = enc.encode(JSON.stringify(obj));
+	let p = Promise.resolve();
+	for (let i = 0; i < b.length; i += 480) { const part = b.slice(i, i + 480); p = p.then(() => gatt(() => cmdChar.writeValueWithResponse(part))); }
+	return p;
+}
+function sendNow(obj) { if (!cmdChar) return Promise.reject(new Error('not connected')); return writeJson(obj); }
 function merge(a, b) { const o = Object.assign({}, a, b); if (a.seg && b.seg) o.seg = Object.assign({}, a.seg, b.seg); return o; }
 function send(obj) {
 	if (!cmdChar) return;
@@ -395,7 +416,7 @@ async function flush() {
 	busy = true;
 	while (pending) {
 		const o = pending; pending = null;
-		try { await gatt(() => cmdChar.writeValueWithResponse(enc.encode(JSON.stringify(o)))); }
+		try { await writeJson(o); }
 		catch (e) { toast('Could not send the command. Move closer and try again.'); }
 	}
 	busy = false;
@@ -425,7 +446,12 @@ function render() {
 	$('pal').value = state.pal;
 	const f = FX.find(e => e[0] === state.fx); $('fxName').textContent = f ? f[1] : '#' + state.fx;
 	document.querySelectorAll('#fxlist button').forEach(b => b.classList.toggle('sel', +b.dataset.id === state.fx));
-	document.querySelectorAll('#presets button').forEach(b => { const id = +b.dataset.id; b.classList.toggle('sel', id === state.ps); b.classList.toggle('has', !!((state.psl | 0) & (1 << id))); b.title = (b.classList.contains('has') ? 'Load preset ' : 'Empty preset ') + id; });
+	document.querySelectorAll('#presets button').forEach(b => {
+		const id = +b.dataset.id, nm = psName(id);
+		b.classList.toggle('sel', id === state.ps); b.classList.toggle('has', !!((state.psl | 0) & (1 << id)) || !!nm);
+		b.title = nm ? nm : (b.classList.contains('has') ? 'Preset ' : 'Empty preset ') + id;
+	});
+	const cur = psName(state.ps); $('psCur').textContent = state.ps > 0 ? (cur || 'Preset ' + state.ps) : '';
 	if ($('ipText')) renderWifi();
 }
 
@@ -453,16 +479,40 @@ $('pal').onchange = e => { state.pal = +e.target.value; send({ seg: { pal: state
 for (let i = 1; i <= 10; i++) {
 	const b = document.createElement('button'); b.type = 'button'; b.dataset.id = i; b.textContent = i; b.title = 'Load preset ' + i;
 	b.onclick = () => {
-		if (psSaving) {
-			// same JSON as the web UI's "Save preset": current look incl. brightness and segment layout
-			send({ psave: i, n: 'Preset ' + i, ib: true, sb: true });
-			state.ps = i; state.psl = (state.psl | 0) | (1 << i); setPsSaving(false); render(); toast('Saved to preset ' + i);
-			return;
-		}
+		if (psSaving) { openPsEdit(i); return; }
 		state.ps = i; render(); send({ ps: i });
 	};
 	$('presets').appendChild(b);
 }
+const psName = id => { const f = lastList.p.find(p => p[0] === id); return f ? f[1] : ''; };
+let psEditId = 0;
+function openPsEdit(i) {
+	psEditId = i;
+	$('psEdit').hidden = false;
+	$('psEditNum').textContent = i;
+	$('psEditName').value = psName(i) || 'Preset ' + i;
+	$('psDel').hidden = !(((state.psl | 0) & (1 << i)) || psName(i));
+	$('psEditName').focus(); $('psEditName').select();
+}
+function closePsEdit() { $('psEdit').hidden = true; psEditId = 0; setPsSaving(false); }
+$('psCancel').onclick = closePsEdit;
+$('psStore').onclick = () => {
+	const i = psEditId, n = $('psEditName').value.trim().slice(0, 32) || 'Preset ' + i;
+	// same JSON as the web UI's "Save preset": current look incl. brightness and segment layout
+	send({ psave: i, n, ib: true, sb: true });
+	state.ps = i; state.psl = (state.psl | 0) | (1 << i);
+	lastList.p = lastList.p.filter(p => p[0] !== i).concat([[i, n]]);
+	closePsEdit(); render(); toast('Saved "' + n + '" to ' + i + '.');
+};
+$('psDel').onclick = () => {
+	const i = psEditId;
+	if ($('psDel').dataset.c !== '1') { $('psDel').dataset.c = '1'; $('psDel').textContent = 'Tap to confirm'; setTimeout(() => { $('psDel').dataset.c = ''; $('psDel').textContent = 'Delete'; }, 3000); return; }
+	$('psDel').dataset.c = ''; $('psDel').textContent = 'Delete';
+	send({ pdel: i });
+	state.psl = (state.psl | 0) & ~(1 << i); lastList.p = lastList.p.filter(p => p[0] !== i);
+	if (state.ps === i) state.ps = -1;
+	closePsEdit(); render(); toast('Preset ' + i + ' deleted.');
+};
 let psSaving = false;
 function setPsSaving(on) {
 	psSaving = on;
@@ -471,6 +521,7 @@ function setPsSaving(on) {
 	$('psSave').setAttribute('aria-pressed', on);
 	$('psSave').textContent = on ? 'Cancel' : 'Save';
 	$('psNote').textContent = on ? 'Tap a number to save what the lights show now.' : 'Tap a number to load it.';
+	if (!on) $('psEdit').hidden = true;
 }
 $('psSave').onclick = () => setPsSaving(!psSaving);
 
@@ -488,6 +539,7 @@ $('col').oninput = throttle(e => setColor(e.target.value), 150);
 function onState(ev) { try { Object.assign(state, JSON.parse(dec.decode(ev.target ? ev.target.value : ev))); render(); } catch (e) {} }
 function onDisconnect() {
 	cmdChar = staChar = impRpc = impRes = fileChar = listChar = null;
+	moreMounted = false;
 	gattChain = Promise.resolve();
 	$('connectBtn').textContent = 'Reconnect'; setStatus('', 'Disconnected');
 	if (!$('sStart').hidden || !$('sAddr').hidden) return;
@@ -511,8 +563,9 @@ async function connect() {
 		try {
 			fileChar = await svc.getCharacteristic(FIL); listChar = await svc.getCharacteristic(LST);
 			fileChar.addEventListener('characteristicvaluechanged', onFileAck); await fileChar.startNotifications();
-			listChar.addEventListener('characteristicvaluechanged', e => renderGifs(e.target.value)); await listChar.startNotifications();
-			renderGifs(await listChar.readValue());
+			// a notification may be cut to one packet: read the whole value again
+			listChar.addEventListener('characteristicvaluechanged', () => readList()); await listChar.startNotifications();
+			await readList();
 		} catch (e) { fileChar = listChar = null; }
 		if (state.mw && state.mh) { fxKind = 'matrix'; document.querySelectorAll('#fxKind button').forEach(x => x.classList.toggle('sel', x.dataset.k === 'matrix')); filterFx(); }
 		await setupImprov(srv);
@@ -611,8 +664,11 @@ async function bleDelete(name) {
 const bleStudio = {
 	info: () => ({ leds: state.leds || 30, mw: state.mw || 0, mh: state.mh || 0, mfx: state.mfx ?? 255 }),
 	send: obj => sendNow(obj),
-	upload: (name, bytes, action, prog) => bleUpload(name, bytes, action, prog)
+	upload: (name, bytes, action, prog) => bleUpload(name, bytes, action, prog),
+	status: () => readList(),
+	cfg: obj => sendNow({ l4ycfg: obj })
 };
+let moreMounted = false;
 const sty = document.createElement('style'); sty.textContent = L4YStudio.css; document.head.append(sty);
 function mountStudio() {
 	$('paneText').replaceChildren(L4YStudio.textCard(bleStudio, toast));
@@ -622,6 +678,7 @@ document.querySelectorAll('#bleTabs button').forEach(b => b.onclick = () => {
 	document.querySelectorAll('#bleTabs button').forEach(x => x.classList.toggle('sel', x === b));
 	document.querySelectorAll('#sBle .pane').forEach(p => p.hidden = p.id !== (b.dataset.pane === 'paneCtl' ? 'controls' : b.dataset.pane));
 	if (b.dataset.pane === 'paneText' || b.dataset.pane === 'paneLeds') mountStudio();
+	if (b.dataset.pane === 'paneMore' && !moreMounted) { moreMounted = true; $('paneMore').replaceChildren(...L4YStudio.extrasCards(bleStudio, toast)); }
 	if (b.dataset.pane === 'paneImg') { $('paSize').textContent = paW() + '×' + paH(); $('fsFree').textContent = state.fsf != null ? state.fsf + ' KB free' : ''; }
 	if (b.dataset.pane === 'paneSetup') fillSetup();
 });
@@ -673,8 +730,26 @@ $('gifFile').onchange = async e => {
 		$('gifMsg').textContent = ok ? name + ' is playing and stays saved on the lights.' : 'The lights could not save the GIF.';
 	} catch (err) { $('gifMsg').textContent = err.message || 'Could not send the GIF.'; }
 };
-function renderGifs(v) {
-	let list = []; try { list = JSON.parse(dec.decode(v)); } catch (e) {}
+let lastList = { g: [], p: [], x: {} };
+const XFX_NAMES = ['Candy Cane', 'Snowfall', 'Haunted', 'Retro Tree'];
+async function readList() {
+	if (!listChar) return lastList;
+	let v; try { v = JSON.parse(dec.decode(await gatt(() => listChar.readValue()))); } catch (e) { return lastList; }
+	lastList = Array.isArray(v) ? { g: v, p: [], x: {} } : { g: v.g || [], p: v.p || [], x: v.x || {} };
+	renderGifs(lastList.g);
+	// LED4YOU's own effects get their numbers at start-up: add them to the effect list
+	(lastList.x.xfx || []).forEach((id, k) => {
+		if (id === 255 || document.querySelector('#fxlist button[data-id="' + id + '"]')) return;
+		FX.push([id, XFX_NAMES[k], 0]);
+		const b = document.createElement('button'); b.type = 'button'; b.dataset.id = id; b.dataset.d = 0; b.textContent = XFX_NAMES[k]; b.setAttribute('role', 'option');
+		b.onclick = () => { state.fx = id; render(); send({ seg: { fx: id } }); };
+		$('fxlist').prepend(b);
+	});
+	render();
+	return lastList;
+}
+function renderGifs(list) {
+	if (!Array.isArray(list)) list = [];
 	const box = $('gifList'); box.textContent = '';
 	if (!list.length) { const n = document.createElement('div'); n.className = 'note'; n.textContent = 'No GIFs stored yet.'; box.append(n); return; }
 	list.forEach(name => {
