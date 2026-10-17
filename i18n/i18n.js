@@ -311,6 +311,12 @@
 		['For shows timed to music, xLights on your computer sends the animation to every light at once. While it plays, the lights follow xLights; when it stops they go back to their own effect.', 'Para espetáculos ao ritmo da música, o xLights no computador envia a animação para todas as luzes ao mesmo tempo. Enquanto toca, as luzes seguem o xLights; quando para, voltam ao seu efeito.', 'Para espectáculos al ritmo de la música, xLights en tu ordenador envía la animación a todas las luces a la vez. Mientras suena, las luces siguen a xLights; al parar vuelven a su efecto.', 'Pour des spectacles en musique, xLights sur votre ordinateur envoie l’animation à toutes les lumières à la fois. Pendant la lecture elles suivent xLights, puis reviennent à leur effet.'],
 		['In xLights (Setup → Controllers → Add Ethernet), one controller per light:', 'No xLights (Setup → Controllers → Add Ethernet), um controlador por luz:', 'En xLights (Setup → Controllers → Add Ethernet), un controlador por luz:', 'Dans xLights (Setup → Controllers → Add Ethernet), un contrôleur par lumière :'],
 		['empty', 'vazio', 'vacío', 'vide'],
+		// --- own images and GIFs ---
+		['Your image', 'A tua imagem', 'Tu imagen', 'Votre image'],
+		['Your GIF', 'O teu GIF', 'Tu GIF', 'Votre GIF'],
+		['Keep on the lights', 'Manter nas luzes', 'Conservar en las luces', 'Garder sur les lumières'],
+		['Showing your image. Tap "Keep on the lights" to keep it after a restart.', 'A mostrar a tua imagem. Toca em "Manter nas luzes" para ficar mesmo depois de reiniciar.', 'Mostrando tu imagen. Toca "Conservar en las luces" para que siga tras reiniciar.', 'Votre image s’affiche. Touchez « Garder sur les lumières » pour la conserver après un redémarrage.'],
+		['Kept. It is now your My LEDs design.', 'Guardada. É agora o teu desenho de "Os meus LEDs".', 'Guardada. Ahora es tu diseño de "Mis LEDs".', 'Conservée. C’est maintenant votre création « Mes LEDs ».'],
 		// --- house scenes ---
 		['Easter', 'Páscoa', 'Pascua', 'Pâques'],
 		['New Year', 'Ano Novo', 'Año Nuevo', 'Nouvel An'],
@@ -338,6 +344,8 @@
 	// sentences with numbers or names inside: [regex on the English text, PT, ES, FR] ($1, $2 = captured parts)
 	const P = [
 		[/^LED (\d+)$/, 'LED $1', 'LED $1', 'LED $1'],
+		[/^This GIF is (\d+) KB\. The limit is 64 KB: use a smaller one \(made for LED matrices\)\.$/, 'Este GIF tem $1 KB. O limite é 64 KB: usa um mais pequeno (feito para matrizes de LEDs).', 'Este GIF ocupa $1 KB. El límite es 64 KB: usa uno más pequeño (hecho para matrices de LEDs).', 'Ce GIF fait $1 Ko. La limite est de 64 Ko : utilisez-en un plus petit (fait pour matrices LED).'],
+		[/^(.+) deleted\.$/, '$1 apagado.', '$1 borrado.', '$1 supprimé.'],
 		[/^Saved: this light now has its (.+) look\.$/, 'Guardado: esta luz já tem o visual de $1.', 'Guardado: esta luz ya tiene su aspecto de $1.', 'Enregistré : cette lumière a maintenant son rendu $1.'],
 		[/^Downloading the update… (\d+)%$/, 'A descarregar a atualização… $1%', 'Descargando la actualización… $1%', 'Téléchargement de la mise à jour… $1 %'],
 		[/^Sending to the lights… (\d+)%$/, 'A enviar para as luzes… $1%', 'Enviando a las luces… $1%', 'Envoi aux lumières… $1 %'],
