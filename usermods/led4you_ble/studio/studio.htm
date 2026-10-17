@@ -72,7 +72,16 @@ input[type=range] { width: 100%; accent-color: var(--hot); }
 let INFO = { leds: 30, mw: 0, mh: 0, mfx: 255 };
 const toast = m => { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 3000); };
 const wifi = {
-	info: () => INFO,
+	info: () => Object.assign({ key: location.host }, INFO),
+	// a short recording of the lights (WLED /json/live), used as the picture of a saved scene
+	peek: async ms => {
+		const fr = [], end = Date.now() + ms;
+		while (Date.now() < end && fr.length < 10) {
+			try { const j = await (await fetch('/json/live', { cache: 'no-store' })).json(); if (j.leds) fr.push(j.leds.map(x => { const n = parseInt(x, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; })); } catch (e) { break; }
+			await new Promise(r => setTimeout(r, 140));
+		}
+		return fr;
+	},
 	send: obj => fetch('/json/state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }).then(r => { if (!r.ok) throw new Error(r.status); }),
 	upload: async (name, bytes, action, prog) => {
 		const fd = new FormData();

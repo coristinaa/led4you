@@ -25,7 +25,28 @@
 		if (bar) bar.insertBefore(s, document.getElementById('buttonPower'));
 		else { s.style.cssText += 'position:fixed;top:8px;right:8px;z-index:9999;'; document.body.appendChild(s); }
 		load();
-		if (bar) checkUpdate();
+		if (bar) { checkUpdate(); previews(); }
+	}
+	// main page: a small animation next to every effect showing how it looks (drawn by studio.js from the LED4YOU site)
+	function previews() {
+		var list = document.getElementById('fxlist'), col = null;
+		if (!list) return;
+		fetch('/json/state', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) { var sg = (j.seg || [])[0]; col = sg && sg.col; }).catch(function () {});
+		var st = document.createElement('style');
+		st.textContent = '#fxlist .lstI{position:relative}#fxlist .lstI canvas.pv{position:absolute;right:14px;top:50%;margin-top:-6px;width:96px;height:12px;border-radius:6px;pointer-events:none}#fxlist .lstIname{padding-right:104px}';
+		document.head.appendChild(st);
+		function deco() {
+			if (!window.L4YStudio) return;
+			var items = list.querySelectorAll('.lstI'), i;
+			for (i = 0; i < items.length; i++) {
+				var it = items[i]; if (it.querySelector('canvas.pv')) continue;
+				var nm = it.querySelector('.lstIname'), opt = (it.getAttribute('data-opt') || '').split(';')[3] || '';
+				it.appendChild(L4YStudio.preview({ name: nm ? nm.textContent : '', d2: opt.indexOf('2') >= 0, col: col, w: 96, h: 12 }));
+			}
+		}
+		var sc = document.createElement('script'); sc.src = 'https://coristinaa.github.io/led4you/studio.js';
+		sc.onload = function () { deco(); new MutationObserver(deco).observe(list, { childList: true }); };
+		document.head.appendChild(sc);
 	}
 	// main page: tell when a newer LED4YOU is on the site (the update itself runs in the Studio page)
 	function checkUpdate() {

@@ -263,6 +263,205 @@
 		];
 	}
 
+	// ---------- Mini previews: a small animated strip that imitates what an effect looks like ----------
+	const PV = (() => {
+		const hsh = x => { x = (x | 0) ^ 0x9e3779b9; x = Math.imul(x ^ (x >>> 16), 0x85ebca6b); x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35); return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
+		const wh = hue => { hue = ((hue % 1) + 1) % 1 * 6; const i = Math.floor(hue), f = hue - i, q = 255 * (1 - f), u = 255 * f;
+			return [[255, u, 0], [q, 255, 0], [0, 255, u], [0, q, 255], [u, 0, 255], [255, 0, q]][i]; };
+		const sc = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+		const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+		const add = (a, b) => [Math.min(255, a[0] + b[0]), Math.min(255, a[1] + b[1]), Math.min(255, a[2] + b[2])];
+		const W = [255, 255, 255], K = [0, 0, 0];
+		const heat = v => v < .33 ? [v * 3 * 255, 0, 0] : v < .66 ? [255, (v - .33) * 3 * 200, 0] : [255, 200, (v - .66) * 3 * 200];
+		const sn = (x, t) => .5 + .5 * Math.sin(x + t);
+		const noise = (x, t) => (sn(x * .9, t * 1.3) + sn(x * .37, -t * .7) + sn(x * 1.7, t * .4)) / 3;
+		const tw = (i, t, rate, dur) => { const b = Math.floor(t * rate + hsh(i * 31) * 9), p = t * rate + hsh(i * 31) * 9 - b; return hsh(i * 7 + b * 131) < dur ? Math.sin(p * Math.PI) : 0; };
+		const bounce = (t, n) => { const p = (t % 2) / 2, x = p < .5 ? p * 2 : 2 - p * 2; return x * (n - 1); };
+		const dot = (i, x, w) => Math.max(0, 1 - Math.abs(i - x) / w);
+		// each sim returns the colour of LED i (0..n-1) at time t (seconds); C = [primary, background, third]
+		const S = {
+			solid: (i, n, t, C) => C[0],
+			blink: (i, n, t, C) => (t * 2 % 1) < .5 ? C[0] : C[1],
+			breathe: (i, n, t, C) => mix(C[1], C[0], .15 + .85 * sn(0, t * 2.2) ** 2),
+			wipe: (i, n, t, C) => { const p = t * .6 % 2, a = p < 1; return i / n < (p % 1) ? (a ? C[0] : C[1]) : (a ? C[1] : C[0]); },
+			sweep: (i, n, t, C) => { const p = t * .6 % 2, x = p < 1 ? p : 2 - p; return i / n < x ? C[0] : C[1]; },
+			randcol: (i, n, t) => wh(hsh(Math.floor(t * .7))),
+			dynamic: (i, n, t) => wh(hsh(i * 13 + Math.floor(t * 1.5))),
+			colorloop: (i, n, t) => wh(t * .15),
+			rainbow: (i, n, t) => wh(i / n - t * .25),
+			scan: (i, n, t, C) => mix(C[1], C[0], dot(i, bounce(t * .8, n), 1.2)),
+			scan2: (i, n, t, C) => { const x = bounce(t * .8, n); return mix(C[1], C[0], Math.max(dot(i, x, 1.2), dot(i, n - 1 - x, 1.2))); },
+			larson: (i, n, t, C) => { const p = t * .7 % 2, x = (p < 1 ? p : 2 - p) * (n - 1), back = p < 1 ? i < x : i > x; return mix(C[1], C[0], Math.max(dot(i, x, 1), back ? Math.max(0, 1 - Math.abs(i - x) / 5) * .6 : 0)); },
+			fade: (i, n, t, C) => mix(C[1], C[0], sn(0, t * 1.5)),
+			theater: (i, n, t, C) => (i + Math.floor(t * 6)) % 3 === 0 ? C[0] : C[1],
+			theaterRb: (i, n, t) => (i + Math.floor(t * 6)) % 3 === 0 ? wh(i / n + t * .1) : K,
+			running: (i, n, t, C) => mix(C[1], C[0], sn(i * .9, -t * 5) ** 2),
+			saw: (i, n, t, C) => mix(C[1], C[0], ((i - t * 6) / 5 % 1 + 1) % 1),
+			twinkle: (i, n, t, C) => mix(C[1], C[0], tw(i, t, 1.2, .45)),
+			dissolve: (i, n, t, C) => { const ph = Math.floor(t / 2), k = (t % 2) / 2; return hsh(i * 17 + ph) < k ? (ph & 1 ? C[1] : C[0]) : (ph & 1 ? C[0] : C[1]); },
+			sparkle: (i, n, t, C) => hsh(i * 11 + Math.floor(t * 18)) < .06 ? W : C[1],
+			sparkleDark: (i, n, t, C) => hsh(i * 11 + Math.floor(t * 18)) < .08 ? K : C[0],
+			sparklePlus: (i, n, t, C) => hsh(i * 11 + Math.floor(t * 18)) < .15 ? W : C[0],
+			strobe: (i, n, t, C) => (t * 3 % 1) < .12 ? C[0] : C[1],
+			strobeRb: (i, n, t) => (t * 3 % 1) < .12 ? wh(t * .2) : K,
+			chase: (i, n, t, C) => { const x = (t * 8) % (n + 6); return i > x - 6 && i <= x ? C[0] : C[1]; },
+			chaseRb: (i, n, t) => { const x = (t * 8) % (n + 6); return i > x - 6 && i <= x ? wh(i / n) : sc(wh(i / n + .5), .25); },
+			chaseFlash: (i, n, t, C) => { const x = Math.floor(t * 10) % n; return Math.abs(i - x) < 2 ? W : C[0]; },
+			comet: (i, n, t, C) => { const x = (t * 9) % (n + 8), d = x - i; return d >= 0 && d < 8 ? sc(C[0], 1 - d / 8) : C[1]; },
+			multiComet: (i, n, t, C) => { let v = 0; for (let k = 0; k < 3; k++) { const d = ((t * (6 + k * 2) + k * 9) % (n + 6)) - i; if (d >= 0 && d < 5) v = Math.max(v, 1 - d / 5); } return mix(C[1], C[0], v); },
+			fireworks: (i, n, t, C) => { let c = C[1]; for (let k = 0; k < 2; k++) { const b = Math.floor(t * 1.4 + k * .5), p = t * 1.4 + k * .5 - b, x = hsh(b * 7 + k) * n, r = p * 5;
+				const v = Math.max(0, 1 - Math.abs(Math.abs(i - x) - r) / 1.3) * (1 - p); c = add(c, sc(wh(hsh(b * 3 + k)), v)); } return c; },
+			rain: (i, n, t, C) => { let v = 0; for (let k = 0; k < 3; k++) { const d = ((t * 7 + k * n / 3) % (n + 4)) - i; if (d >= 0 && d < 4) v = Math.max(v, 1 - d / 4); } return mix(C[1], C[0], v); },
+			fire: (i, n, t) => { const y = i / n; return heat(Math.max(0, Math.min(1, (1 - y) * 1.15 * (.55 + .6 * noise(i * 1.6, t * 7)) - .05))); },
+			flicker: (i, n, t, C) => sc(C[0], .45 + .55 * noise(i * 2.3 + Math.floor(t * 12) * 5.1, t * 3)),
+			candle: (i, n, t, C) => sc(C[0], .5 + .5 * noise(hsh(i) * 40, t * 9)),
+			gradient: (i, n, t, C) => mix(C[0], C[1].every(v => v < 10) ? sc(C[0], .1) : C[1], sn(i * .5, -t * 2)),
+			loading: (i, n, t, C) => i / n < (t * .4 % 1) ? C[0] : sc(C[0], .08),
+			balls: (i, n, t) => { let c = K; for (let k = 0; k < 3; k++) { const p = (t * (.7 + k * .17) + k * .3) % 1, h = 1 - (2 * p - 1) ** 2; c = add(c, sc(wh(k / 3), dot(i, h * (n - 1), 1.3))); } return c; },
+			lightning: (i, n, t, C) => { const b = Math.floor(t * 2.5), p = t * 2.5 - b; if (hsh(b) > .55) return C[1]; const a = hsh(b * 3) * n, l = 3 + hsh(b * 5) * n * .6; return i >= a && i < a + l && (p < .1 || (p > .2 && p < .26)) ? W : C[1]; },
+			meteor: (i, n, t, C) => { const x = (t * 10) % (n + 10), d = x - i; return d >= 0 && d < 10 ? sc(C[0], d < 1 ? 1 : (1 - d / 10) * (.3 + .7 * hsh(i * 5 + Math.floor(t * 8)))) : C[1]; },
+			ripple: (i, n, t) => { let c = K; for (let k = 0; k < 2; k++) { const b = Math.floor(t * .9 + k * .5), p = t * .9 + k * .5 - b, x = hsh(b * 9 + k) * n; c = add(c, sc(wh(hsh(b + k * 7)), Math.max(0, 1 - Math.abs(Math.abs(i - x) - p * n * .5)) * (1 - p))); } return c; },
+			twinklefox: (i, n, t, C) => { const v = tw(i, t, .5, .6); const pal = C.filter(c => c.some(x => x > 10)); return sc(pal.length > 1 ? pal[Math.floor(hsh(i * 3) * pal.length)] : wh(hsh(i * 3)), v); },
+			colortwinkle: (i, n, t) => sc(wh(hsh(i * 3 + Math.floor(t * .5 + hsh(i) * 4))), tw(i, t, .7, .55)),
+			eyes: (i, n, t, C) => { const b = Math.floor(t * .6), p = t * .6 - b, x = Math.floor(hsh(b) * (n - 4)); const blink = p > .45 && p < .52; return !blink && p < .85 && (i === x || i === x + 3) ? C[0] : C[1]; },
+			pattern: (i, n, t, C) => (i % 4) < 2 ? C[0] : C[1],
+			patternTri: (i, n, t, C) => C[i % 3].some(v => v > 0) ? C[i % 3] : [0, 0, 255],
+			spots: (i, n, t, C) => mix(C[1], C[0], Math.max(0, Math.sin(i * 1.3 - t * 2))),
+			glitter: (i, n, t) => hsh(i * 11 + Math.floor(t * 14)) < .1 ? W : wh(i / n - t * .2),
+			sinelon: (i, n, t, C) => { const x = (n - 1) * sn(0, t * 2.5); return mix(C[1], C[0], Math.max(0, 1 - Math.abs(i - x) / 3)); },
+			juggle: (i, n, t) => { let c = K; for (let k = 0; k < 4; k++) c = add(c, sc(wh(k / 4), Math.max(0, 1 - Math.abs(i - (n - 1) * sn(0, t * (1.2 + k * .4))) / 2.5))); return c; },
+			popcorn: (i, n, t, C) => { let v = 0; for (let k = 0; k < 3; k++) { const p = (t * .9 + k * .33) % 1, h = (1 - (2 * p - 1) ** 2) * (n - 1) * (.4 + .6 * hsh(Math.floor(t * .9 + k * .33) * 3 + k)); v = Math.max(v, dot(i, h, 1)); } return mix(C[1], C[0], v); },
+			drip: (i, n, t, C) => { const p = t * .8 % 1, x = (n - 1) * (1 - p * p); return mix(C[1], C[0], Math.max(dot(i, x, 1), i > n - 3 ? .5 * (1 - p) : 0)); },
+			plasma: (i, n, t) => wh(noise(i * .6, t * 1.5) * 1.6 + t * .05),
+			noise: (i, n, t) => wh(noise(i * .35, t * .9) * 1.3),
+			pride: (i, n, t) => sc(wh(i / n * .8 + t * .08), .4 + .6 * sn(i * .7, t * 3)),
+			pacifica: (i, n, t) => { const v = noise(i * .5, t * 1.2); return add([0, 25 + 60 * v, 70 + 120 * v], v > .8 ? sc(W, (v - .8) * 3) : K); },
+			lake: (i, n, t, C) => mix(sc(C[0], .25), C[0], noise(i * .4, t)),
+			aurora: (i, n, t) => mix([0, 60, 30], [40, 255, 150], noise(i * .3, t * .8) ** 2),
+			percent: (i, n, t, C) => i / n < .3 + .4 * sn(0, t) ? C[0] : C[1],
+			heartbeat: (i, n, t, C) => { const p = t * 1.1 % 1; return sc(C[0], Math.max(Math.exp(-(((p - .05) * 22) ** 2)), .7 * Math.exp(-(((p - .25) * 22) ** 2)), .08)); },
+			sunrise: (i, n, t) => { const p = t * .15 % 1; return heat(Math.min(1, p * 1.3)); },
+			sine: (i, n, t, C) => mix(C[1], C[0], sn(i * .6, t * 3)),
+			flow: (i, n, t) => wh(i / n * .5 + t * .2 + (i > n / 2 ? .5 : 0)),
+			chunchun: (i, n, t, C) => { let v = 0; for (let k = 0; k < 4; k++) v = Math.max(v, dot(i, (n - 1) * sn(k * 1.3, t * (1.6 + k * .1)), 1)); return mix(C[1], C[0], v); },
+			shadows: (i, n, t) => sc(wh(t * .05 + i / n * .3), Math.max(sn(i * .5, t * 1.7), sn(i * .3, -t * 2.3)) ** 3),
+			washing: (i, n, t, C) => mix(C[1], C[0], sn(i * .8, Math.sin(t * 1.3) * 12) ** 2),
+			blends: (i, n, t) => wh(noise(i * .2, t * .5) + t * .05),
+			tv: (i, n, t) => { const b = Math.floor(t * 3); return sc(mix([60, 80, 200], [255, 220, 180], hsh(b)), .4 + .6 * hsh(b * 5 + (i > n / 2 ? 1 : 0))); },
+			traffic: (i, n, t) => [[255, 0, 0], [255, 160, 0], [0, 200, 0]][Math.floor(t * .8) % 3].map(v => ((i + Math.floor(t * .8)) % 3 === 0 ? v : v * .06)),
+			railway: (i, n, t, C) => { const k = sn(0, t * 3); return (i & 1) ? mix(C[0], C[1], k) : mix(C[1], C[0], k); },
+			bees: (i, n, t) => { let c = K; for (let k = 0; k < 3; k++) c = add(c, sc(wh(k * .3), dot(i, (n - 1) * noise(k * 4, t * 1.7), 1))); return c; },
+			ghost: (i, n, t, C) => { const x = (n - 1) * sn(0, t * 1.5), d = Math.abs(i - x); return sc(wh(t * .1 + d * .05), Math.max(0, 1 - d / 6)); },
+			text: (i, n, t, C) => (hsh(Math.floor(i + t * 7) * 3) < .5 && ((i + Math.floor(t * 7)) % 6) < 4) ? C[0] : C[1],
+			audio: (i, n, t, C) => { const lvl = .25 + .75 * Math.abs(Math.sin(t * 7.3) * Math.sin(t * 2.1)); return i / n < lvl ? wh(.33 - i / n * .33) : K; },
+			candycane: (i, n, t, C) => ((i + t * 3) % 6) < 3 ? C[0] : C[1],
+			snowfall: (i, n, t, C) => { const v = tw(i, t, .9, .35); return mix(C[1], C[0], v); },
+			haunted: (i, n, t, C) => { const b = Math.floor(t * 1.5), dark = hsh(b) < .15, v = .5 + .5 * noise(i * 1.7, t * 8); return dark ? (hsh(i + b) < .2 ? [90, 0, 140] : sc(C[0], .05)) : sc(C[0], v); },
+			retrotree: (i, n, t) => sc([[255, 20, 0], [0, 200, 40], [0, 60, 255], [255, 140, 0], [200, 0, 160]][i % 5], .75 + .25 * sn(i * 2, t * 1.2)),
+			myleds: (i, n, t) => sc(wh(hsh(i * 3) * .2 + Math.floor(i / 4) * .15), .7 + .3 * sn(i, t * 2)),
+			confetti: (i, n, t) => sc(wh(hsh(i * 7 + Math.floor(t * 3 + hsh(i) * 5))), tw(i, t, 1.5, .5)),
+			image: (i, n, t) => sc(wh(Math.floor(i / 3) * .13 + Math.floor(t) * .3), .9)
+		};
+		// 2D (matrix) effects: drawn on a small grid; most WLED 2D effects are moving colour fields
+		const S2 = {
+			field: (x, y, t, k) => wh(noise(x * .5 + k * 3, t * (1 + k)) + noise(y * .7 - k, t * .8) * .8 + k),
+			matrix: (x, y, t) => { const p = ((t * (3 + hsh(x) * 3) + hsh(x * 7) * 9) % 8) - y; return p >= 0 && p < 4 ? [0, 255 * (1 - p / 4), p < 1 ? 120 : 0] : K; },
+			geq: (x, y, t) => { const lvl = (.3 + .7 * Math.abs(Math.sin(t * (3 + x * .7) + x))) * 6; return 5 - y < lvl ? wh(.33 - (5 - y) / 18) : K; },
+			life: (x, y, t) => hsh(x * 13 + y * 7 + Math.floor(t * 2) * 97) < .3 ? [80, 255, 120] : K,
+			text: (x, y, t) => { const c = Math.floor(x + t * 6); return y > 0 && y < 5 && hsh(c * 5 + y) < .45 && c % 5 ? [255, 60, 60] : K; },
+			fire: (x, y, t) => heat(Math.max(0, Math.min(1, (y / 5) * 1.2 * (.5 + .7 * noise(x * 1.4 + y * .5, t * 6)) - .05)))
+		};
+		const TABLE = [
+			[/^solid$/, 'solid'], [/^blink rainbow/, 'strobeRb'], [/^blink/, 'blink'], [/breathe/, 'breathe'], [/tri wipe|^wipe|sweep random/, 'wipe'], [/^sweep/, 'sweep'],
+			[/random colors/, 'randcol'], [/dynamic/, 'dynamic'], [/colorloop|tri fade/, 'colorloop'], [/rainbow runner|^rainbow$|^palette$|colorful|flow stripe/, 'rainbow'],
+			[/scan dual|scanner dual|two dots/, 'scan2'], [/^scan$/, 'scan'], [/scanner|lighthouse|^icu|android|cylon/, 'larson'], [/fade/, 'fade'],
+			[/theater rainbow/, 'theaterRb'], [/theater|chase 3|chase 2/, 'theater'], [/running|stream|oscillate/, 'running'], [/^saw/, 'saw'],
+			[/colortwinkles/, 'colortwinkle'], [/twinklefox|twinklecat|fairytwinkle/, 'twinklefox'], [/twinkle|fairy/, 'twinkle'], [/dissolve/, 'dissolve'],
+			[/sparkle dark/, 'sparkleDark'], [/sparkle\+/, 'sparklePlus'], [/sparkle|ps sparkler/, 'sparkle'], [/strobe rainbow|strobe mega/, 'strobeRb'], [/strobe/, 'strobe'],
+			[/chase flash/, 'chaseFlash'], [/chase rainbow|chase random/, 'chaseRb'], [/chase|ps chase/, 'chase'], [/multi comet/, 'multiComet'], [/comet/, 'comet'],
+			[/traffic/, 'traffic'], [/aurora|polar/, 'aurora'], [/starburst|firework|ps impact|colored bursts/, 'fireworks'], [/rain$|^rain|ps dripdrop/, 'rain'], [/drip/, 'drip'],
+			[/fire flicker/, 'flicker'], [/candle/, 'candle'], [/fire|volcano|noisefire/, 'fire'], [/gradient/, 'gradient'], [/loading/, 'loading'],
+			[/bouncing|rolling balls|ballpit|pinball|ps 1d balance|springy/, 'balls'], [/lightning/, 'lightning'], [/meteor/, 'meteor'], [/ripple/, 'ripple'],
+			[/halloween eyes/, 'eyes'], [/solid pattern tri/, 'patternTri'], [/solid pattern/, 'pattern'], [/spots/, 'spots'], [/glitter/, 'glitter'],
+			[/sinelon/, 'sinelon'], [/juggle$|bpm/, 'juggle'], [/popcorn/, 'popcorn'], [/pride|phased|sine$|wavesins/, 'pride'], [/pacifica|lake/, 'pacifica'],
+			[/percent/, 'percent'], [/heartbeat/, 'heartbeat'], [/sunrise/, 'sunrise'], [/^sine$/, 'sine'], [/^flow$/, 'flow'], [/chunchun|crazy bees|spaceships/, 'bees'],
+			[/dancing shadows/, 'shadows'], [/washing/, 'washing'], [/blends|color clouds|slow transition/, 'blends'], [/tv simulator/, 'tv'], [/railway/, 'railway'],
+			[/ghost rider/, 'ghost'], [/scrolling text/, 'text'], [/tetrix/, 'rain'], [/noise|plasma|colorwaves|lissajous|metaballs|^soap|blobs/, 'plasma'], [/^image$/, 'image'],
+			[/candy cane/, 'candycane'], [/snowfall/, 'snowfall'], [/haunted/, 'haunted'], [/retro tree/, 'retrotree'], [/my leds/, 'myleds']
+		];
+		const AUDIO = /gravi|gravc|gravf|juggles|waterfall|pixelwave|ripple peak|midnoise|noisemeter|plasmoid|puddle|freq|^geq|noisemove|dj light|funky|blurz|rocktaves|waverly|matripix|^pixels|ps geq|sonic|akemi/;
+		const of = (name, d2) => {
+			const n = String(name || '').toLowerCase();
+			if (d2) { if (/^matrix$/.test(n)) return { g: 'matrix' }; if (/geq|freq|funky|waterfall/.test(n)) return { g: 'geq' }; if (/game of life/.test(n)) return { g: 'life' };
+				if (/text/.test(n)) return { g: 'text' }; if (/fire|volcano/.test(n)) return { g: 'fire' }; if (!AUDIO.test(n) || /2d|geq|freqmatrix|matripix/.test(n)) return { g: 'field', k: hsh(n.length * 31 + n.charCodeAt(0)) }; }
+			if (AUDIO.test(n)) return { s: 'audio' };
+			for (const [re, s] of TABLE) if (re.test(n)) return { s };
+			return { s: 'plasma' };
+		};
+		// one shared animation loop; only canvases on screen are drawn
+		const live = new Set();
+		const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver(es => es.forEach(e => { e.target._pvOn = e.isIntersecting; }), { rootMargin: '40px' }) : null;
+		let raf = 0, last = 0;
+		const tick = now => {
+			raf = requestAnimationFrame(tick);
+			if (now - last < 45) return; last = now;
+			const t = now / 1000;
+			live.forEach(cv => { if (!cv.isConnected) { live.delete(cv); io && io.unobserve(cv); return; } if (cv._pvOn !== false && !document.hidden) draw(cv, t); });
+		};
+		const draw = (cv, t) => {
+			const o = cv._pv, g = cv.getContext('2d'), w = cv.width, hgt = cv.height;
+			g.fillStyle = '#06070c'; g.fillRect(0, 0, w, hgt);
+			const pix = (x, y, cell, c) => {
+				const r = Math.round(c[0]), gg = Math.round(c[1]), b = Math.round(c[2]), m = Math.max(r, gg, b);
+				if (m < 8) { g.fillStyle = '#14161f'; g.beginPath(); g.arc(x, y, cell * .3, 0, 6.283); g.fill(); return; }
+				g.fillStyle = 'rgba(' + r + ',' + gg + ',' + b + ',.28)'; g.beginPath(); g.arc(x, y, cell * .55, 0, 6.283); g.fill();
+				g.fillStyle = 'rgb(' + r + ',' + gg + ',' + b + ')'; g.beginPath(); g.arc(x, y, cell * .32, 0, 6.283); g.fill();
+			};
+			if (o.frames) {   // a real recording from the lights
+				const f = o.frames[Math.floor(t * 6.5) % o.frames.length], n = f.length, cell = Math.min(hgt, w / n);
+				for (let i = 0; i < n; i++) pix((w - cell * n) / 2 + cell * (i + .5), hgt / 2, cell, f[i]);
+			} else if (o.g) {
+				const cols = 26, rows = 4, cell = Math.min(w / cols, hgt / rows), f = S2[o.g];
+				for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) pix((w - cell * cols) / 2 + cell * (x + .5), cell * (y + .5) + (hgt - cell * rows) / 2, cell, f(x, y * 5 / 3, t * o.v, o.k || 0));
+			} else {
+				const n = o.n, cell = Math.min(hgt, w / n), f = S[o.s] || S.plasma;
+				for (let i = 0; i < n; i++) pix((w - cell * n) / 2 + cell * (i + .5), hgt / 2, cell, f(i, n, t * o.v, o.C));
+			}
+		};
+		const DEF = [[255, 150, 40], [0, 0, 0], [0, 0, 0]];
+		// spec: { name, d2, sim, col:[[r,g,b]..], speed (0-255), frames:[[[r,g,b]..]..], n, w, h, cls }
+		const mini = spec => {
+			const W2 = (spec.w || 120) * 2, H2 = (spec.h || 14) * 2;
+			const cv = h('canvas', { class: 'pv ' + (spec.cls || ''), width: String(W2), height: String(H2), 'aria-hidden': 'true' });
+			const k = spec.sim ? { s: spec.sim } : of(spec.name, spec.d2);
+			const C = [0, 1, 2].map(i => { const c = spec.col && spec.col[i]; return c && c.length >= 3 ? c.slice(0, 3) : DEF[i]; });
+			cv._pv = Object.assign(k, { C, n: spec.n || (k.g ? 0 : 20), v: spec.speed == null ? 1 : .35 + spec.speed / 160, frames: spec.frames && spec.frames.length ? spec.frames : null });
+			cv._pvOn = true; live.add(cv); io && io.observe(cv);
+			if (!raf) raf = requestAnimationFrame(tick);
+			return cv;
+		};
+		const set = (cv, spec) => { const nw = mini(spec); live.delete(nw); cv._pv = nw._pv; };
+		return { mini, set, of };
+	})();
+
+	// ---------- Snapshots of what each house scene really looks like (kept on this phone / computer) ----------
+	const snapKey = (t, id) => 'l4yScn:' + ((t.info && t.info().key) || 'x') + ':' + id;
+	const snapLoad = (t, id) => { try { const s = localStorage.getItem(snapKey(t, id)); return s ? s.split('|').map(f => f.match(/.{6}/g).map(x => [parseInt(x.slice(0, 2), 16), parseInt(x.slice(2, 4), 16), parseInt(x.slice(4, 6), 16)])) : null; } catch (e) { return null; } };
+	const snapSave = (t, id, frames) => {
+		try {
+			const enc = frames.filter(f => f && f.length).map(f => { const n = Math.min(24, f.length), out = [];
+				for (let i = 0; i < n; i++) { const c = f[Math.floor(i * f.length / n)]; out.push(c.map(v => (v | 0).toString(16).padStart(2, '0')).join('')); } return out.join(''); });
+			if (enc.length) localStorage.setItem(snapKey(t, id), enc.join('|'));
+		} catch (e) {}
+	};
+	const record = async (t, ms) => { if (!t.peek) return null; try { return await t.peek(ms || 1400); } catch (e) { return null; } };
+	// how each scene looks before it is saved on a light
+	const SCENE_LOOK = {
+		241: { sim: 'haunted', col: [[255, 90, 0]] }, 242: { sim: 'retrotree' }, 243: { sim: 'twinklefox', col: [[255, 170, 200], [170, 230, 255], [255, 240, 140]] },
+		244: { sim: 'fireworks', col: [[0, 0, 0], [0, 0, 0]] }, 245: { sim: 'breathe', col: [[255, 20, 90], [40, 0, 10]] }, 246: { sim: 'confetti' },
+		247: { sim: 'solid', col: [[255, 170, 90]] }, 248: { sim: 'juggle' }
+	};
+
 	// ---------- Extras: timer, schedule, seasons, countdown, preset loop, sound, motion, group, power ----------
 	const pad = n => String(n).padStart(2, '0');
 	const hhmm = m => m < 0 ? '--:--' : pad(Math.floor(m / 60) % 24) + ':' + pad(m % 60);
@@ -355,27 +554,27 @@
 		const xfx = i => (st.x.xfx || [])[i];
 		const THEMES = [
 			['Halloween', [
-				['Pumpkin glow', () => ({ fx: FX.candle, sx: 96, ix: 224, pal: 0, col: [[255, 90, 0], [0, 0, 0]] })],
-				['Haunted', () => ({ fx: xfx(2), sx: 160, ix: 96, col: [[255, 106, 16]] })],
-				['Spooky eyes', () => ({ fx: FX.eyes, sx: 128, ix: 128, pal: 0, col: [[255, 0, 0], [0, 0, 0]] })],
-				['Storm', () => ({ fx: FX.lightning, sx: 128, ix: 128, pal: 0, col: [[200, 220, 255], [0, 0, 20]] })],
-				['Witch brew', () => ({ fx: FX.colortwinkle, sx: 128, ix: 128, pal: 5, col: [[120, 0, 255], [40, 255, 0], [255, 80, 0]] })]]],
+				['Pumpkin glow', 'candle', () => ({ fx: FX.candle, sx: 96, ix: 224, pal: 0, col: [[255, 90, 0], [0, 0, 0]] })],
+				['Haunted', 'haunted', () => ({ fx: xfx(2), sx: 160, ix: 96, col: [[255, 106, 16]] })],
+				['Spooky eyes', 'eyes', () => ({ fx: FX.eyes, sx: 128, ix: 128, pal: 0, col: [[255, 0, 0], [0, 0, 0]] })],
+				['Storm', 'lightning', () => ({ fx: FX.lightning, sx: 128, ix: 128, pal: 0, col: [[200, 220, 255], [0, 0, 20]] })],
+				['Witch brew', 'twinklefox', () => ({ fx: FX.colortwinkle, sx: 128, ix: 128, pal: 5, col: [[120, 0, 255], [40, 255, 0], [255, 80, 0]] })]]],
 			['Christmas', [
-				['Retro tree', () => ({ fx: xfx(3), sx: 96, ix: 128 })],
-				['Candy cane', () => ({ fx: xfx(0), sx: 64, ix: 48, col: [[255, 0, 0], [255, 255, 255]] })],
-				['Snowfall', () => ({ fx: xfx(1), sx: 128, ix: 96, col: [[255, 255, 255], [0, 0, 24]] })],
-				['Merry twinkle', () => ({ fx: FX.twinklefox, sx: 128, ix: 128, pal: 5, col: [[255, 0, 0], [0, 200, 30], [255, 180, 60]] })],
-				['Fireplace', () => ({ fx: FX.fire, sx: 64, ix: 160, pal: 35 })]]]
+				['Retro tree', 'retrotree', () => ({ fx: xfx(3), sx: 96, ix: 128 })],
+				['Candy cane', 'candycane', () => ({ fx: xfx(0), sx: 64, ix: 48, col: [[255, 0, 0], [255, 255, 255]] })],
+				['Snowfall', 'snowfall', () => ({ fx: xfx(1), sx: 128, ix: 96, col: [[255, 255, 255], [0, 0, 24]] })],
+				['Merry twinkle', 'twinklefox', () => ({ fx: FX.twinklefox, sx: 128, ix: 128, pal: 5, col: [[255, 0, 0], [0, 200, 30], [255, 180, 60]] })],
+				['Fireplace', 'fire', () => ({ fx: FX.fire, sx: 64, ix: 160, pal: 35 })]]]
 		];
 		const cSeasons = h('section', { class: 'card' },
 			h('div', { class: 'ct' }, 'Seasons'),
-			THEMES.flatMap(([group, list]) => [h('div', { class: 'lab sp' }, group), h('div', { class: 'themes' }, list.map(([name, f]) => h('button', {
+			THEMES.flatMap(([group, list]) => [h('div', { class: 'lab sp' }, group), h('div', { class: 'themes' }, list.map(([name, sim, f]) => h('button', {
 				type: 'button', class: 'theme ' + group.toLowerCase(), onclick: () => {
 					const seg = f();
 					if (seg.fx === undefined || seg.fx === 255) { toast('Update the lights to the newest LED4YOU for this theme.'); return; }
 					t.send({ on: true, seg, l4y: { cd: { on: false } } }).then(ok(name + ' is on. Save it as a preset to keep it.')).catch(fail());
 				}
-			}, name)))]));
+			}, h('span', {}, name), (() => { const sg = f(); return PV.mini({ sim, col: sg.col, speed: sg.sx, w: 104, h: 12 }); })())))]));
 
 		// ---- countdown on a matrix (Scrolling Text) ----
 		const cdName = h('input', { class: 'search', type: 'text', maxlength: '16', placeholder: 'XMAS', value: 'XMAS' });
@@ -407,14 +606,21 @@
 		const saveHs = () => t.send({ l4y: { hs: { j: hsJoin.checked, id: +hsId.value } } }).then(ok('Saved.')).catch(fail());
 		hsJoin.onchange = saveHs; hsId.onchange = saveHs;
 		const play = (n, label) => t.send({ l4y: { scene: n } }).then(ok(n ? label + ' on the whole house.' : 'Whole house off.')).catch(fail());
-		const saveScene = (id, name) => t.send({ psave: id, n: 'Scene: ' + name, ib: true, sb: true })
-			.then(() => { toast('Saved: this light now has its ' + name + ' look.'); st.p = st.p.filter(p => p[0] !== id).concat([[id, 'Scene: ' + name]]); renderScenes(); setTimeout(refresh, 1500); }).catch(fail());
+		const saveScene = (id, name) => {
+			const rec = record(t, 1400);   // a short recording of the lights becomes the scene's picture
+			t.send({ psave: id, n: 'Scene: ' + name, ib: true, sb: true })
+				.then(async () => { toast('Saved: this light now has its ' + name + ' look.'); st.p = st.p.filter(p => p[0] !== id).concat([[id, 'Scene: ' + name]]);
+					const fr = await rec; if (fr && fr.length) snapSave(t, id, fr); renderScenes(); setTimeout(refresh, 1500); }).catch(fail());
+		};
 		const renderScenes = () => {
 			sceneBox.replaceChildren(...SCENES.map(([id, ic, name]) => {
 				const has = !!st.p.find(p => p[0] === id);
+				const snap = has ? snapLoad(t, id) : null;
 				return h('div', { class: 'scene' + (has ? ' has' : '') },
 					h('button', { type: 'button', class: 'sc-play', onclick: () => play(id, name) },
 						h('span', { class: 'sc-ic' }, ic), h('span', { class: 'sc-name' }, name),
+						h('span', { class: 'sc-pv' }, PV.mini(snap ? { frames: snap, w: 130, h: 12 } : Object.assign({ w: 130, h: 12 }, SCENE_LOOK[id])),
+							h('small', {}, snap ? 'Your look' : 'Example')),
 						h('span', { class: 'sc-st' }, has ? '✓ Ready on this light' : 'Not saved on this light')),
 					h('button', { type: 'button', class: 'sc-save', onclick: () => saveScene(id, name) }, has ? 'Save again' : 'Save here'));
 			}), h('button', { type: 'button', class: 'sc-off', onclick: () => play(0) }, 'All off'));
@@ -463,7 +669,7 @@
 		const cSound = h('section', { class: 'card' },
 			h('div', { class: 'ct' }, 'Sound'),
 			h('div', { class: 'note' }, 'Effects that move with music. Connect a microphone first and set its pins below.'),
-			h('div', { class: 'themes' }, SOUND_FX.map(([n, id]) => h('button', { type: 'button', class: 'theme sound', onclick: () => t.send({ on: true, seg: { fx: id } }).then(ok(n + ' is on.')).catch(fail()) }, n))),
+			h('div', { class: 'themes' }, SOUND_FX.map(([n, id]) => h('button', { type: 'button', class: 'theme sound', onclick: () => t.send({ on: true, seg: { fx: id } }).then(ok(n + ' is on.')).catch(fail()) }, h('span', {}, n), PV.mini({ name: n, d2: /matrix/.test(n), w: 104, h: 12 })))),
 			h('details', { class: 'more' }, h('summary', {}, 'Microphone setup'),
 				h('label', { class: 'chk' }, micOn, ' Microphone on'),
 				field('Type', micType),
@@ -883,6 +1089,7 @@
 		extrasCards,
 		gifPackCard,
 		houseCards,
+		preview: PV.mini,
 		// styles shared by both pages (they already define the colour tokens)
 		css: `
 .card input[type=range] { --fill: var(--hot); }
@@ -918,6 +1125,11 @@
 .theme.christmas { background: linear-gradient(135deg, #3a0a0f, #0c3018); border-color: #5a1a20; }
 .theme.sound { background: linear-gradient(135deg, #0b2a3a, #2a0b3a); border-color: #1d4660; }
 .theme:active { transform: scale(.97); }
+.theme { display: flex; flex-direction: column; gap: 8px; }
+canvas.pv { display: block; width: 104px; max-width: 100%; height: 12px; border-radius: 6px; }
+.sc-pv { align-self: stretch; display: flex; flex-direction: column; gap: 3px; margin: 6px 0 2px; }
+.sc-pv canvas.pv { width: 100%; }
+.sc-pv small { font-size: 11px; color: var(--muted); font-weight: 500; }
 details.more { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
 details.more summary { cursor: pointer; font-weight: 600; color: var(--fg); }
 .pbar { height: 12px; border-radius: 999px; background: var(--raise); overflow: hidden; border: 1px solid var(--line); }
