@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LED4YOU Studio</title>
+<meta name="theme-color" content="#0d0f14">
+<style>
+/* Same tokens as the LED4YOU web UI and app: one column of cards */
+:root {
+	--bg: #0d0f14; --card: #171a22; --line: #232836; --raise: #20242f;
+	--fg: #eef0f6; --muted: #8b93a8; --hot: #ff2e93; --violet: #8b5cff; --cyan: #00d4ff; --amber: #ffb547;
+	--ag: linear-gradient(90deg, var(--hot), var(--violet) 50%, var(--cyan));
+	color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.4 "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 0 16px 32px; }
+main { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+#paneText, #paneLeds, #paneGifs, #paneMore, #paneHouse { display: flex; flex-direction: column; gap: 12px; }
+header { max-width: 640px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 16px 0 6px; }
+.logo { font-weight: 800; font-size: 20px; letter-spacing: 2px; }
+.logo b { background: var(--ag); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.logo small { display: block; font-size: 11px; letter-spacing: 1.6px; color: var(--muted); text-transform: uppercase; }
+a.back { margin-left: auto; color: var(--fg); text-decoration: none; border: 1px solid var(--line); background: var(--card); padding: 8px 14px; border-radius: 999px; font-size: 14px; }
+.tabs { display: flex; gap: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 5px; }
+.tabs { overflow-x: auto; scrollbar-width: none; }
+.tabs button { flex: 1 0 auto; padding: 10px; border-radius: 12px; border: 0; background: none; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; }
+.tabs button.sel { background: var(--raise); color: var(--fg); }
+button { font: inherit; color: inherit; cursor: pointer; }
+.btn { border: 1px solid var(--line); background: var(--raise); border-radius: 14px; padding: 10px 16px; }
+.btn.primary { background: var(--ag); border-color: transparent; color: #fff; font-weight: 700; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 16px; }
+.ct { font-size: 12px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; display: flex; justify-content: space-between; }
+.ct span { letter-spacing: 0; text-transform: none; color: var(--fg); }
+.note { font-size: 14px; color: var(--muted); }
+.lbl { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.search { width: 100%; padding: 11px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--raise); color: var(--fg); font: inherit; margin-bottom: 10px; }
+input[type=range] { width: 100%; accent-color: var(--hot); }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+#toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--raise); border: 1px solid var(--line); padding: 10px 16px; border-radius: 12px; font-size: 14px; visibility: hidden; }
+#toast.show { visibility: visible; }
+</style>
+</head>
+<body>
+<header>
+	<div class="logo">LED<b>4</b>YOU<small>Studio</small></div>
+	<a class="back" href="/">&#8592; Lights</a>
+</header>
+<main>
+	<div class="tabs" role="tablist">
+		<button type="button" class="sel" id="tabText" role="tab">Text</button>
+		<button type="button" id="tabLeds" role="tab">My LEDs</button>
+		<button type="button" id="tabGifs" role="tab">GIFs</button>
+		<button type="button" id="tabMore" role="tab">More</button>
+		<button type="button" id="tabHouse" role="tab">House</button>
+	</div>
+	<div id="paneText"></div>
+	<div id="paneLeds" hidden></div>
+	<div id="paneGifs" hidden></div>
+	<div id="paneMore" hidden></div>
+	<div id="paneHouse" hidden></div>
+</main>
+<div id="toast" role="status"></div>
+<script src="studio.js"></script>
+<script>
+// Wi-Fi transport for LED4YOU Studio: talks to the lights' own JSON API and file upload
+let INFO = { leds: 30, mw: 0, mh: 0, mfx: 255 };
+const toast = m => { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 3000); };
+const wifi = {
+	info: () => INFO,
+	send: obj => fetch('/json/state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }).then(r => { if (!r.ok) throw new Error(r.status); }),
+	upload: async (name, bytes, action, prog) => {
+		const fd = new FormData();
+		fd.append('data', new Blob([bytes]), '/' + name);
+		prog && prog(0.5);
+		const r = await fetch('/upload', { method: 'POST', body: fd });
+		if (!r.ok) return false;
+		prog && prog(1);
+		if (action === 2) await wifi.send({ on: true, l4y: { rl: 1 }, seg: { fx: INFO.mfx, frz: false } });
+		if (action === 1) await wifi.send({ on: true, seg: { fx: 53, n: name, frz: false } });
+		return true;
+	},
+	status: async () => {
+		const j = await (await fetch('/json/state', { cache: 'no-store' })).json();
+		let p = [];
+		try {
+			const ps = await (await fetch('/presets.json', { cache: 'no-store' })).json();
+			for (let i = 1; i <= 10; i++) if (ps[i] && ps[i].n) p.push([i, ps[i].n]);
+		} catch (e) {}
+		let g = [];
+		try { g = (await (await fetch('/edit?list=/', { cache: 'no-store' })).json()).map(f => String(f.name || '').replace(/^\//, '')).filter(n => /\.gif$/i.test(n)); } catch (e) {}
+		return { x: j.l4y || {}, p, g };
+	},
+	cfg: async obj => {
+		const r = await fetch('/json/cfg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
+		if (!r.ok) throw new Error(r.status);
+		setTimeout(() => wifi.send({ rb: true }).catch(() => {}), 1500);   // restart after the settings are written
+	},
+	loadTable: () => fetch('/myleds.bin', { cache: 'no-store' }).then(r => r.ok ? r.arrayBuffer() : null).then(b => b ? new Uint8Array(b) : null)
+};
+const style = document.createElement('style'); style.textContent = L4YStudio.css; document.head.append(style);
+function show(id) {
+	['Text', 'Leds', 'Gifs', 'More', 'House'].forEach(k => {
+		document.getElementById('pane' + k).hidden = k !== id;
+		document.getElementById('tab' + k).classList.toggle('sel', k === id);
+	});
+}
+['Text', 'Leds', 'Gifs', 'More', 'House'].forEach(k => { document.getElementById('tab' + k).onclick = () => show(k); });
+fetch('/json/si').then(r => r.json()).then(j => {
+	const m = j.info && j.info.leds && j.info.leds.matrix;
+	INFO = { leds: j.info.leds.count, mw: m ? m.w : 0, mh: m ? m.h : 0, mfx: j.state.l4y ? j.state.l4y.mfx : 255 };
+}).catch(() => toast('Could not read the lights. Reload the page.')).finally(() => {
+	document.getElementById('paneText').append(L4YStudio.textCard(wifi, toast));
+	document.getElementById('paneLeds').append(...L4YStudio.myLedsCards(wifi, toast));
+	document.getElementById('paneMore').append(...L4YStudio.extrasCards(wifi, toast));
+	// the pack lives with the app on GitHub Pages (sent with CORS), so it needs internet on the phone or computer
+	document.getElementById('paneGifs').append(L4YStudio.gifPackCard(wifi, toast, 'https://coristinaa.github.io/led4you/gifs/'));
+	if (location.hash === '#gifs') show('Gifs');
+	let houseMounted = false;
+	const mountHouse = () => { if (!houseMounted) { houseMounted = true; document.getElementById('paneHouse').append(...L4YStudio.houseCards(toast)); } };
+	document.getElementById('tabHouse').addEventListener('click', mountHouse);
+	if (location.hash === '#house') { mountHouse(); show('House'); }
+	if (location.hash === '#leds') show('Leds');
+	if (location.hash === '#more') show('More');
+});
+</script>
+</body>
+</html>

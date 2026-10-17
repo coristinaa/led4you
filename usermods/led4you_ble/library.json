@@ -1,0 +1,11 @@
+{
+  "name": "led4you_ble",
+  "build": { "libArchive": false },
+  "dependencies": [
+    {
+      "name": "NimBLE-Arduino",
+      "version": "https://github.com/h2zero/NimBLE-Arduino.git#1.4.3",
+      "platforms": "espressif32"
+    }
+  ]
+}
