@@ -719,8 +719,107 @@
 		return card;
 	}
 
+	// ---------- Your own images and GIFs (used by the Studio page; the app has its own copy in the Images tab) ----------
+	function myImagesCards(t, toast) {
+		const inf = t.info();
+		const isMatrix = !!(inf.mw && inf.mh);
+		const W = isMatrix ? inf.mw : Math.max(1, inf.leds || 30), H = isMatrix ? inf.mh : 1;
+		const cv = h('canvas', { class: 'imgprev', width: String(W), height: String(H) });
+		const imgIn = h('input', { type: 'file', accept: 'image/*', hidden: '' });
+		const imgMsg = h('div', { class: 'note' });
+		let pixels = null;
+		const keepBtn = h('button', { class: 'btn', type: 'button', hidden: '' }, 'Keep on the lights');
+		imgIn.onchange = () => {
+			const f = imgIn.files[0]; if (!f) return;
+			const im = new Image();
+			im.onload = async () => {
+				const g = cv.getContext('2d');
+				g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+				// fit the whole picture inside the LEDs, keeping its shape
+				const k = Math.min(W / im.width, H / im.height), w = Math.max(1, Math.round(im.width * k)), hh = Math.max(1, Math.round(im.height * k));
+				g.imageSmoothingQuality = 'high';
+				g.drawImage(im, Math.floor((W - w) / 2), Math.floor((H - hh) / 2), w, hh);
+				const d = g.getImageData(0, 0, W, H).data;
+				pixels = [];
+				for (let i = 0; i < W * H; i++) pixels.push([d[i * 4], d[i * 4 + 1], d[i * 4 + 2]]);
+				URL.revokeObjectURL(im.src);
+				imgMsg.textContent = 'Sending…';
+				try {
+					const hex = pixels.map(c => c.map(v => v.toString(16).padStart(2, '0')).join(''));
+					for (let i = 0; i < hex.length; i += 120) await t.send({ on: true, seg: { i: [i, ...hex.slice(i, i + 120)] } });
+					imgMsg.textContent = 'Showing your image. Tap "Keep on the lights" to keep it after a restart.';
+					keepBtn.hidden = false;
+				} catch (e) { imgMsg.textContent = 'Could not send.'; }
+				imgIn.value = '';
+			};
+			im.src = URL.createObjectURL(f);
+		};
+		// keep: store the picture as the My LEDs table (fixed colours), so it comes back after a restart
+		keepBtn.onclick = async () => {
+			if (!pixels) return;
+			const n = Math.min(pixels.length, 1024), b = new Uint8Array(6 + n * 6);
+			b.set([76, 52, 89, 1, n & 255, n >> 8]);
+			for (let i = 0; i < n; i++) b.set([pixels[i][0], pixels[i][1], pixels[i][2], 0, 128, 0], 6 + i * 6);
+			imgMsg.textContent = 'Sending…';
+			try { imgMsg.textContent = await t.upload('myleds.bin', b, 2) ? 'Kept. It is now your My LEDs design.' : 'The lights did not accept the design. Try again.'; }
+			catch (e) { imgMsg.textContent = 'Could not send.'; }
+		};
+		const cImg = h('section', { class: 'card' },
+			h('div', { class: 'ct' }, 'Your image ', h('span', {}, W + '×' + H)),
+			h('div', { class: 'note' }, 'Pick a photo or drawing. It is shrunk to your LEDs and shown right away.'),
+			h('div', { class: 'imgwrap' }, cv),
+			h('div', { class: 'row' }, h('label', { class: 'btn primary' }, 'Choose image', imgIn), keepBtn),
+			imgMsg);
+
+		// own GIF
+		const gifIn = h('input', { type: 'file', accept: 'image/gif', hidden: '' });
+		const gifMsg = h('div', { class: 'note' });
+		const cleanName = n => {
+			let b = n.toLowerCase().replace(/\.gif$/, '').replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 26) || 'my-gif';
+			if (b.length < 1) b = 'my-gif';
+			return b + '.gif';
+		};
+		gifIn.onchange = async () => {
+			const f = gifIn.files[0]; if (!f) return;
+			gifIn.value = '';
+			if (f.size > 65536) { gifMsg.textContent = 'This GIF is ' + Math.round(f.size / 1024) + ' KB. The limit is 64 KB: use a smaller one (made for LED matrices).'; return; }
+			const name = cleanName(f.name);
+			try {
+				const ok = await t.upload(name, new Uint8Array(await f.arrayBuffer()), 1, p => { gifMsg.textContent = 'Sending… ' + Math.round(p * 100) + '%'; });
+				gifMsg.textContent = ok ? 'Playing ' + name + '.' : 'The lights could not save the GIF.';
+				if (ok) setTimeout(loadList, 800);
+			} catch (e) { gifMsg.textContent = 'Could not send the GIF.'; }
+		};
+		const cGif = h('section', { class: 'card' },
+			h('div', { class: 'ct' }, 'Your GIF'),
+			h('div', { class: 'note' }, 'Small GIFs made for LED matrices work best (up to 64 KB). The lights resize them to fit.'),
+			h('div', { class: 'row' }, h('label', { class: 'btn primary' }, 'Choose GIF', gifIn)),
+			gifMsg);
+
+		// GIFs stored on the lights
+		const list = h('div', { class: 'giflist2' });
+		const loadList = () => (t.status ? t.status() : Promise.resolve(null)).then(s => {
+			const g = (s && s.g) || [];
+			if (!g.length) { list.replaceChildren(h('div', { class: 'note' }, 'No GIFs stored yet.')); return; }
+			list.replaceChildren(...g.map(name => {
+				const del = h('button', { type: 'button', class: 'btn small' }, 'Delete');
+				del.onclick = async () => {
+					if (del.dataset.c !== '1') { del.dataset.c = '1'; del.textContent = 'Tap to confirm'; setTimeout(() => { del.dataset.c = ''; del.textContent = 'Delete'; }, 3000); return; }
+					try { if (!t.remove) throw 0; await t.remove(name); toast(name + ' deleted.'); setTimeout(loadList, 600); } catch (e) { toast('Could not delete.'); }
+				};
+				return h('div', { class: 'gifrow2' }, h('span', { 'data-notr': '' }, name),
+					h('button', { type: 'button', class: 'btn small', onclick: () => t.send({ on: true, seg: { fx: 53, n: name, frz: false } }).then(() => toast('Playing ' + name + '.')).catch(() => toast('Could not send.')) }, 'Play'),
+					del);
+			}));
+		}).catch(() => {});
+		loadList();
+		const cList = h('section', { class: 'card' }, h('div', { class: 'ct' }, 'On the lights'), list);
+		return [cImg, cGif, cList];
+	}
+
 	window.L4YStudio = {
 		textCard,
+		myImagesCards,
 		updateCard,
 		myLedsCards,
 		extrasCards,
@@ -766,6 +865,11 @@ details.more summary { cursor: pointer; font-weight: 600; color: var(--fg); }
 .pbar { height: 12px; border-radius: 999px; background: var(--raise); overflow: hidden; border: 1px solid var(--line); }
 .pbar i { display: block; height: 100%; width: 0; background: var(--ag); transition: width .4s; }
 .pbar.hi i { background: var(--amber); }
+.imgwrap { margin: 10px 0; display: flex; justify-content: center; background: #000; border-radius: 12px; padding: 8px; }
+.imgprev { width: 100%; max-width: 320px; image-rendering: pixelated; }
+.giflist2 { display: flex; flex-direction: column; gap: 6px; }
+.gifrow2 { display: flex; gap: 8px; align-items: center; }
+.gifrow2 span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card.upd { border-color: var(--cyan); background: linear-gradient(135deg, #0b2a3a, #171a22 60%); }
 .gifpack { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; margin-top: 8px; }
 .gphead { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }

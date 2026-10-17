@@ -54,7 +54,7 @@ input[type=range] { width: 100%; accent-color: var(--hot); }
 	<div class="tabs" role="tablist">
 		<button type="button" class="sel" id="tabText" role="tab">Text</button>
 		<button type="button" id="tabLeds" role="tab">My LEDs</button>
-		<button type="button" id="tabGifs" role="tab">GIFs</button>
+		<button type="button" id="tabGifs" role="tab">Images</button>
 		<button type="button" id="tabMore" role="tab">More</button>
 		<button type="button" id="tabHouse" role="tab">House</button>
 	</div>
@@ -101,6 +101,7 @@ const wifi = {
 		if (!r.ok) throw new Error(r.status);
 		setTimeout(() => wifi.send({ rb: true }).catch(() => {}), 1500);   // restart after the settings are written
 	},
+	remove: name => fetch('/edit?func=delete&path=/' + encodeURIComponent(name)).then(r => { if (!r.ok) throw new Error(r.status); }),
 	loadTable: () => fetch('/myleds.bin', { cache: 'no-store' }).then(r => r.ok ? r.arrayBuffer() : null).then(b => b ? new Uint8Array(b) : null)
 };
 document.getElementById('langBox').append(L4YI18n.picker());
@@ -121,7 +122,7 @@ fetch('/json/si').then(r => r.json()).then(j => {
 	document.getElementById('paneLeds').append(...L4YStudio.myLedsCards(wifi, toast));
 	document.getElementById('paneMore').append(...L4YStudio.extrasCards(wifi, toast));
 	// the pack lives with the app on GitHub Pages (sent with CORS), so it needs internet on the phone or computer
-	document.getElementById('paneGifs').append(L4YStudio.gifPackCard(wifi, toast, 'https://coristinaa.github.io/led4you/gifs/'));
+	document.getElementById('paneGifs').append(...L4YStudio.myImagesCards(wifi, toast), L4YStudio.gifPackCard(wifi, toast, 'https://coristinaa.github.io/led4you/gifs/'));
 	if (location.hash === '#gifs') show('Gifs');
 	let houseMounted = false;
 	const mountHouse = () => { if (!houseMounted) { houseMounted = true; document.getElementById('paneHouse').append(...L4YStudio.houseCards(toast)); } };
