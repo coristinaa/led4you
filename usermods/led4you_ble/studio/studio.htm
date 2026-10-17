@@ -55,12 +55,14 @@ input[type=range] { width: 100%; accent-color: var(--hot); }
 		<button type="button" class="sel" id="tabText" role="tab">Text</button>
 		<button type="button" id="tabLeds" role="tab">My LEDs</button>
 		<button type="button" id="tabGifs" role="tab">Images</button>
+		<button type="button" id="tabLay" role="tab">See it</button>
 		<button type="button" id="tabMore" role="tab">More</button>
 		<button type="button" id="tabHouse" role="tab">House</button>
 	</div>
 	<div id="paneText"></div>
 	<div id="paneLeds" hidden></div>
 	<div id="paneGifs" hidden></div>
+	<div id="paneLay" hidden></div>
 	<div id="paneMore" hidden></div>
 	<div id="paneHouse" hidden></div>
 </main>
@@ -117,12 +119,12 @@ document.getElementById('langBox').append(L4YI18n.picker());
 document.getElementById('updBox').append(L4YStudio.updateCard(toast));
 const style = document.createElement('style'); style.textContent = L4YStudio.css; document.head.append(style);
 function show(id) {
-	['Text', 'Leds', 'Gifs', 'More', 'House'].forEach(k => {
+	['Text', 'Leds', 'Gifs', 'Lay', 'More', 'House'].forEach(k => {
 		document.getElementById('pane' + k).hidden = k !== id;
 		document.getElementById('tab' + k).classList.toggle('sel', k === id);
 	});
 }
-['Text', 'Leds', 'Gifs', 'More', 'House'].forEach(k => { document.getElementById('tab' + k).onclick = () => show(k); });
+['Text', 'Leds', 'Gifs', 'Lay', 'More', 'House'].forEach(k => { document.getElementById('tab' + k).onclick = () => show(k); });
 fetch('/json/si').then(r => r.json()).then(j => {
 	const m = j.info && j.info.leds && j.info.leds.matrix;
 	INFO = { leds: j.info.leds.count, mw: m ? m.w : 0, mh: m ? m.h : 0, mfx: j.state.l4y ? j.state.l4y.mfx : 255 };
@@ -138,6 +140,26 @@ fetch('/json/si').then(r => r.json()).then(j => {
 	const mountHouse = () => { if (!houseMounted) { houseMounted = true; document.getElementById('paneHouse').append(...L4YStudio.houseCards(toast)); } };
 	document.getElementById('tabHouse').addEventListener('click', mountHouse);
 	if (location.hash === '#house') { mountHouse(); show('House'); }
+	// "See it": effects drawn on a tree / house / garden (layouts.js lives on the LED4YOU site, so it needs internet)
+	let layMounted = false;
+	const mountLay = async () => {
+		if (layMounted) return; layMounted = true;
+		const box = document.getElementById('paneLay'); box.textContent = '…';
+		try {
+			const [eff, fxd, pal] = await Promise.all(['/json/eff', '/json/fxdata', '/json/pal'].map(u => fetch(u).then(r => r.json())));
+			const fx = eff.map((n, i) => [i, n, /2/.test(((fxd[i] || '').split(';')[3]) || '') ? 1 : 0]).filter(f => f[1] && f[1] !== 'RSVD' && f[1] !== '-');
+			const stops = {};
+			for (let pg = 0, m = 0; pg <= m; pg++) {
+				const j = await (await fetch('/json/palx?page=' + pg)).json(); m = j.m || 0;
+				for (const k in j.p) if (Array.isArray(j.p[k]) && Array.isArray(j.p[k][0])) stops[k] = j.p[k].flat();
+			}
+			await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://coristinaa.github.io/led4you/layouts.js'; sc.onload = ok; sc.onerror = no; document.head.append(sc); });
+			const st = document.createElement('style'); st.textContent = L4YLayout.css; document.head.append(st);
+			L4YLayout.mount(box, { fx, pal, palStops: id => stops[id] || null, toast, send: wifi.send,
+				current: async () => { const s = (await (await fetch('/json/state')).json()).seg[0]; return { fx: s.fx, col: s.col, pal: s.pal, sx: s.sx }; } });
+		} catch (e) { layMounted = false; box.textContent = 'Could not load the preview. It needs internet on this phone or computer.'; }
+	};
+	document.getElementById('tabLay').addEventListener('click', mountLay);
 	if (location.hash === '#leds') show('Leds');
 	if (location.hash === '#more') show('More');
 });

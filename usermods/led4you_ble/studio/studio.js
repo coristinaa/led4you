@@ -587,7 +587,14 @@
 			return cv;
 		};
 		const set = (cv, spec) => { const nw = mini(spec); live.delete(nw); cv._pv = nw._pv; };
-		return { mini, set, of, palAt };
+		// colour of LED i (of n) at time t; x, y (0..1) place it for matrix effects. Used by the house / tree preview.
+		const sampler = spec => {
+			const k = spec.sim ? { s: spec.sim } : of(spec.name, spec.d2);
+			const C = [0, 1, 2].map(i => { const c = spec.col && spec.col[i]; return c && c.length >= 3 ? c.slice(0, 3) : DEF[i]; });
+			const P = spec.pal || null, v = spec.speed == null ? 1 : .35 + spec.speed / 160, f = S[k.s] || S.plasma, g2 = k.g && S2[k.g];
+			return (i, n, t, x, y) => { curPal = P; const c = g2 ? g2(x * 25, y * 5, t * v, k.k || 0) : f(i, n, t * v, C); curPal = null; return c; };
+		};
+		return { mini, set, of, palAt, sampler };
 	})();
 
 	// ---------- Snapshots of what each house scene really looks like (kept on this phone / computer) ----------
@@ -1237,6 +1244,7 @@
 		houseCards,
 		preview: PV.mini,
 		palAt: PV.palAt,
+		sampler: PV.sampler,
 		// styles shared by both pages (they already define the colour tokens)
 		css: `
 .card input[type=range] { --fill: var(--hot); }
