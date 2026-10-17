@@ -21,6 +21,7 @@
 #include "wled.h"
 #include <NimBLEDevice.h>
 #include "html_studio.h"
+#include "js_l4ylang.h"
 
 void l4yExtrasStatus(JsonObject o);   // l4y_extras.cpp
 
@@ -510,6 +511,13 @@ class Led4youBle : public Usermod {
       ::server.on(F("/studio"), HTTP_GET, [](AsyncWebServerRequest* request) {
         AsyncWebServerResponse* r = request->beginResponse_P(200, F("text/html"), PAGE_studio, PAGE_studio_length);
         r->addHeader(F("Content-Encoding"), F("gzip"));
+        request->send(r);
+      });
+      // language loader used by the board's own pages (translations come from the LED4YOU site)
+      ::server.on(F("/l4ylang.js"), HTTP_GET, [](AsyncWebServerRequest* request) {
+        AsyncWebServerResponse* r = request->beginResponse_P(200, F("application/javascript"), JS_l4ylang, JS_l4ylang_length);
+        r->addHeader(F("Content-Encoding"), F("gzip"));
+        r->addHeader(F("Cache-Control"), F("max-age=3600"));
         request->send(r);
       });
 
