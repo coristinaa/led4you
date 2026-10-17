@@ -343,6 +343,7 @@
 		[/^On your Wi-Fi at (.+)$/, 'No teu Wi-Fi em $1', 'En tu Wi-Fi en $1', 'Sur votre Wi-Fi à $1'],
 		[/^Connected to (.+)$/, 'Ligado a $1', 'Conectado a $1', 'Connecté à $1']
 	];
+	if (Array.isArray(window.L4YI18N_EXTRA)) T.push(...window.L4YI18N_EXTRA);   // the board's own pages add their texts
 	const idx = { pt: 1, es: 2, fr: 3 };
 	const dict = { pt: new Map(), es: new Map(), fr: new Map() };
 	T.forEach(r => { for (const l in idx) dict[l].set(r[0], r[idx[l]]); });
