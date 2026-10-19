@@ -1,3 +1,3 @@
-[{ "version": 52, "manifest": "manifest-v52.json", "notes": "Sound effects from the phone's microphone" },
- { "version": 51, "manifest": "manifest-v51.json", "notes": "Effect previews closer to the real matrix" },
- { "version": 49, "manifest": "manifest-v49.json", "notes": "See it over Wi-Fi shows the effects like the app" }]
+[{ "version": 53, "manifest": "manifest-v53.json", "notes": "Season themes fill every LED" },
+ { "version": 52, "manifest": "manifest-v52.json", "notes": "Sound effects from the phone's microphone" },
+ { "version": 51, "manifest": "manifest-v51.json", "notes": "Effect previews closer to the real matrix" }]
