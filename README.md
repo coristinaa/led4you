@@ -36,6 +36,11 @@ Nunca uses o ficheiro de um chip no outro.
 
 ## Instalar numa placa nova
 
+**Mais fácil:** abre a [app](https://coristinaa.github.io/led4you/) no **Chrome ou Edge de um computador**, liga a placa por USB e usa o cartão
+**Instalar o LED4YOU numa placa nova**: escolhes a versão e o ficheiro certo para o chip (ESP32‑C3 ou ESP32) é gravado sozinho.
+
+**À mão:**
+
 1. Abre o [ESP Tool da Espressif](https://espressif.github.io/esptool-js/) no Chrome ou no Edge do computador.
 2. Liga a placa por USB e carrega em **Connect** (se não ligar, segura o botão **BOOT** ao ligar o cabo).
 3. Carrega em **Erase Flash**.
