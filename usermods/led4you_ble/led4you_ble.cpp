@@ -272,7 +272,10 @@ class Led4youBle : public Usermod {
           break;
         }
         case 0x03: { // device info
-          const char* s[4] = { WLED_BRAND, versionString, "ESP32", serverDescription };
+          extern const int l4yFwVersion;
+          char v[32]; snprintf_P(v, sizeof(v), PSTR("v%d (WLED %s)"), l4yFwVersion, versionString);
+          String chip = ESP.getChipModel(); chip.toUpperCase();
+          const char* s[4] = { WLED_BRAND, v, chip.c_str(), serverDescription };
           sendImprovResult(0x03, s, 4);
           break;
         }
