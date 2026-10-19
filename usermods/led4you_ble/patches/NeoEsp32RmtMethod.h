@@ -47,6 +47,16 @@ extern "C"
 {
 #include <rom/gpio.h>
 #include <driver/rmt.h>
+#if defined(CONFIG_IDF_TARGET_ESP32C3) && defined(LED4YOU_BLE)
+// LED4YOU (patch): on the ESP32-C3 the first LED output is sent with SPI + DMA instead of RMT.
+// The RMT on the C3 holds only a few LEDs and needs an interrupt to refill it during every frame; with
+// Bluetooth on (Wi-Fi modem sleep, radio interrupts, flash access) that interrupt comes late and LEDs get
+// wrong data. SPI DMA streams the whole frame from RAM with no CPU help once started.
+#include <driver/spi_master.h>
+#include <esp_heap_caps.h>
+#define L4Y_SPI_LEDS 1
+inline bool& l4ySpiLedsBusy() { static bool busy = false; return busy; }
+#endif
 }
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 3, 0)
@@ -581,6 +591,21 @@ public:
 
     ~NeoEsp32RmtMethodBase()
     {
+#ifdef L4Y_SPI_LEDS
+        if (_spiDev)
+        {
+            spiWait(1000);
+            spi_bus_remove_device(_spiDev);
+            spi_bus_free(SPI2_HOST);
+            heap_caps_free(_spiBuf);
+            l4ySpiLedsBusy() = false;
+            gpio_matrix_out(_pin, SIG_GPIO_OUT_IDX, false, false);
+            pinMode(_pin, INPUT);
+            free(_dataEditing);
+            free(_dataSending);
+            return;
+        }
+#endif
         // wait until the last send finishes before destructing everything
         // arbitrary time out of 10 seconds
         ESP_ERROR_CHECK_WITHOUT_ABORT(rmt_wait_tx_done(_channel.RmtChannelNumber, 10000 / portTICK_PERIOD_MS));
@@ -596,11 +621,17 @@ public:
 
     bool IsReadyToUpdate() const
     {
+#ifdef L4Y_SPI_LEDS
+        if (_spiDev) return spiWait(0);
+#endif
         return (ESP_OK == ESP_ERROR_CHECK_WITHOUT_ABORT_SILENT_TIMEOUT(rmt_wait_tx_done(_channel.RmtChannelNumber, 0)));
     }
 
     void Initialize()
     {
+#ifdef L4Y_SPI_LEDS
+        if (T_SPEED::IdleLevel == RMT_IDLE_LEVEL_LOW && !l4ySpiLedsBusy() && spiInit()) return;
+#endif
         rmt_config_t config = {};
 
         config.rmt_mode = RMT_MODE_TX;
@@ -630,6 +661,20 @@ public:
 
     void Update(bool maintainBufferConsistency)
     {
+#ifdef L4Y_SPI_LEDS
+        if (_spiDev)
+        {
+            if (!spiWait(1000)) return;     // last frame still going (should never take this long)
+            spiEncode(_dataEditing);         // the DMA buffer gets its own copy, sending never touches the pixel buffers
+            memset(&_spiT, 0, sizeof(_spiT));
+            _spiT.length = _spiLen * 8;
+            _spiT.tx_buffer = _spiBuf;
+            if (spi_device_queue_trans(_spiDev, &_spiT, 0) == ESP_OK) _spiPending = true;
+            if (maintainBufferConsistency) memcpy(_dataSending, _dataEditing, _sizeData);
+            std::swap(_dataSending, _dataEditing);
+            return;
+        }
+#endif
         // wait for not actively sending data
         // this will time out at 10 seconds, an arbitrarily long period of time
         // and do nothing if this happens
@@ -686,6 +731,81 @@ private:
     uint8_t*  _dataEditing;   // exposed for get and set
     uint8_t*  _dataSending;   // used for async send using RMT
 
+
+#ifdef L4Y_SPI_LEDS
+    spi_device_handle_t _spiDev = nullptr;
+    uint8_t* _spiBuf = nullptr;      // DMA buffer: reset (low) bytes, then 3 SPI bits per LED data bit
+    size_t _spiLen = 0;
+    size_t _spiLead = 0;
+    uint8_t _ones0 = 1, _ones1 = 2;  // how many of the 3 SPI bits are high for a 0 bit and for a 1 bit
+    mutable bool _spiPending = false;
+    spi_transaction_t _spiT;
+
+    bool spiWait(uint32_t ms) const
+    {
+        if (!_spiPending) return true;
+        spi_transaction_t* r;
+        if (spi_device_get_trans_result(_spiDev, &r, ms ? pdMS_TO_TICKS(ms) : 0) != ESP_OK) return false;
+        _spiPending = false;
+        return true;
+    }
+
+    bool spiInit()
+    {
+        const uint32_t tickNs = 1000000000UL / (80000000UL / T_SPEED::RmtClockDivider);
+        const uint32_t h0 = (T_SPEED::RmtBit0 & 0x7fff) * tickNs, l0 = ((T_SPEED::RmtBit0 >> 16) & 0x7fff) * tickNs;
+        const uint32_t h1 = (T_SPEED::RmtBit1 & 0x7fff) * tickNs;
+        const uint32_t slot = (h0 + l0) / 3;          // one LED bit = 3 SPI bits (WS2812: 2.4 MHz, 0 = 100, 1 = 110)
+        if (slot == 0) return false;
+        uint32_t o0 = (h0 + slot / 2) / slot, o1 = (h1 + slot / 2) / slot;
+        if (o0 < 1) o0 = 1;
+        if (o1 > 2) o1 = 2;
+        if (o1 <= o0) { o0 = 1; o1 = 2; }
+        _ones0 = o0; _ones1 = o1;
+        const uint32_t resetNs = (uint32_t)T_SPEED::RmtDurationReset * tickNs;
+        _spiLead = (resetNs + 8 * slot - 1) / (8 * slot) + 2;
+        _spiLen = _spiLead + _sizeData * 3;
+        if (_spiLen * 8 > 262143) return false;     // longer than one SPI transfer on the C3: use RMT
+        _spiBuf = static_cast<uint8_t*>(heap_caps_calloc(1, _spiLen, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
+        if (!_spiBuf) return false;
+        spi_bus_config_t bus = {};
+        bus.mosi_io_num = _pin;
+        bus.miso_io_num = -1;
+        bus.sclk_io_num = -1;
+        bus.quadwp_io_num = -1;
+        bus.quadhd_io_num = -1;
+        bus.max_transfer_sz = _spiLen;
+        if (spi_bus_initialize(SPI2_HOST, &bus, SPI_DMA_CH_AUTO) != ESP_OK) { heap_caps_free(_spiBuf); _spiBuf = nullptr; return false; }
+        spi_device_interface_config_t dev = {};
+        dev.clock_speed_hz = 1000000000UL / slot;
+        dev.mode = 0;
+        dev.spics_io_num = -1;
+        dev.queue_size = 1;
+        dev.flags = SPI_DEVICE_NO_DUMMY;
+        if (spi_bus_add_device(SPI2_HOST, &dev, &_spiDev) != ESP_OK)
+        {
+            _spiDev = nullptr;
+            spi_bus_free(SPI2_HOST);
+            heap_caps_free(_spiBuf); _spiBuf = nullptr;
+            return false;
+        }
+        l4ySpiLedsBusy() = true;
+        return true;
+    }
+
+    void spiEncode(const uint8_t* src)
+    {
+        const uint32_t p0 = (_ones0 == 1) ? 0b100 : 0b110, p1 = (_ones1 == 2) ? 0b110 : 0b111;
+        uint8_t* d = _spiBuf + _spiLead;
+        for (size_t i = 0; i < _sizeData; i++)
+        {
+            const uint8_t b = src[i];
+            uint32_t v = 0;
+            for (int bit = 7; bit >= 0; bit--) v = (v << 3) | ((b >> bit) & 1 ? p1 : p0);
+            *d++ = v >> 16; *d++ = v >> 8; *d++ = v;
+        }
+    }
+#endif
 
     void construct()
     {
