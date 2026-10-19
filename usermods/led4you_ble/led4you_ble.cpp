@@ -57,6 +57,7 @@ void l4yExtrasStatus(JsonObject o);   // l4y_extras.cpp
 static const char MYLEDS_FILE[] = "/myleds.bin";
 static volatile uint16_t myLedsVersion = 1;   // bumped after every upload so the effect reloads the table
 static uint8_t myLedsFxId = 255;
+bool l4yBleActive = false;   // read by wled.cpp: Wi-Fi modem sleep only while Bluetooth runs
 
 // Small integer hash used to make twinkle patterns differ per LED and per cycle
 static inline uint32_t l4yHash(uint32_t x) {
@@ -627,6 +628,8 @@ class Led4youBle : public Usermod {
       NimBLEAdvertisementData sr; sr.setName(name.c_str());
       adv->setScanResponseData(sr);
       running = true;
+      l4yBleActive = true;
+      if (WLED_CONNECTED) WiFi.setSleep(true);   // required while Bluetooth runs
       idleSince = millis();
       updateAdvertising();
       adv->start();
@@ -714,6 +717,8 @@ class Led4youBle : public Usermod {
     void stopBle() {
       running = false;
       NimBLEDevice::deinit(true);
+      l4yBleActive = false;
+      WiFi.setSleep(!noWifiSleep);   // Bluetooth gone: no more modem sleep (unless chosen), steadier LED data on the C3
       server = nullptr; impState = impError = impRes = ctlState = ctlFile = ctlList = ctlPeek = nullptr;
       if (cmdBuf) { free(cmdBuf); cmdBuf = nullptr; }
       L4yBleMsg m;

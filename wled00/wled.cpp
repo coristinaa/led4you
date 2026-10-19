@@ -801,7 +801,10 @@ void WLED::initConnection()
     DEBUG_PRINT(F("; WiFi sleep ")); DEBUG_PRINTLN(noWifiSleep ? F("disabled."):F("enabled."));
     WiFi.setTxPower(wifi_power_t(txPower));
     #ifdef LED4YOU_BLE
-    WiFi.setSleep(true); // LED4YOU: modem sleep is mandatory while Bluetooth is active (Wi-Fi/BLE coexistence)
+    // LED4YOU: modem sleep is mandatory while Bluetooth runs (Wi-Fi/BLE coexistence); without Bluetooth follow the
+    // "Disable WiFi sleep" setting, as modem sleep on the single-core ESP32-C3 makes LEDs flicker
+    extern bool l4yBleActive;
+    WiFi.setSleep(l4yBleActive || !noWifiSleep);
     #else
     WiFi.setSleep(!noWifiSleep);
     #endif
