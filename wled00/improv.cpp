@@ -210,9 +210,9 @@ void sendImprovInfoResponse() {
   bool useMdnsName = (strcmp(serverDescription, WLED_BRAND) == 0 && strlen(cmDNS) > 0);
   char vString[32];
 #ifdef LED4YOU_BLE
-  // LED4YOU: "v34 (WLED 16.0.1)", chip in capitals, and the same name the lights use over Bluetooth (LED4YOU-xxxx)
+  // LED4YOU: "v35" (the LED4YOU version), chip in capitals, and the same name the lights use over Bluetooth (LED4YOU-xxxx)
   extern const int l4yFwVersion;
-  snprintf_P(vString, sizeof(vString), PSTR("v%d (WLED %s)"), l4yFwVersion, versionString);
+  snprintf_P(vString, sizeof(vString), PSTR("v%d"), l4yFwVersion);
   strupr(bString);
   char nString[33];
   if (useMdnsName) {
