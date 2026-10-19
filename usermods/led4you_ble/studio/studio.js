@@ -944,13 +944,17 @@
 			const themes = [...new Set(pack.map(f => f.t))];
 			themes.forEach(th => {
 				const list = pack.filter(f => f.t === th);
-				const all = h('button', { type: 'button', class: 'btn small' }, 'Add all');
+				const all = h('button', { type: 'button', class: 'btn small' }, 'Play all');
 				all.onclick = async () => {
 					all.disabled = true;
 					let i = 0, cur = '';
 					try {
-						for (const f of list) { i++; cur = f.n; await send(f, false); }
-						toast(th + ': ' + list.length + ' animations stored on the lights.');
+						for (const f of list) { i++; cur = f.n; prog.textContent = 'Sending ' + i + ' of ' + list.length + '…'; await send(f, false); }
+						prog.textContent = '';
+						// then play them one after the other: the lights change to the next one every 10 s (same file name start)
+						const pre = list[0].f.split('-')[0] + '-';
+						await t.send({ on: true, seg: { fx: 53, n: list[0].f, frz: false, sx: 128, ix: 0 }, l4y: { gr: { p: pre, s: 10 } } });
+						toast(th + ': playing all ' + list.length + ' animations, a new one every 10 seconds.');
 					} catch (e) {
 						// say which one stopped it and why, so a full memory and a lost connection can be told apart
 						toast('Stopped at ' + cur + ' (' + i + ' of ' + list.length + '): ' + (e && e.message === 'timeout' ? 'the lights did not answer' : (e && e.message) || 'error') + '.');

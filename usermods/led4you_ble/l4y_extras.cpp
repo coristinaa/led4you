@@ -13,7 +13,7 @@
 #include "wled.h"
 #include <WiFiUdp.h>
 
-#define L4Y_FW_VERSION 46      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
+#define L4Y_FW_VERSION 47      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
 #define L4Y_HOUSE_PORT 21329   // UDP port for house scenes ("L4YS" packets)
 extern const int l4yFwVersion = L4Y_FW_VERSION;   // shown by Improv (installer, Wi-Fi setup) as "v.."
 
@@ -190,6 +190,35 @@ class Led4youExtras : public Usermod {
       txScene = n; txSeq++; txLeft = 3; txNext = millis();
     }
 
+    // "Play all" from the GIF pack: the main segment plays every stored GIF whose name starts with gifRotPrefix
+    // (hw- Halloween, xm- Christmas, ev- other), a new one every gifRotSec seconds. Stops when another effect is chosen.
+    char gifRotPrefix[8] = "";
+    uint16_t gifRotSec = 0;
+    uint32_t gifRotNext = 0;
+    void runGifRotation() {
+      if (!gifRotSec || (long)(millis() - gifRotNext) < 0) return;
+      gifRotNext = millis() + gifRotSec * 1000UL;
+      Segment& seg = strip.getMainSegment();
+      if (seg.mode != FX_MODE_IMAGE) { gifRotSec = 0; return; }
+      const char* cur = seg.name ? seg.name : "";
+      String first, next;
+      File root = WLED_FS.open("/");
+      File f = root.openNextFile();
+      while (f) {
+        String n = f.name();
+        f.close();
+        if (n.startsWith("/")) n = n.substring(1);
+        if (n.startsWith(gifRotPrefix) && n.endsWith(".gif")) {
+          if (!first.length() || n < first) first = n;                                   // alphabetical order
+          if (strcmp(n.c_str(), cur) > 0 && (!next.length() || n < next)) next = n;
+        }
+        f = root.openNextFile();
+      }
+      root.close();
+      if (!next.length()) next = first;                                                   // back to the start
+      if (next.length() && strcmp(next.c_str(), cur) != 0) seg.setName(next);
+    }
+
     void runHouse() {
       if (!WLED_CONNECTED) { udpUp = false; return; }
       if (!udpUp) udpUp = houseUdp.begin(L4Y_HOUSE_PORT);
@@ -314,6 +343,7 @@ class Led4youExtras : public Usermod {
       runCountdown();
       runPir();
       runHouse();
+      runGifRotation();
     }
 
     // commands under "l4y" in the JSON state API (Wi-Fi /json/state and Bluetooth)
@@ -349,6 +379,13 @@ class Led4youExtras : public Usermod {
       }
 
       JsonObject l = root[F("l4y")];
+      // GIF rotation: started with {"l4y":{"gr":{"p":"hw-","s":10}}}, any other effect choice stops it
+      if (!l.isNull() && l[F("gr")].is<JsonObject>()) {
+        JsonObject gr = l[F("gr")];
+        strlcpy(gifRotPrefix, gr["p"] | "", sizeof(gifRotPrefix));
+        gifRotSec = gifRotPrefix[0] ? constrain((int)(gr["s"] | 10), 3, 600) : 0;
+        gifRotNext = millis() + gifRotSec * 1000UL;
+      } else if (gifRotSec && !so.isNull() && so.containsKey("fx")) gifRotSec = 0;
       if (l.isNull()) return;
       bool save = false;
 

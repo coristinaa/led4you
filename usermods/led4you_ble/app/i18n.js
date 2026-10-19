@@ -116,7 +116,8 @@
 		['This needs firmware v7 on the lights.', 'Isto precisa do firmware v7 ou mais recente nas luzes.', 'Esto necesita el firmware v7 o posterior en las luces.', 'Cela nécessite le firmware v7 ou plus récent.'],
 		['GIF pack', 'Pack de GIFs', 'Pack de GIF', 'Pack de GIF'],
 		['Tap an animation to send it to the lights and play it. Made for matrices; on a strip it is squeezed into one line.', 'Toca numa animação para a enviar às luzes e tocá-la. Feitas para matrizes; numa fita ficam espremidas numa linha.', 'Toca una animación para enviarla a las luces y reproducirla. Hechas para matrices; en una tira se comprimen en una línea.', 'Touchez une animation pour l’envoyer aux lumières et la lire. Faites pour les matrices ; sur une bande elle est compressée sur une ligne.'],
-		['Add all', 'Juntar todos', 'Añadir todos', 'Tout ajouter'],
+		['Play all', 'Tocar todos', 'Reproducir todos', 'Tout lire'],
+		['the lights did not answer', 'as luzes não responderam', 'las luces no respondieron', 'les lumières n’ont pas répondu'],
 		['The GIF pack needs internet on this phone or computer.', 'O pack de GIFs precisa de internet neste telemóvel ou computador.', 'El pack de GIF necesita internet en este móvil u ordenador.', 'Le pack de GIF nécessite Internet sur ce téléphone ou cet ordinateur.'],
 		['Stopped: not enough space or the lights did not answer.', 'Parado: falta espaço ou as luzes não responderam.', 'Detenido: falta espacio o las luces no respondieron.', 'Arrêté : pas assez d’espace ou les lumières n’ont pas répondu.'],
 		['Halloween', 'Halloween', 'Halloween', 'Halloween'],
@@ -474,6 +475,9 @@
 	];
 	// sentences with numbers or names inside: [regex on the English text, PT, ES, FR] ($1, $2 = captured parts)
 	const P = [
+		[/^Sending (\d+) of (\d+)…$/, 'A enviar $1 de $2…', 'Enviando $1 de $2…', 'Envoi $1 sur $2…'],
+		[/^(.+): playing all (\d+) animations, a new one every 10 seconds\.$/, '$1: a tocar as $2 animações, uma nova a cada 10 segundos.', '$1: reproduciendo las $2 animaciones, una nueva cada 10 segundos.', '$1 : lecture des $2 animations, une nouvelle toutes les 10 secondes.'],
+		[/^Stopped at (.+) \((\d+) of (\d+)\): (.+)\.$/, 'Parou em $1 ($2 de $3): $4.', 'Se detuvo en $1 ($2 de $3): $4.', 'Arrêté à $1 ($2 sur $3) : $4.'],
 		[/^LED (\d+)$/, 'LED $1', 'LED $1', 'LED $1'],
 		[/^The lights could not join "(.+)": (.+)\.$/, 'As luzes não conseguiram entrar em "$1": $2.', 'Las luces no pudieron unirse a "$1": $2.', 'Les lumières n’ont pas pu rejoindre « $1 » : $2.'],
 		[/^This GIF is (\d+) KB\. The limit is 64 KB: use a smaller one \(made for LED matrices\)\.$/, 'Este GIF tem $1 KB. O limite é 64 KB: usa um mais pequeno (feito para matrizes de LEDs).', 'Este GIF ocupa $1 KB. El límite es 64 KB: usa uno más pequeño (hecho para matrices de LEDs).', 'Ce GIF fait $1 Ko. La limite est de 64 Ko : utilisez-en un plus petit (fait pour matrices LED).'],
