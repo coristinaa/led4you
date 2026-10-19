@@ -511,17 +511,112 @@
 			confetti: (i, n, t) => sc(wh(hsh(i * 7 + Math.floor(t * 3 + hsh(i) * 5))), tw(i, t, 1.5, .5)),
 			image: (i, n, t) => sc(wh(Math.floor(i / 3) * .13 + Math.floor(t) * .3), .9)
 		};
-		// 2D (matrix) effects: drawn on a small grid; most WLED 2D effects are moving colour fields
+		// 2D (matrix) effects. x 0..X, y 0..H in LED steps (X = columns-1, H = rows-1; the small previews use 25 x 5),
+		// t in seconds, C the three colours. Each one imitates how the WLED effect moves on a real matrix.
+		const gl = (dx, dy, r) => Math.max(0, 1 - Math.hypot(dx, dy) / r);
+		// moving dots with a fading tail: pos(k, t) -> [x, y]
+		const dots = (x, y, t, N, pos, col, r = 1.15, tr = 6, dt = .05) => {
+			let c = K;
+			for (let k = 0; k < N; k++) for (let j = 0; j < tr; j++) { const p = pos(k, t - j * dt), v = gl(x - p[0], y - p[1], r) * (1 - j / tr); if (v > 0) c = add(c, sc(col(k), v)); }
+			return c;
+		};
+		const bs = (t, f, ph, lo, hi) => lo + (hi - lo) * (.5 + .5 * Math.sin(t * f + ph));   // like WLED beatsin
+		const n2 = (x, y, t) => (noise(x * .55 + y * .23, t) + noise(y * .5 - x * .17, t * .8 + 3)) / 2;   // smooth 2D noise
+		const segD = (px, py, ax, ay, bx, by) => { const vx = bx - ax, vy = by - ay, l = vx * vx + vy * vy || 1, k = Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / l)); return Math.hypot(px - ax - vx * k, py - ay - vy * k); };
 		const S2 = {
-			// x, y in LED steps; H = rows of the picture (5 for the small previews, the real number for a curtain or matrix)
 			field: (x, y, t, k) => wh(noise(x * .5 + k * 3, t * (1 + k)) + noise(y * .7 - k, t * .8) * .8 + k),
 			matrix: (x, y, t, k, H = 5) => { const tr = Math.max(4, H / 3), L = H + tr + 2, xx = Math.round(x);
 				const p = ((t * (3 + hsh(xx) * 3) * Math.max(1, H / 8) + hsh(xx * 7) * L) % L) - y; return p >= 0 && p < tr ? [0, 255 * (1 - p / tr), p < 1 ? 120 : 0] : K; },
 			geq: (x, y, t, k, H = 5) => { const xx = Math.floor(x * 5 / Math.max(5, H)), lvl = (.3 + .7 * Math.abs(Math.sin(t * (3 + xx * .7) + xx))) * (H + 1); return H - y < lvl ? wh(.33 - (H - y) / (H * 3.6)) : K; },
 			life: (x, y, t) => hsh(Math.round(x) * 13 + Math.round(y) * 7 + Math.floor(t * 2) * 97) < .3 ? [80, 255, 120] : K,
 			text: (x, y, t, k, H = 5) => { const yy = Math.round(y - (H - 5) / 2), c = Math.floor(x + t * 6); return yy > 0 && yy < 5 && hsh(c * 5 + yy) < .45 && c % 5 ? [255, 60, 60] : K; },
-			fire: (x, y, t, k, H = 5) => heat(Math.max(0, Math.min(1, (y / H) * 1.2 * (.5 + .7 * noise(x * 1.4 + y * 5 / H * .5, t * 6)) - .05)))
+			fire: (x, y, t, k, H = 5) => heat(Math.max(0, Math.min(1, (y / H) * 1.2 * (.5 + .7 * noise(x * 1.4 + y * 5 / H * .5, t * 6)) - .05))),
+			// Black Hole: 8 dots circling wide, 4 circling close, a bright centre
+			blackhole: (x, y, t, k, H = 5, X = 25) => add(dots(x, y, t, 12, (i, tt) => { const o = i < 8, a = o ? 1 : .45;
+				return [X / 2 + X / 2 * a * Math.sin(tt * (.9 + i * .13) + i * 1.7), H / 2 + H / 2 * a * Math.cos(tt * (.7 + i * .11) + i)]; }, i => wh(i / 12), 1.1, 6, .07), sc(W, gl(x - X / 2, y - H / 2, 1.3))),
+			// DNA: two strands as sine waves along the matrix, opposite phase, rainbow along
+			dna: (x, y, t, k, H = 5) => { const a = x * .45 + t * 3, y1 = H / 2 + H / 2 * Math.sin(a) * .9, y2 = H / 2 - H / 2 * Math.sin(a) * .9;
+				const v = Math.max(gl(0, y - y1, 1.2), gl(0, y - y2, 1.2) * .8, Math.min(1, Math.abs(y1 - y2) > 1 && (y - y1) * (y - y2) < 0 ? .12 : 0)); return sc(wh(x / 25 + t * .05), v); },
+			dnaspiral: (x, y, t, k, H = 5, X = 25) => { const a = y * .5 + t * 2.5, x1 = X / 2 + X / 2 * Math.sin(a) * .9, x2 = X / 2 - X / 2 * Math.sin(a) * .9;
+				const v = Math.max(gl(x - x1, 0, 1.2), gl(x - x2, 0, 1.2), (x - x1) * (x - x2) < 0 ? .25 : 0); return sc(wh(y / Math.max(5, H) + t * .05), v); },
+			// Drift Rose: 36 dots on a rotating rose
+			driftrose: (x, y, t, k, H = 5, X = 25) => { const L = Math.min(X, H) / 2; let c = K;
+				for (let i = 1; i < 37; i++) { const a = i * Math.PI / 18, r = L * Math.sin(t * (.6 + (i % 7) * .12) + i); const v = gl(x - X / 2 - Math.sin(a) * r, y - H / 2 - Math.cos(a) * r, 1); if (v) c = add(c, sc(wh(i / 36), v)); }
+				return c; },
+			// Distortion Waves: each colour channel is its own moving cosine field
+			distortion: (x, y, t) => { const w = (a, b, c) => 255 * (.5 + .5 * Math.cos(x * a + t * c + Math.cos(y * b + t))); return [w(.42, .31, 1.3), w(.35, .44, -1.1), w(.29, .37, .9)]; },
+			// Octopus: arms turning around the centre
+			octopus: (x, y, t, k, H = 5, X = 25) => { const dx = x - X / 2, dy = (y - H / 2) * Math.max(1, X / Math.max(1, H)) * (H < 8 ? .5 : 1), a = Math.atan2(dy, dx), d = Math.hypot(dx, dy);
+				const v = .5 + .5 * Math.sin(d * .7 - t * 3 + Math.sin(a * 4 + t * 1.5) * 1.5); return sc(wh(t * .05 - d * .04 + a / 6.28), v * v); },
+			wavingcell: (x, y, t) => sc(wh(Math.sin(x * .5 + Math.sin(y * .6 + t * 2) * 1.5) * .3 + y * .03 + t * .1), .5 + .5 * Math.sin(y * .7 + Math.sin(x * .4 + t * 2.3) * 2)),
+			// Spaceships: dots flying together, turning every few seconds
+			spaceships: (x, y, t, k, H = 5, X = 25) => { const b = Math.floor(t / 3), a = hsh(b) * 6.28, vx = Math.cos(a) * 5, vy = Math.sin(a) * 5;
+				return dots(x, y, t, 5, (i, tt) => [((X / 5 * i + vx * tt) % (X + 1) + X + 1) % (X + 1), ((hsh(i * 9) * H + vy * tt) % (H + 1) + H + 1) % (H + 1)], i => wh(i / 5), 1, 7, .06); },
+			// Crazy Bees: bees flying from flower to flower
+			bees: (x, y, t, k, H = 5, X = 25) => dots(x, y, t, 4, (i, tt) => { const p = tt * .5 + i * .37, b = Math.floor(p), f = p - b, e = f * f * (3 - 2 * f);
+				const ax = hsh(b * 7 + i) * X, ay = hsh(b * 11 + i) * H, bx = hsh((b + 1) * 7 + i) * X, by = hsh((b + 1) * 11 + i) * H; return [ax + (bx - ax) * e, ay + (by - ay) * e]; }, i => wh(i / 4 + .1), 1.1, 5, .05),
+			// Ghost Rider: a light wandering in curves with a glowing trail
+			ghost: (x, y, t, k, H = 5, X = 25) => dots(x, y, t, 1, (i, tt) => [X / 2 + X / 2 * .9 * Math.sin(tt * 1.3) * Math.cos(tt * .4), H / 2 + H / 2 * .9 * Math.sin(tt * 1.7 + 1)], () => wh(t * .1), 1.4, 14, .05),
+			// Blobs / Metaballs: soft balls that merge
+			blobs: (x, y, t, k, H = 5, X = 25) => { let v = 0; const R = Math.max(2, Math.min(X, H) * .28);
+				for (let i = 0; i < 3; i++) { const px = bs(t, .7 + i * .3, i * 2, 0, X), py = bs(t, .5 + i * .4, i, 0, H), d = Math.hypot(x - px, y - py) + .5; v += R * R / (d * d); }
+				return v > 1 ? sc(wh(Math.min(1, v / 6) * .6 + t * .03), Math.min(1, (v - 1) * 1.5)) : K; },
+			soap: (x, y, t) => wh(n2(x, y, t * .8) * 1.6 + t * .03),
+			noise2d: (x, y, t) => wh(n2(x * .7, y * .7, t * 1.2) * 1.4),
+			// Lissajous: a figure-of-eight curve drawn by a moving pen
+			lissajous: (x, y, t, k, H = 5, X = 25) => { let v = 0, best = 0; for (let s = 0; s < 48; s++) { const a = s / 48 * 6.283, px = X / 2 + X / 2 * Math.sin(a * 2 + t * .7), py = H / 2 + H / 2 * Math.cos(a * 3);
+				const g = gl(x - px, y - py, 1.1); if (g > v) { v = g; best = s; } } return sc(wh(best / 48 + t * .1), v); },
+			julia: (x, y, t, k, H = 5, X = 25) => { let zx = (x / Math.max(1, X) - .5) * 3, zy = (y / Math.max(1, H) - .5) * 2.4, i = 0; const cx = -.75 + .2 * Math.sin(t * .3), cy = .15 + .15 * Math.cos(t * .4);
+				for (; i < 24 && zx * zx + zy * zy < 4; i++) { const nx = zx * zx - zy * zy + cx; zy = 2 * zx * zy + cy; zx = nx; } return i >= 24 ? K : wh(i / 24 + t * .05); },
+			tartan: (x, y, t) => add(sc(wh(t * .05), Math.max(0, Math.sin(x * .8 + t * 1.5)) ** 2), sc(wh(t * .05 + .5), Math.max(0, Math.sin(y * .8 - t * 1.2)) ** 2)),
+			// Polar Lights: green and blue curtains waving at the top
+			polar: (x, y, t, k, H = 5) => { const top = H * (.25 + .35 * noise(x * .25, t * .6)); const v = Math.max(0, 1 - Math.abs(y - top) / (H * .35 + .5));
+				return sc(mix([0, 255, 90], [60, 0, 255], Math.min(1, y / Math.max(1, H) + .2 * noise(x * .4, t))), v * v); },
+			// Swirl / Squared Swirl / Frizzles / Sindots: dots on beat-sine paths leaving trails
+			swirl: (x, y, t, k, H = 5, X = 25) => dots(x, y, t, 4, (i, tt) => { const a = bs(tt, 1.1, 0, 0, X), b = bs(tt, 1.4, 1, 0, H); return i === 0 ? [a, b] : i === 1 ? [X - a, H - b] : i === 2 ? [a, H - b] : [X - a, b]; }, i => wh(t * .1 + i * .25), 1.2, 8, .05),
+			squaredswirl: (x, y, t, k, H = 5, X = 25) => dots(x, y, t, 3, (i, tt) => [bs(tt, .9 + i * .35, i * 2, 0, X), bs(tt, 1.2 + i * .25, i, 0, H)], i => wh(i / 3), 1.2, 9, .05),
+			frizzles: (x, y, t, k, H = 5, X = 25) => dots(x, y, t, 8, (i, tt) => [bs(tt, .8 + i * .15, i, 0, X), bs(tt, 1 + i * .12, i * 2, 0, H)], i => wh(i / 8 + t * .05), 1, 7, .05),
+			sindots: (x, y, t, k, H = 5, X = 25) => dots(x, y, t, 6, (i, tt) => [bs(tt, 1.2 + i * .2, i * 1.3, 0, X), bs(tt, .9 + i * .3, i * .7, 0, H)], i => wh(i / 6), 1, 6, .05),
+			// Plasma Ball: lightning lines from the centre to the edge
+			plasmaball: (x, y, t, k, H = 5, X = 25) => { let v = gl(x - X / 2, y - H / 2, 1.5), c = sc(W, v);
+				for (let i = 0; i < 5; i++) { const a = hsh(Math.floor(t * 3) * 7 + i) * 6.28 + t, ex = X / 2 + Math.cos(a) * X, ey = H / 2 + Math.sin(a) * H; const d = segD(x, y, X / 2, H / 2, ex, ey); if (d < 1) c = add(c, sc(wh(.75 + i * .05), 1 - d)); }
+				return c; },
+			// Drift: spokes turning from the centre, colour by distance
+			drift: (x, y, t, k, H = 5, X = 25) => { const dx = x - X / 2, dy = y - H / 2, a = Math.atan2(dy, dx), d = Math.hypot(dx, dy); return sc(wh(d * .06 - t * .1), Math.max(0, Math.cos((a - t * .8 + d * .08) * 5)) ** 6); },
+			sunrad: (x, y, t, k, H = 5, X = 25) => { const d = Math.hypot(x - X / 2, y - H) / Math.max(X, H); return heat(Math.max(0, Math.min(1, 1.1 - d * 1.6 + .25 * (noise(x * .6 + y * .3, t * 3) - .5)))); },
+			bursts: (x, y, t, k, H = 5, X = 25) => { let c = K; for (let i = 0; i < 4; i++) { const ex = bs(t, .8 + i * .3, i * 2, 0, X), ey = bs(t, 1 + i * .2, i, 0, H), d = segD(x, y, X / 2, H, ex, ey); if (d < 1) c = add(c, sc(wh(i / 4 + t * .05), 1 - d)); } return c; },
+			hiphotic: (x, y, t) => wh(Math.sin(x * .35 + Math.sin(y * .25 + t) + t * .7) * .25 + Math.cos(y * .3 + t * .5) * .25 + t * .05),
+			pulser: (x, y, t, k, H = 5, X = 25) => { const yy = H / 2 + H / 2 * .9 * Math.sin(x * .45 - t * 4); return sc(wh(x / Math.max(1, X) * .5 + t * .1), gl(0, y - yy, 1.4)); },
+			rotozoom: (x, y, t, k, H = 5, X = 25) => { const a = t * .5, z = 1.2 + .8 * Math.sin(t * .4), dx = (x - X / 2) * z, dy = (y - H / 2) * z, u = dx * Math.cos(a) - dy * Math.sin(a), v = dx * Math.sin(a) + dy * Math.cos(a);
+				return wh((Math.sin(u * .7) + Math.sin(v * .7)) * .25 + t * .05); },
+			// particle effects
+			psfireworks: (x, y, t, k, H = 5, X = 25) => { let c = K; for (let i = 0; i < 2; i++) { const b = Math.floor(t * .8 + i * .5), p = t * .8 + i * .5 - b, cx = (.2 + .6 * hsh(b * 7 + i)) * X, cy = (.25 + .4 * hsh(b * 13 + i)) * H, r = p * Math.min(X, H) * .55;
+				for (let s = 0; s < 10; s++) { const a = s / 10 * 6.28, v = gl(x - cx - Math.cos(a) * r, y - cy - Math.sin(a) * r + p * p * 2, 1) * (1 - p); if (v) c = add(c, sc(wh(hsh(b * 3 + i)), v)); } } return c; },
+			balls2d: (x, y, t, k, H = 5, X = 25) => { let c = K; for (let i = 0; i < 5; i++) { const px = Math.abs(((t * (2 + i * .7) + i * 5) % (2 * X)) - X), py = H - Math.abs(Math.sin(t * (1.8 + i * .3) + i)) * H; c = add(c, sc(wh(i / 5), gl(x - px, y - py, 1.2))); } return c; },
+			vortex: (x, y, t, k, H = 5, X = 25) => { const dx = x - X / 2, dy = y - H / 2, a = Math.atan2(dy, dx), d = Math.hypot(dx, dy); return sc(wh(a / 6.28 + t * .1), Math.max(0, Math.cos(a * 3 - d * .5 + t * 3)) ** 4 * Math.min(1, d / 2)); },
+			volcano: (x, y, t, k, H = 5, X = 25) => { let c = K; for (let i = 0; i < 14; i++) { const p = (t * .7 + i / 14) % 1, b = Math.floor(t * .7 + i / 14), vx = (hsh(b * 5 + i) - .5) * X * .9, px = X / 2 + vx * p, py = H - H * 1.9 * p * (1 - p * .9);
+				c = add(c, sc(heat(1 - p * .6), gl(x - px, y - py, 1))); } return c; },
+			attractor: (x, y, t, k, H = 5, X = 25) => dots(x, y, t, 6, (i, tt) => { const a = tt * (1.5 + i * .2) + i, r = (.35 + .1 * Math.sin(tt + i)) * Math.min(X, H) * 1.2; return [X / 2 + Math.cos(a) * r, H / 2 + Math.sin(a) * r * .8]; }, i => wh(i / 6), 1, 6, .05),
+			waterfall2: (x, y, t, k, H = 5) => { const xx = Math.round(x), p = ((t * (4 + hsh(xx) * 3) + hsh(xx * 3) * (H + 6)) % (H + 6)) - y; return p >= 0 && p < 3 ? sc(wh(.55 + hsh(xx) * .15), 1 - p / 3) : K; },
+			// effects that also have a matrix version in WLED
+			eyes2d: (x, y, t, k, H = 5, X = 25, C) => { const b = Math.floor(t * .5), p = t * .5 - b, ex = 2 + hsh(b) * Math.max(1, X - 7), ey = 1 + hsh(b * 3) * Math.max(1, H - 2), open = p < .8 && !(p > .4 && p < .46);
+				return open && (gl(x - ex, y - ey, 1.3) > 0 || gl(x - ex - 4, y - ey, 1.3) > 0) ? (C && C[0]) || [255, 0, 0] : K; },
+			rain2d: (x, y, t, k, H = 5, X = 25, C) => { const xx = Math.round(x); if (hsh(xx * 17) > .55) return K; const p = ((t * 6 + hsh(xx) * (H + 5)) % (H + 5)) - y; return p >= 0 && p < 3 ? sc((C && C[0]) || [0, 120, 255], 1 - p / 3) : K; },
+			ripple2d: (x, y, t, k, H = 5, X = 25) => { let c = K; for (let i = 0; i < 2; i++) { const b = Math.floor(t * .7 + i * .5), p = t * .7 + i * .5 - b, cx = hsh(b * 9 + i) * X, cy = hsh(b * 5 + i) * H, d = Math.hypot(x - cx, y - cy);
+				c = add(c, sc(wh(hsh(b + i * 7)), Math.max(0, 1 - Math.abs(d - p * Math.max(X, H) * .7)) * (1 - p))); } return c; },
+			palette2d: (x, y, t, k, H = 5, X = 25) => { const a = t * .3, u = (x - X / 2) * Math.cos(a) + (y - H / 2) * Math.sin(a); return wh(u / Math.max(X, H) + t * .1); },
+			snow2d: (x, y, t, k, H = 5, X = 25, C) => { const xx = Math.round(x), p = ((t * (1.5 + hsh(xx) * 1.5) + hsh(xx * 5) * (H + 3)) % (H + 3)) - y; return Math.abs(p) < .7 && hsh(xx * 3 + Math.floor((t * (1.5 + hsh(xx) * 1.5) + hsh(xx * 5) * (H + 3)) / (H + 3))) < .7 ? (C && C[0] && C[0].some(v => v > 20) ? C[0] : W) : K; }
 		};
+		// matrix effects with their own imitation (name -> key above); other matrix effects get a moving colour field
+		const T2 = [[/^matrix$/, 'matrix'], [/game of life/, 'life'], [/text/, 'text'], [/black hole/, 'blackhole'], [/dna spiral/, 'dnaspiral'], [/^dna$/, 'dna'], [/drift rose/, 'driftrose'],
+			[/distortion/, 'distortion'], [/octopus/, 'octopus'], [/waving cell/, 'wavingcell'], [/spaceships/, 'spaceships'], [/crazy bees/, 'bees'], [/ghost rider/, 'ghost'],
+			[/blobs|metaballs/, 'blobs'], [/^soap/, 'soap'], [/noise2d|fuzzy noise|perlin/, 'noise2d'], [/lissajous/, 'lissajous'], [/julia/, 'julia'], [/tartan/, 'tartan'], [/polar lights/, 'polar'],
+			[/squared swirl/, 'squaredswirl'], [/swirl/, 'swirl'], [/frizzles/, 'frizzles'], [/sindots/, 'sindots'], [/plasma ball/, 'plasmaball'], [/^drift$/, 'drift'], [/sun radiation/, 'sunrad'],
+			[/colored bursts/, 'bursts'], [/hiphotic/, 'hiphotic'], [/pulser/, 'pulser'], [/rotozoom/, 'rotozoom'], [/ps fireworks|ps impact|ps starburst/, 'psfireworks'], [/ps ballpit|ps box|ps pinball/, 'balls2d'],
+			[/ps vortex|ps galaxy/, 'vortex'], [/ps volcano|ps spray/, 'volcano'], [/ps attractor/, 'attractor'], [/ps waterfall|ps dripdrop/, 'waterfall2'], [/fire|volcano/, 'fire'],
+			[/geq|freq|funky|waterfall|akemi/, 'geq']];
+		// 1D effects that draw their own matrix version when the lights are a matrix (WLED "12" effects)
+		const M12 = [[/halloween eyes/, 'eyes2d'], [/^rain$/, 'rain2d'], [/ripple/, 'ripple2d'], [/^palette$/, 'palette2d'], [/snowfall/, 'snow2d'], [/firework/, 'psfireworks']];
 		const TABLE = [
 			[/^solid$/, 'solid'], [/^blink rainbow/, 'strobeRb'], [/^blink/, 'blink'], [/breathe/, 'breathe'], [/tri wipe|^wipe|sweep random/, 'wipe'], [/^sweep/, 'sweep'],
 			[/random colors/, 'randcol'], [/dynamic/, 'dynamic'], [/colorloop|tri fade/, 'colorloop'], [/rainbow runner|^rainbow$|^palette$|colorful|flow stripe/, 'rainbow'],
@@ -541,10 +636,12 @@
 			[/candy cane/, 'candycane'], [/snowfall/, 'snowfall'], [/haunted/, 'haunted'], [/retro tree/, 'retrotree'], [/my leds/, 'myleds']
 		];
 		const AUDIO = /gravi|gravc|gravf|juggles|waterfall|pixelwave|ripple peak|midnoise|noisemeter|plasmoid|puddle|freq|^geq|noisemove|dj light|funky|blurz|rocktaves|waverly|matripix|^pixels|ps geq|sonic|akemi/;
-		const of = (name, d2) => {
+		// mx: the lights are a matrix, so effects that have a matrix version are drawn as one
+		const of = (name, d2, mx) => {
 			const n = String(name || '').toLowerCase();
-			if (d2) { if (/^matrix$/.test(n)) return { g: 'matrix' }; if (/geq|freq|funky|waterfall/.test(n)) return { g: 'geq' }; if (/game of life/.test(n)) return { g: 'life' };
-				if (/text/.test(n)) return { g: 'text' }; if (/fire|volcano/.test(n)) return { g: 'fire' }; if (!AUDIO.test(n) || /2d|geq|freqmatrix|matripix/.test(n)) return { g: 'field', k: hsh(n.length * 31 + n.charCodeAt(0)) }; }
+			if (mx) for (const [re, g] of M12) if (re.test(n)) return { g };
+			if (d2) { for (const [re, g] of T2) if (re.test(n)) return { g };
+				if (!AUDIO.test(n) || /2d|matripix/.test(n)) return { g: 'field', k: hsh(n.length * 31 + n.charCodeAt(0)) }; }
 			if (AUDIO.test(n)) return { s: 'audio' };
 			for (const [re, s] of TABLE) if (re.test(n)) return { s };
 			return { s: 'plasma' };
@@ -575,7 +672,7 @@
 				for (let i = 0; i < n; i++) pix((w - cell * n) / 2 + cell * (i + .5), hgt / 2, cell, f[i]);
 			} else if (o.g) {
 				const cols = 26, rows = 4, cell = Math.min(w / cols, hgt / rows), f = S2[o.g];
-				for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) pix((w - cell * cols) / 2 + cell * (x + .5), cell * (y + .5) + (hgt - cell * rows) / 2, cell, f(x, y * 5 / 3, t * o.v, o.k || 0));
+				for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) pix((w - cell * cols) / 2 + cell * (x + .5), cell * (y + .5) + (hgt - cell * rows) / 2, cell, f(x, y * 5 / 3, t * o.v, o.k || 0, 5, 25, o.C));
 			} else {
 				const n = o.n, cell = Math.min(hgt, w / n), f = S[o.s] || S.plasma;
 				for (let i = 0; i < n; i++) pix((w - cell * n) / 2 + cell * (i + .5), hgt / 2, cell, f(i, n, t * o.v, o.C));
@@ -596,14 +693,38 @@
 		const set = (cv, spec) => { const nw = mini(spec); live.delete(nw); cv._pv = nw._pv; };
 		// colour of LED i (of n) at time t; x, y (0..1) place it for matrix effects. Used by the house / tree preview.
 		const sampler = spec => {
-			const k = spec.sim ? { s: spec.sim } : of(spec.name, spec.d2);
+			const k = spec.sim ? { s: spec.sim } : of(spec.name, spec.d2, spec.mx);
 			const C = [0, 1, 2].map(i => { const c = spec.col && spec.col[i]; return c && c.length >= 3 ? c.slice(0, 3) : DEF[i]; });
 			const P = spec.pal || null, v = spec.speed == null ? 1 : .35 + spec.speed / 160, f = S[k.s] || S.plasma, g2 = k.g && S2[k.g];
 			// gw x gh: size of the LED grid (a curtain 24 x 20, a matrix 16 x 16); without it the small 25 x 5 preview shape
 			const gw = spec.gw || 26, gh = spec.gh || 6;
-			return (i, n, t, x, y) => { curPal = P; const c = g2 ? g2(x * (gw - 1), y * (gh - 1), t * v, k.k || 0, gh - 1) : f(i, n, t * v, C); curPal = null; return c; };
+			return (i, n, t, x, y) => { curPal = P; const c = g2 ? g2(x * (gw - 1), y * (gh - 1), t * v, k.k || 0, gh - 1, gw - 1, C) : f(i, n, t * v, C); curPal = null; return c; };
 		};
-		return { mini, set, of, palAt, sampler };
+		// a bigger picture of one effect on the user's own matrix (mw x mh), redrawn while it is on screen
+		const big = () => {
+			const cv = h('canvas', { class: 'pvbig', width: '480', height: '480', 'aria-hidden': 'true' });
+			let smp = null, mw = 16, mh = 16;
+			cv.update = spec => { mw = Math.max(1, Math.min(64, spec.mw | 0)); mh = Math.max(1, Math.min(64, spec.mh | 0)); smp = sampler(Object.assign({}, spec, { gw: mw, gh: mh, mx: true })); };
+			const loop = now => {
+				if (!cv.isConnected && loop.seen) return;
+				requestAnimationFrame(loop);
+				if (!cv.isConnected || !smp || cv.offsetParent === null || document.hidden) return;
+				loop.seen = true;
+				if (now - (loop.last || 0) < 45) return; loop.last = now;
+				const g = cv.getContext('2d'), Wc = cv.width, Hc = Math.round(Wc * mh / mw); if (cv.height !== Hc) cv.height = Hc;
+				const cell = Wc / mw, t = now / 1000, n = mw * mh;
+				g.fillStyle = '#05060a'; g.fillRect(0, 0, Wc, Hc);
+				for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {
+					const c = smp(y * mw + x, n, t, mw > 1 ? x / (mw - 1) : 0, mh > 1 ? y / (mh - 1) : 0), r = c[0] | 0, gg = c[1] | 0, b = c[2] | 0, cx = (x + .5) * cell, cy = (y + .5) * cell;
+					if (Math.max(r, gg, b) < 8) { g.fillStyle = '#14161f'; g.beginPath(); g.arc(cx, cy, cell * .28, 0, 6.283); g.fill(); continue; }
+					g.fillStyle = 'rgba(' + r + ',' + gg + ',' + b + ',.25)'; g.beginPath(); g.arc(cx, cy, cell * .52, 0, 6.283); g.fill();
+					g.fillStyle = 'rgb(' + r + ',' + gg + ',' + b + ')'; g.beginPath(); g.arc(cx, cy, cell * .34, 0, 6.283); g.fill();
+				}
+			};
+			requestAnimationFrame(loop);
+			return cv;
+		};
+		return { mini, set, of, palAt, sampler, big };
 	})();
 
 	// ---------- Snapshots of what each house scene really looks like (kept on this phone / computer) ----------
@@ -1274,6 +1395,7 @@
 		gifPackCard,
 		houseCards,
 		preview: PV.mini,
+		matrixPreview: PV.big,
 		palAt: PV.palAt,
 		sampler: PV.sampler,
 		// styles shared by both pages (they already define the colour tokens)
@@ -1316,6 +1438,7 @@
 .theme.sound { background: linear-gradient(135deg, #0b2a3a, #2a0b3a); border-color: #1d4660; }
 .theme:active { transform: scale(.97); }
 .theme { display: flex; flex-direction: column; gap: 8px; }
+canvas.pvbig { display: block; width: 100%; max-width: 260px; height: auto; margin: 0 auto; border-radius: 12px; background: #05060a; }
 canvas.pv { display: block; width: 104px; max-width: 100%; height: 12px; border-radius: 6px; }
 .sc-pv { align-self: stretch; display: flex; flex-direction: column; gap: 3px; margin: 6px 0 2px; }
 .sc-pv canvas.pv { width: 100%; }
