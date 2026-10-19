@@ -1,1 +1,1 @@
-{"version":28,"chip":"ESP32-C3","date":"2026-10-19","update":"LED4YOU_v28_ESP32-C3_update.bin","full":"LED4YOU_v28_ESP32-C3_completo.bin","notes":"Fixes: the Studio no longer asks the lights for their status in the background, smoother app"}
+{"version":29,"chip":"ESP32-C3","date":"2026-10-19","update":"LED4YOU_v29_ESP32-C3_update.bin","full":"LED4YOU_v29_ESP32-C3_completo.bin","notes":"Fixes: LED settings (data pin) from the app are kept after the restart; Wi-Fi setup over Bluetooth"}
