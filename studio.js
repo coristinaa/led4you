@@ -513,12 +513,14 @@
 		};
 		// 2D (matrix) effects: drawn on a small grid; most WLED 2D effects are moving colour fields
 		const S2 = {
+			// x, y in LED steps; H = rows of the picture (5 for the small previews, the real number for a curtain or matrix)
 			field: (x, y, t, k) => wh(noise(x * .5 + k * 3, t * (1 + k)) + noise(y * .7 - k, t * .8) * .8 + k),
-			matrix: (x, y, t) => { const p = ((t * (3 + hsh(x) * 3) + hsh(x * 7) * 9) % 8) - y; return p >= 0 && p < 4 ? [0, 255 * (1 - p / 4), p < 1 ? 120 : 0] : K; },
-			geq: (x, y, t) => { const lvl = (.3 + .7 * Math.abs(Math.sin(t * (3 + x * .7) + x))) * 6; return 5 - y < lvl ? wh(.33 - (5 - y) / 18) : K; },
-			life: (x, y, t) => hsh(x * 13 + y * 7 + Math.floor(t * 2) * 97) < .3 ? [80, 255, 120] : K,
-			text: (x, y, t) => { const c = Math.floor(x + t * 6); return y > 0 && y < 5 && hsh(c * 5 + y) < .45 && c % 5 ? [255, 60, 60] : K; },
-			fire: (x, y, t) => heat(Math.max(0, Math.min(1, (y / 5) * 1.2 * (.5 + .7 * noise(x * 1.4 + y * .5, t * 6)) - .05)))
+			matrix: (x, y, t, k, H = 5) => { const tr = Math.max(4, H / 3), L = H + tr + 2, xx = Math.round(x);
+				const p = ((t * (3 + hsh(xx) * 3) * Math.max(1, H / 8) + hsh(xx * 7) * L) % L) - y; return p >= 0 && p < tr ? [0, 255 * (1 - p / tr), p < 1 ? 120 : 0] : K; },
+			geq: (x, y, t, k, H = 5) => { const xx = Math.floor(x * 5 / Math.max(5, H)), lvl = (.3 + .7 * Math.abs(Math.sin(t * (3 + xx * .7) + xx))) * (H + 1); return H - y < lvl ? wh(.33 - (H - y) / (H * 3.6)) : K; },
+			life: (x, y, t) => hsh(Math.round(x) * 13 + Math.round(y) * 7 + Math.floor(t * 2) * 97) < .3 ? [80, 255, 120] : K,
+			text: (x, y, t, k, H = 5) => { const yy = Math.round(y - (H - 5) / 2), c = Math.floor(x + t * 6); return yy > 0 && yy < 5 && hsh(c * 5 + yy) < .45 && c % 5 ? [255, 60, 60] : K; },
+			fire: (x, y, t, k, H = 5) => heat(Math.max(0, Math.min(1, (y / H) * 1.2 * (.5 + .7 * noise(x * 1.4 + y * 5 / H * .5, t * 6)) - .05)))
 		};
 		const TABLE = [
 			[/^solid$/, 'solid'], [/^blink rainbow/, 'strobeRb'], [/^blink/, 'blink'], [/breathe/, 'breathe'], [/tri wipe|^wipe|sweep random/, 'wipe'], [/^sweep/, 'sweep'],
@@ -597,7 +599,9 @@
 			const k = spec.sim ? { s: spec.sim } : of(spec.name, spec.d2);
 			const C = [0, 1, 2].map(i => { const c = spec.col && spec.col[i]; return c && c.length >= 3 ? c.slice(0, 3) : DEF[i]; });
 			const P = spec.pal || null, v = spec.speed == null ? 1 : .35 + spec.speed / 160, f = S[k.s] || S.plasma, g2 = k.g && S2[k.g];
-			return (i, n, t, x, y) => { curPal = P; const c = g2 ? g2(x * 25, y * 5, t * v, k.k || 0) : f(i, n, t * v, C); curPal = null; return c; };
+			// gw x gh: size of the LED grid (a curtain 24 x 20, a matrix 16 x 16); without it the small 25 x 5 preview shape
+			const gw = spec.gw || 26, gh = spec.gh || 6;
+			return (i, n, t, x, y) => { curPal = P; const c = g2 ? g2(x * (gw - 1), y * (gh - 1), t * v, k.k || 0, gh - 1) : f(i, n, t * v, C); curPal = null; return c; };
 		};
 		return { mini, set, of, palAt, sampler };
 	})();

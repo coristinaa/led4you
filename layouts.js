@@ -157,10 +157,13 @@
 		};
 		const mk = z => {
 			const f = opts.fx.find(x => x[0] === z.fx) || [-1, z.nm || 'Solid', 0];
-			z.smp = L4YStudio.sampler({ name: f[1], d2: !!f[2] && (z.def.shape === 'grid' || z.def.shape === 'custom'), col: z.col, pal: z.pal >= 2 ? opts.palStops(z.pal) : null, speed: z.sx });
 			z.pts = SH[z.def.shape](z.def.o, z.n);
 			const xs = z.pts.map(p => p.x), ys = z.pts.map(p => p.y);
 			z.bx = [Math.min(...xs), Math.max(...xs) - Math.min(...xs) || 1, Math.min(...ys), Math.max(...ys) - Math.min(...ys) || 1];
+			// matrix effects need the real grid size (a curtain is 24 x 20), otherwise they come out squashed
+			const o = z.def.o, isGrid = z.def.shape === 'grid';
+			const gw = isGrid ? o.cols : 24, gh = isGrid ? o.rows : Math.max(5, Math.round(24 * z.bx[3] / z.bx[1]));
+			z.smp = L4YStudio.sampler({ name: f[1], d2: !!f[2] && (isGrid || z.def.shape === 'custom'), col: z.col, pal: z.pal >= 2 ? opts.palStops(z.pal) : null, speed: z.sx, gw, gh });
 		};
 		const editor = () => {
 			const z = zones[sel]; if (!z) { ed.replaceChildren(); return; }
