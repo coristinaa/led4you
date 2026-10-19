@@ -174,7 +174,8 @@ class Led4youBle : public Usermod {
     uint16_t psMask = 0;                    // bit i set: preset i (1..10) exists, shown in the app's preset grid
     unsigned long psMaskTime = 0xFFFFFFFF;  // presetsModifiedTime the mask was built for
     uint32_t idleSince = 0;   // last time an app was connected (or Bluetooth started)
-    bool     rebootAfterSave = false;   // LED settings from the app: restart after WLED has saved them
+    bool     rebootWhenSaved = false;   // fallback: restart after WLED's loop has written cfg.json
+    bool     rebootAfterSave = false;   // LED settings from the app were written to cfg.json: restart to apply them
 
     // ---------- BLE task side ----------
     void enqueue(uint8_t kind, const uint8_t* d, size_t len) {
@@ -291,16 +292,49 @@ class Led4youBle : public Usermod {
         JsonObject root = pDoc->as<JsonObject>();
         JsonObject cfg = root[F("l4ycfg")];
         if (!cfg.isNull()) {
-          // "l4ymx": false switches matrix mode off (the regular config parser can only switch it on)
-          if (cfg[F("l4ymx")].is<bool>() && !cfg[F("l4ymx")].as<bool>()) { strip.isMatrix = false; strip.panel.clear(); }
-          deserializeConfig(cfg, false);
-          configNeedsWrite = true;
-          rebootAfterSave = true;   // restart only once cfg.json is really written (see loop)
+          // LED hardware (pin, type, count, matrix): written straight into cfg.json, then a restart applies it.
+          // Changing outputs and matrix mode while the LEDs run (and saving the running state afterwards) could
+          // lose the change, e.g. matrix -> strip right after strip -> matrix.
+          if (saveLedCfg(cfg)) rebootAfterSave = true;
+          else {   // no cfg.json yet (brand-new board): apply through WLED and restart once it has saved
+            if (cfg[F("l4ymx")].is<bool>() && !cfg[F("l4ymx")].as<bool>()) { strip.isMatrix = false; strip.panel.clear(); }
+            deserializeConfig(cfg, false);
+            configNeedsWrite = true;
+            rebootWhenSaved = true;
+          }
         } else {
           deserializeState(root, CALL_MODE_DIRECT_CHANGE);
         }
       }
       releaseJSONBufferLock();
+    }
+
+    // merge {"hw":{"led":{...}}} (and "l4ymx": false = no matrix) into /cfg.json; true when written
+    bool saveLedCfg(JsonObject cmd) {
+      JsonObject nled = cmd[F("hw")][F("led")];
+      if (nled.isNull()) return false;
+      const bool noMatrix = cmd[F("l4ymx")].is<bool>() && !cmd[F("l4ymx")].as<bool>();
+      DynamicJsonDocument d(12288);
+      {
+        File f = WLED_FS.open(F("/cfg.json"), "r");
+        if (!f) return false;
+        DeserializationError e = deserializeJson(d, f);
+        f.close();
+        if (e) return false;
+      }
+      JsonObject led = d[F("hw")][F("led")];
+      if (led.isNull()) led = d.createNestedObject(F("hw")).createNestedObject(F("led"));
+      for (JsonPair kv : nled) led[String(kv.key().c_str())] = kv.value();   // String key: copied into this document   // ins, total, maxpwr, matrix... replace the old ones
+      if (noMatrix) led.remove(F("matrix"));
+      if (d.overflowed()) return false;
+      backupConfig();
+      File f = WLED_FS.open(F("/cfg.json"), "w");
+      if (!f) return false;
+      const size_t n = serializeJson(d, f);
+      f.close();
+      if (!n) { restoreConfig(); return false; }
+      configNeedsWrite = false;   // the running (old) settings must not overwrite the file before the restart
+      return true;
     }
 
     static bool validName(const char* n) {
@@ -629,9 +663,9 @@ class Led4youBle : public Usermod {
     }
 
     void loop() override {
-      // new LED settings: WLED re-creates the outputs (doInitBusses) and writes cfg.json (configNeedsWrite);
-      // restarting before that finished would lose the settings (for example the data pin)
-      if (rebootAfterSave && !doInitBusses && !configNeedsWrite) { rebootAfterSave = false; doReboot = true; }
+      // new LED settings are already in cfg.json (saveLedCfg): restart so WLED starts with them
+      if (rebootAfterSave) { rebootAfterSave = false; configNeedsWrite = false; doReboot = true; }   // cfg.json already written
+      if (rebootWhenSaved && !doInitBusses && !configNeedsWrite) { rebootWhenSaved = false; doReboot = true; }
       if (!running) return;
       L4yBleMsg m;
       while (xQueueReceive(queue, &m, 0) == pdTRUE) {
