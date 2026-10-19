@@ -513,7 +513,7 @@ class Led4youBle : public Usermod {
         d[F("ch")] = WiFi.channel(); d[F("tx")] = (int)WiFi.getTxPower();
         d[F("cw")] = configNeedsWrite; d[F("ib")] = doInitBusses; d[F("rs")] = rebootAfterSave; d[F("jl")] = jsonBufferLock;
         Bus* b0 = BusManager::getBus(0); uint8_t pp[5] = {255,255,255,255,255}; if (b0) b0->getPins(pp);
-        d[F("bp")] = pp[0] == 255 ? -1 : pp[0]; d[F("nb")] = BusManager::getNumBusses();
+        d[F("bp")] = pp[0] == 255 ? -1 : pp[0]; d[F("nb")] = BusManager::getNumBusses(); d[F("rr")] = (int)esp_reset_reason();
         serializeJson(d, dg);
       }
       out = F("{\"d\":"); out += dg; out += F(",\"m\":"); out += mapFile ? 1 : 0; out += F(",\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';

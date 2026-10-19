@@ -13,6 +13,9 @@ static File file;
 static char lastFilename[WLED_MAX_SEGNAME_LEN+2] = "/"; // enough space for "/" + seg.name + '\0'
 static GifDecoder<320,320,12,true> decoder;  // this creates the basic object; parameter lzwMaxBits is not used; decoder.alloc() always allocated "everything else" = 24Kb 
 static bool gifDecodeFailed = false;
+#ifdef LED4YOU_BLE
+static unsigned long l4yGifRetryAt = 0;   // not enough memory for the decoder: try again at this time
+#endif
 static unsigned long lastFrameDisplayTime = 0, currentFrameDelay = 0;
 
 bool fileSeekCallback(unsigned long position) {
@@ -125,6 +128,9 @@ byte renderImageToSegment(Segment &seg) {
   }
 
   activeSeg = &seg;
+#ifdef LED4YOU_BLE
+  if (l4yGifRetryAt) { if ((long)(millis() - l4yGifRetryAt) < 0) return IMAGE_ERROR_WAITING; l4yGifRetryAt = 0; }
+#endif
 
   if (strncmp(lastFilename +1, seg.name, WLED_MAX_SEGNAME_LEN) != 0) { // segment name changed, load new image
     strcpy(lastFilename, "/");  // filename always starts with '/'
@@ -152,6 +158,21 @@ byte renderImageToSegment(Segment &seg) {
     decoder.setFileReadCallback(fileReadCallback);
     decoder.setFileReadBlockCallback(fileReadBlockCallback);
     decoder.setFileSizeCallback(fileSizeCallback);
+#ifdef LED4YOU_BLE
+    // LED4YOU: the C3 build has no C++ exceptions, so a failed "new" in decoder.alloc() restarts the board.
+    // Free the old decoder first, then only allocate when one free block is big enough (with room left
+    // for Bluetooth and Wi-Fi); otherwise skip the GIF and try again a second later.
+    decoder.dealloc();
+    if (heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < sizeof(AnimatedGIF) + 512 ||
+        heap_caps_get_free_size(MALLOC_CAP_8BIT) < sizeof(AnimatedGIF) + 16384) {
+      file.close();
+      lastFilename[1] = '\0';                     // load again on a later call
+      l4yGifRetryAt = millis() + 1000;
+      errorFlag = ERR_NORAM_PX;
+      DEBUG_PRINTLN(F("GIF: not enough free memory, retrying"));
+      return IMAGE_ERROR_DECODER_ALLOC;
+    }
+#endif
 #if __cpp_exceptions // use exception handler if we can (some targets don't support exceptions)
     try {
 #endif
