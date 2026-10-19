@@ -440,6 +440,8 @@
 		['Could not remove the map.', 'Não foi possível remover o mapa.', 'No se pudo quitar el mapa.', 'Impossible de retirer la carte.'],
 		['Too many LEDs for a map (at most 1024).', 'Demasiados LEDs para um mapa (no máximo 1024).', 'Demasiados LEDs para un mapa (máximo 1024).', 'Trop de LED pour une carte (1024 max).'],
 		['My lights', 'As minhas luzes', 'Mis luces', 'Mes lumières'],
+		['The Wi-Fi setup of the lights did not answer. Try again; if it keeps failing, restart the lights and connect again.', 'A configuração de Wi-Fi das luzes não respondeu. Tenta outra vez; se continuar a falhar, reinicia as luzes e volta a ligar-te.', 'La configuración Wi-Fi de las luces no respondió. Inténtalo de nuevo; si sigue fallando, reinicia las luces y vuelve a conectarte.', 'La configuration Wi-Fi des lumières n’a pas répondu. Réessayez ; si cela continue, redémarrez les lumières et reconnectez-vous.'],
+		['Try again', 'Tentar outra vez', 'Intentar de nuevo', 'Réessayer'],
 		['Your look', 'O teu visual', 'Tu aspecto', 'Votre rendu'],
 		['Example', 'Exemplo', 'Ejemplo', 'Exemple'],
 		['Save again', 'Guardar outra vez', 'Guardar de nuevo', 'Réenregistrer'],

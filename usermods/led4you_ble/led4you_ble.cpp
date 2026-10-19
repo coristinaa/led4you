@@ -169,6 +169,7 @@ class Led4youBle : public Usermod {
     uint16_t psMask = 0;                    // bit i set: preset i (1..10) exists, shown in the app's preset grid
     unsigned long psMaskTime = 0xFFFFFFFF;  // presetsModifiedTime the mask was built for
     uint32_t idleSince = 0;   // last time an app was connected (or Bluetooth started)
+    bool     rebootAfterSave = false;   // LED settings from the app: restart after WLED has saved them
 
     // ---------- BLE task side ----------
     void enqueue(uint8_t kind, const uint8_t* d, size_t len) {
@@ -259,7 +260,7 @@ class Led4youBle : public Usermod {
             memcpy(multiWiFi[0].clientPass, data + sl + 2, min((size_t)pl, sizeof(multiWiFi[0].clientPass) - 1));
           }
           forceReconnect = true;
-          serializeConfigToFS();
+          configNeedsWrite = true;   // saved by WLED's loop (retried there if the JSON buffer is busy)
           provStart = millis();
           setImprovState(ST_PROVISIONING);
           break;
@@ -285,7 +286,7 @@ class Led4youBle : public Usermod {
           if (cfg[F("l4ymx")].is<bool>() && !cfg[F("l4ymx")].as<bool>()) { strip.isMatrix = false; strip.panel.clear(); }
           deserializeConfig(cfg, false);
           configNeedsWrite = true;
-          doReboot = true;   // bus/matrix changes are applied cleanly after a restart
+          rebootAfterSave = true;   // restart only once cfg.json is really written (see loop)
         } else {
           deserializeState(root, CALL_MODE_DIRECT_CHANGE);
         }
@@ -579,6 +580,9 @@ class Led4youBle : public Usermod {
     }
 
     void loop() override {
+      // new LED settings: WLED re-creates the outputs (doInitBusses) and writes cfg.json (configNeedsWrite);
+      // restarting before that finished would lose the settings (for example the data pin)
+      if (rebootAfterSave && !doInitBusses && !configNeedsWrite) { rebootAfterSave = false; doReboot = true; }
       if (!running) return;
       L4yBleMsg m;
       while (xQueueReceive(queue, &m, 0) == pdTRUE) {
