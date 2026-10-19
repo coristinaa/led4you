@@ -1,1 +1,1 @@
-{"version":29,"chip":"ESP32-C3","date":"2026-10-19","update":"LED4YOU_v29_ESP32-C3_update.bin","full":"LED4YOU_v29_ESP32-C3_completo.bin","notes":"Fixes: LED settings (data pin) from the app are kept after the restart; Wi-Fi setup over Bluetooth"}
+{"version":30,"chip":"ESP32-C3","date":"2026-10-19","update":"LED4YOU_v30_ESP32-C3_update.bin","full":"LED4YOU_v30_ESP32-C3_completo.bin","notes":"The app shows why the lights cannot join the Wi-Fi; corrected full image for 4 MB boards"}
