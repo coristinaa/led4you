@@ -445,7 +445,7 @@ void WLED::setup()
 #if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST)
   PinManager::allocatePin(hardwareTX, true, PinOwner::DebugOut); // TX (GPIO1 on ESP32) reserved for debug output
 #endif
-#ifdef WLED_ENABLE_DMX //reserve GPIO2 as hardcoded DMX pin
+#if defined(WLED_ENABLE_DMX) && !defined(LED4YOU_BLE) //reserve GPIO2 as hardcoded DMX pin (LED4YOU: pin chosen in settings, allocated in initDMXOutput())
   PinManager::allocatePin(2, true, PinOwner::DMX);
 #endif
 

@@ -28,7 +28,7 @@
 #define BREAKFORMAT    SERIAL_8N1
 
 bool dmxStarted = false;
-int sendPin = 2;		//default on ESP8266
+int sendPin = 2;		//default on ESP8266 (LED4YOU: set from the settings before init)
 
 //DMX value array and size. Entry 0 will hold startbyte, so we need 512+1 elements
 uint8_t dmxDataStore[dmxMaxChannel+1] = {};
@@ -52,7 +52,11 @@ void DMXESPSerial::init(int chanQuant) {
 
   channelSize = chanQuant;
 
+  #ifdef ARDUINO_ARCH_ESP32
+  Serial1.begin(DMXSPEED, SERIAL_8N1, -1, sendPin);   // ESP32-C3/S2: route UART1 TX to the chosen pin
+  #else
   Serial1.begin(DMXSPEED);
+  #endif
   pinMode(sendPin, OUTPUT);
   dmxStarted = true;
 }
@@ -71,7 +75,8 @@ void DMXESPSerial::write(int Channel, uint8_t value) {
   if (dmxStarted == false) init();
 
   if (Channel < 1) Channel = 1;
-  if (Channel > channelSize) Channel = channelSize;
+  if (Channel > dmxMaxChannel) Channel = dmxMaxChannel;
+  if (Channel > channelSize) channelSize = Channel;   // only send the channels in use: a full 512-channel frame blocks the loop for ~23 ms
   if (value < 0) value = 0;
   if (value > 255) value = 255;
 
@@ -89,14 +94,22 @@ void DMXESPSerial::update() {
 
   //Send break
   digitalWrite(sendPin, HIGH);
+  #ifdef ARDUINO_ARCH_ESP32
+  Serial1.begin(BREAKSPEED, BREAKFORMAT, -1, sendPin);
+  #else
   Serial1.begin(BREAKSPEED, BREAKFORMAT);
+  #endif
   Serial1.write(0);
   Serial1.flush();
   delay(1);
   Serial1.end();
 
   //send data
+  #ifdef ARDUINO_ARCH_ESP32
+  Serial1.begin(DMXSPEED, DMXFORMAT, -1, sendPin);
+  #else
   Serial1.begin(DMXSPEED, DMXFORMAT);
+  #endif
   digitalWrite(sendPin, LOW);
   Serial1.write(dmxDataStore, channelSize);
   Serial1.flush();

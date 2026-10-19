@@ -12,8 +12,18 @@
 
 #ifdef WLED_ENABLE_DMX
 
+// LED4YOU: DMX output is switched on and its pin chosen in Config > Usermods > LED4YOU Extras (applied at boot)
+bool l4yDmxOutOn = false;
+int8_t l4yDmxOutPin = -1;
+static bool l4yDmxOutStarted = false;
+
 void handleDMXOutput()
 {
+  if (!l4yDmxOutStarted) return;
+  // a frame blocks the loop while it is sent: about 40 frames per second are plenty for DMX fixtures
+  static unsigned long lastFrame = 0;
+  if (millis() - lastFrame < 25) return;
+  lastFrame = millis();
   // don't act, when in DMX Proxy mode
   if (e131ProxyUniverse != 0) return;
 
@@ -69,11 +79,18 @@ void handleDMXOutput()
 }
 
 void initDMXOutput() {
+  if (!l4yDmxOutOn || l4yDmxOutPin < 0) return;
+  if (!PinManager::allocatePin(l4yDmxOutPin, true, PinOwner::DMX)) return;   // pin used by the LEDs or something else
  #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
-  dmx.init(512);        // initialize with bus length
+  extern int sendPin;
+  sendPin = l4yDmxOutPin;
+  dmx.init(24);         // starts small, grows to the highest channel in use
  #else
-  dmx.initWrite(512);  // initialize with bus length
+  extern int sparkfunDmxTxPin;
+  sparkfunDmxTxPin = l4yDmxOutPin;
+  dmx.initWrite(24);
  #endif
+  l4yDmxOutStarted = true;
 }
 #else
 void initDMXOutput(){}

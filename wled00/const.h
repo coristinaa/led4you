@@ -680,7 +680,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 
 // Defaults pins, type and counts to configure LED output
 #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3)
-  #ifdef WLED_ENABLE_DMX
+  #if defined(WLED_ENABLE_DMX) && !defined(LED4YOU_BLE)   // LED4YOU: the DMX output pin is chosen in the settings, LEDs stay on GPIO2
     #define DEFAULT_LED_PIN 1
     #warning "Compiling with DMX. The default LED pin has been changed to pin 1."
   #else

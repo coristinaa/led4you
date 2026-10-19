@@ -32,7 +32,8 @@ Distributed as-is; no warranty is given.
 
 static const int enablePin = -1;		// disable the enable pin because it is not needed
 static const int rxPin = -1;       // disable the receiving pin because it is not needed - softhack007: Pin=-1 means "use default" not "disable"
-static const int txPin = 2;        // transmit DMX data over this pin (default is pin 2)
+int sparkfunDmxTxPin = 2;           // transmit DMX data over this pin (LED4YOU: set from the settings before initWrite)
+#define txPin sparkfunDmxTxPin
 
 //DMX value array and size. Entry 0 will hold startbyte, so we need 512+1 elements
 static uint8_t dmxData[dmxMaxChannel+1] = { 0 };
