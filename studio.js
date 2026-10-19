@@ -339,8 +339,13 @@
 		const sin8 = p => Math.round(128 + 127 * Math.sin((p / 256) * 2 * Math.PI));
 		const hsv = p => { const s = p / 256 * 6, i = Math.floor(s), f = s - i, q = 255 * (1 - f), u = 255 * f; return [[255, u, 0], [q, 255, 0], [0, 255, u], [0, q, 255], [u, 0, 255], [255, 0, q]][i % 6].map(Math.round); };
 		const hash = x => { x ^= x >>> 16; x = Math.imul(x, 0x7feb352d); x ^= x >>> 15; x = Math.imul(x, 0x846ca68b); x ^= x >>> 16; return x >>> 0; };
-		let raf = 0;
+		let raf = 0, seen = false, lastF = 0;
 		const frame = now => {
+			if (!grid.isConnected) { if (seen) return; raf = requestAnimationFrame(frame); return; }   // editor closed: stop
+			seen = true;
+			raf = requestAnimationFrame(frame);
+			if (document.hidden || grid.offsetParent === null || now - lastF < 33) return;   // not on screen: nothing to draw
+			lastF = now;
 			leds.forEach((l, i) => {
 				let c = [l[0], l[1], l[2]];
 				let period = Math.max(60, 3000 - l[4] * 11);
@@ -351,7 +356,6 @@
 				else if (l[3] === 4) c = hsv((pos + l[5]) & 255);
 				cells[i].style.background = 'rgb(' + c.join(',') + ')';
 			});
-			raf = requestAnimationFrame(frame);
 		};
 		raf = requestAnimationFrame(frame);
 
@@ -548,6 +552,7 @@
 		const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver(es => es.forEach(e => { e.target._pvOn = e.isIntersecting; }), { rootMargin: '40px' }) : null;
 		let raf = 0, last = 0;
 		const tick = now => {
+			if (!live.size) { raf = 0; return; }   // nothing to animate: sleep until the next mini()
 			raf = requestAnimationFrame(tick);
 			if (now - last < 45) return; last = now;
 			const t = now / 1000;
@@ -901,7 +906,10 @@
 		const refresh = () => t.status().then(s => { if (s) { st = s; render(); } }).catch(() => {});
 		// give the lights this phone's time once, so timers and the countdown work without internet
 		t.send({ time: Math.floor(Date.now() / 1000), l4y: { tz: -new Date().getTimezoneOffset() * 60 } }).catch(() => {}).finally(() => setTimeout(refresh, 500));
-		const timer = setInterval(() => { if (document.body.contains(cPower)) refresh(); else clearInterval(timer); }, 4000);
+		const timer = setInterval(() => {
+			if (!document.body.contains(cPower)) { clearInterval(timer); return; }
+			if (!document.hidden && cPower.offsetParent !== null) refresh();   // only while the "More" cards are on screen
+		}, 4000);
 		updDays(); updSch();
 		return [cSleep, cSeasons, cHouse, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
 	}

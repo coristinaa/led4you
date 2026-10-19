@@ -197,7 +197,7 @@
 		const removeMap = async () => {
 			try {
 				if (!await opts.remove('ledmap.json')) throw new Error();
-				try { localStorage.removeItem('l4yMapFix'); } catch (e) {}
+				try { localStorage.setItem('l4yMapFix', JSON.stringify({ w: 0, h: 0 })); } catch (e) {}   // strip again after the restart
 				opts.toast('Map removed. The lights restart now; connect again afterwards.');
 				setTimeout(() => opts.send({ rb: true }).catch(() => {}), 600);
 			} catch (e) { opts.toast('Could not remove the map.'); }

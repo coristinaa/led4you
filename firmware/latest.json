@@ -1,1 +1,1 @@
-{"version":27,"chip":"ESP32-C3","date":"2026-10-17","update":"LED4YOU_v27_ESP32-C3_update.bin","full":"LED4YOU_v27_ESP32-C3_completo.bin","notes":"Camera scan: the app finds where every LED is, shows effects on a photo of your lights, and can send the map to the lights"}
+{"version":28,"chip":"ESP32-C3","date":"2026-10-19","update":"LED4YOU_v28_ESP32-C3_update.bin","full":"LED4YOU_v28_ESP32-C3_completo.bin","notes":"Fixes: the Studio no longer asks the lights for their status in the background, smoother app"}
