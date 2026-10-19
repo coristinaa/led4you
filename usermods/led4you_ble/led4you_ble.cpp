@@ -9,7 +9,7 @@
  *                           plus {"l4ycfg":{...}} to change LED hardware settings (same format as /json/cfg)
  *       STATE (read/notify) compact state summary (power, brightness, effect, LED count, matrix size, IP...)
  *       FILE  (write/notify) small file upload (GIF images, My LEDs table) with an ack per transfer
- *       LIST  (read/notify) {"d":{diagnostics},"m":LED map on,"f":text fonts,"g":[GIF files],"p":[[preset id,"name"]],"x":{LED4YOU Extras status}} (read again after a notify)
+ *       LIST  (read/write/notify) pages "~<page><count>" + up to 480 bytes of {"d":{diagnostics},"m":LED map on,"f":text fonts,"g":[GIF files],"p":[[preset id,"name"]],"x":{LED4YOU Extras status}} (write a page number, then read it)
  *   BLE callbacks run in the NimBLE host task: they only hand data to a FreeRTOS queue.
  *   All WLED state changes and file system writes happen in loop() on the main task.
  *
@@ -44,6 +44,7 @@ void l4yExtrasStatus(JsonObject o);   // l4y_extras.cpp
 #define L4Y_LIST     "c0de4c45-4434-594f-55aa-000000000004"
 #define L4Y_PEEK     "c0de4c45-4434-594f-55aa-000000000005"   // live preview: [cols][rows] + RGB per sampled LED
 #define L4Y_PEEK_MAX 160         // LEDs per preview frame (fits one BLE packet)
+#define L4Y_LIST_PAGE 480        // bytes of the LIST JSON per page (a Bluetooth value is at most 512 bytes)
 
 #define L4Y_JSON_MAX   2048        // largest JSON command (the app sends pixel art in chunks of 150 LEDs, ~1.4 KB)
 #define L4Y_FILE_MAX   (64*1024)   // largest file accepted over Bluetooth
@@ -220,6 +221,7 @@ class Led4youBle : public Usermod {
           NimBLEAttValue v = c->getValue();
           if (which == 1)      um->onRpcWrite(v.data(), v.length());
           else if (which == 2) um->onCmdWrite(v.data(), v.length());
+          else if (which == 4) { if (v.length()) um->selectListPage(v.data()[0]); }   // app asks for another page of LIST
           else                 um->enqueue(3, v.data(), v.length()); // file packets are self-contained
         }
     };
@@ -417,6 +419,16 @@ class Led4youBle : public Usermod {
       ctlPeek->notify();
     }
 
+    // pages of the LIST value (see updateList), shared with the Bluetooth task
+    std::vector<String> listPages;
+    SemaphoreHandle_t listMux = nullptr;
+  public:
+    void selectListPage(uint8_t p) {   // runs in the Bluetooth task
+      if (!listMux || xSemaphoreTake(listMux, pdMS_TO_TICKS(50)) != pdTRUE) return;
+      if (p < listPages.size() && ctlList) ctlList->setValue((const uint8_t*)listPages[p].c_str(), listPages[p].length());
+      xSemaphoreGive(listMux);
+    }
+  private:
     // GIF names, cached until a file is added or removed
     uint8_t fontCount = 0;   // LED4YOU text fonts with emoji on the lights
     bool    mapFile = false; // ledmap.json from the camera scan is on the lights
@@ -469,7 +481,18 @@ class Led4youBle : public Usermod {
       out = F("{\"d\":"); out += dg; out += F(",\"m\":"); out += mapFile ? 1 : 0; out += F(",\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
       if (out == lastList) return;
       lastList = out;
-      ctlList->setValue((const uint8_t*)out.c_str(), out.length());
+      // a Bluetooth value holds at most 512 bytes: the list is cut into pages "~" + page + count + up to 480 bytes,
+      // the app reads page 0, then writes the page number it wants next and reads again
+      if (listMux && xSemaphoreTake(listMux, pdMS_TO_TICKS(100)) == pdTRUE) {
+        listPages.clear();
+        const unsigned n = (out.length() + L4Y_LIST_PAGE - 1) / L4Y_LIST_PAGE;
+        for (unsigned i = 0; i < n && i < 9; i++) {
+          String pg = String('~') + char('0' + i) + char('0' + min(n, 9u)) + out.substring(i * L4Y_LIST_PAGE, (i + 1) * L4Y_LIST_PAGE);
+          listPages.push_back(pg);
+        }
+        if (listPages.size()) ctlList->setValue((const uint8_t*)listPages[0].c_str(), listPages[0].length());
+        xSemaphoreGive(listMux);
+      }
       if (server && server->getConnectedCount()) ctlList->notify();
     }
 
@@ -555,9 +578,11 @@ class Led4youBle : public Usermod {
       NimBLECharacteristic* cmd = ctl->createCharacteristic(L4Y_CMD, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
       ctlState = ctl->createCharacteristic(L4Y_STATE, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
       ctlFile  = ctl->createCharacteristic(L4Y_FILE, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
-      ctlList  = ctl->createCharacteristic(L4Y_LIST, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+      ctlList  = ctl->createCharacteristic(L4Y_LIST, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
       ctlPeek  = ctl->createCharacteristic(L4Y_PEEK, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
       cmd->setCallbacks(new CharCB(this, 2));
+      ctlList->setCallbacks(new CharCB(this, 4));
+      if (!listMux) listMux = xSemaphoreCreateMutex();
       ctlFile->setCallbacks(new CharCB(this, 3));
       ctl->start();
 
