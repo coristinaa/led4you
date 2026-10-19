@@ -947,8 +947,16 @@
 				const all = h('button', { type: 'button', class: 'btn small' }, 'Add all');
 				all.onclick = async () => {
 					all.disabled = true;
-					try { for (const f of list) await send(f, false); toast(th + ': ' + list.length + ' animations stored on the lights.'); }
-					catch (e) { toast('Stopped: not enough space or the lights did not answer.'); prog.textContent = ''; }
+					let i = 0, cur = '';
+					try {
+						for (const f of list) { i++; cur = f.n; await send(f, false); }
+						toast(th + ': ' + list.length + ' animations stored on the lights.');
+					} catch (e) {
+						// say which one stopped it and why, so a full memory and a lost connection can be told apart
+						toast('Stopped at ' + cur + ' (' + i + ' of ' + list.length + '): ' + (e && e.message === 'timeout' ? 'the lights did not answer' : (e && e.message) || 'error') + '.');
+						prog.textContent = '';
+					}
+					await refreshStored();
 					all.disabled = false;
 				};
 				grid.append(h('div', { class: 'gphead' }, h('span', {}, th), all));

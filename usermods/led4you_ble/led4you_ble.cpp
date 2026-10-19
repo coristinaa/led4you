@@ -174,6 +174,7 @@ class Led4youBle : public Usermod {
     String   gifJson = "[]", presetJson = "[]", lastList;
     uint16_t psMask = 0;                    // bit i set: preset i (1..10) exists, shown in the app's preset grid
     unsigned long psMaskTime = 0xFFFFFFFF;  // presetsModifiedTime the mask was built for
+    uint32_t lastListBuild = 0;
     uint32_t idleSince = 0;   // last time an app was connected (or Bluetooth started)
     bool     rebootWhenSaved = false;   // fallback: restart after WLED's loop has written cfg.json
     bool     rebootAfterSave = false;   // LED settings from the app were written to cfg.json: restart to apply them
@@ -424,7 +425,7 @@ class Led4youBle : public Usermod {
       releaseJSONBufferLock();
     }
 
-    // JSON array of GIF files for the LIST characteristic (max ~500 bytes)
+    // JSON array of GIF files for the LIST characteristic (up to ~1800 bytes, sent in pages)
     // live preview for the app: a down-sampled copy of what the LEDs show, ~6 times a second, only while the app listens
     void sendPeek() {
       if (!ctlPeek || millis() - lastPeek < 160 || !ctlPeek->getSubscribedCount()) return;
@@ -481,7 +482,7 @@ class Led4youBle : public Usermod {
         if (n.startsWith("/")) n = n.substring(1);
         if (n.startsWith("l4yf") && n.endsWith(".wbf")) fontCount++;
         if (n == "ledmap.json") mapFile = true;
-        if ((n.endsWith(".gif") || n.endsWith(".GIF")) && gifJson.length() + n.length() + 4 <= 500) {
+        if ((n.endsWith(".gif") || n.endsWith(".GIF")) && gifJson.length() + n.length() + 4 <= 1800) {
           if (gifJson.length() > 1) gifJson += ',';
           gifJson += '"'; gifJson += n; gifJson += '"';
         }
@@ -699,7 +700,8 @@ class Led4youBle : public Usermod {
       if (hasClient) sendPeek();
       if (hasClient && millis() - lastStateCheck > 500) {
         lastStateCheck = millis();
-        updateList();
+        // the list (GIF names, presets, diagnostics) changes rarely: rebuild it every 1.5 s, or straight away after a file change
+        if (listDirty || millis() - lastListBuild > 1500) { lastListBuild = millis(); updateList(); }
         String s = buildState();
         if (s != lastStateJson) {
           lastStateJson = s;
