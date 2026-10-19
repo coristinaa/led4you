@@ -442,6 +442,12 @@
 		['My lights', 'As minhas luzes', 'Mis luces', 'Mes lumières'],
 		['The Wi-Fi setup of the lights did not answer. Try again; if it keeps failing, restart the lights and connect again.', 'A configuração de Wi-Fi das luzes não respondeu. Tenta outra vez; se continuar a falhar, reinicia as luzes e volta a ligar-te.', 'La configuración Wi-Fi de las luces no respondió. Inténtalo de nuevo; si sigue fallando, reinicia las luces y vuelve a conectarte.', 'La configuration Wi-Fi des lumières n’a pas répondu. Réessayez ; si cela continue, redémarrez les lumières et reconnectez-vous.'],
 		['Try again', 'Tentar outra vez', 'Intentar de nuevo', 'Réessayer'],
+		['wrong password', 'senha errada', 'contraseña incorrecta', 'mot de passe incorrect'],
+		['network not found (is it 2.4 GHz and close enough?)', 'rede não encontrada (é de 2.4 GHz e está perto?)', 'red no encontrada (¿es de 2.4 GHz y está cerca?)', 'réseau introuvable (2,4 GHz et assez proche ?)'],
+		['the router refused the lights', 'o router recusou as luzes', 'el router rechazó las luces', 'le routeur a refusé les lumières'],
+		['the signal is too weak', 'o sinal é muito fraco', 'la señal es muy débil', 'le signal est trop faible'],
+		['no answer yet', 'ainda sem resposta', 'aún sin respuesta', 'pas encore de réponse'],
+		['What the lights report', 'O que as luzes dizem', 'Lo que dicen las luces', 'Ce que disent les lumières'],
 		['Your look', 'O teu visual', 'Tu aspecto', 'Votre rendu'],
 		['Example', 'Exemplo', 'Ejemplo', 'Exemple'],
 		['Save again', 'Guardar outra vez', 'Guardar de nuevo', 'Réenregistrer'],
@@ -462,6 +468,7 @@
 	// sentences with numbers or names inside: [regex on the English text, PT, ES, FR] ($1, $2 = captured parts)
 	const P = [
 		[/^LED (\d+)$/, 'LED $1', 'LED $1', 'LED $1'],
+		[/^The lights could not join "(.+)": (.+)\.$/, 'As luzes não conseguiram entrar em "$1": $2.', 'Las luces no pudieron unirse a "$1": $2.', 'Les lumières n’ont pas pu rejoindre « $1 » : $2.'],
 		[/^This GIF is (\d+) KB\. The limit is 64 KB: use a smaller one \(made for LED matrices\)\.$/, 'Este GIF tem $1 KB. O limite é 64 KB: usa um mais pequeno (feito para matrizes de LEDs).', 'Este GIF ocupa $1 KB. El límite es 64 KB: usa uno más pequeño (hecho para matrices de LEDs).', 'Ce GIF fait $1 Ko. La limite est de 64 Ko : utilisez-en un plus petit (fait pour matrices LED).'],
 		[/^(.+) deleted\.$/, '$1 apagado.', '$1 borrado.', '$1 supprimé.'],
 		[/^Saved: this light now has its (.+) look\.$/, 'Guardado: esta luz já tem o visual de $1.', 'Guardado: esta luz ya tiene su aspecto de $1.', 'Enregistré : cette lumière a maintenant son rendu $1.'],

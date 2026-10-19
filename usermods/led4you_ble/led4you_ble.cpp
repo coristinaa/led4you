@@ -9,7 +9,7 @@
  *                           plus {"l4ycfg":{...}} to change LED hardware settings (same format as /json/cfg)
  *       STATE (read/notify) compact state summary (power, brightness, effect, LED count, matrix size, IP...)
  *       FILE  (write/notify) small file upload (GIF images, My LEDs table) with an ack per transfer
- *       LIST  (read/notify) {"m":LED map on,"f":text fonts,"g":[GIF files],"p":[[preset id,"name"]],"x":{LED4YOU Extras status}} (read again after a notify)
+ *       LIST  (read/notify) {"d":{diagnostics},"m":LED map on,"f":text fonts,"g":[GIF files],"p":[[preset id,"name"]],"x":{LED4YOU Extras status}} (read again after a notify)
  *   BLE callbacks run in the NimBLE host task: they only hand data to a FreeRTOS queue.
  *   All WLED state changes and file system writes happen in loop() on the main task.
  *
@@ -116,6 +116,10 @@ static void mode_myleds(void) {
   }
 }
 static const char _data_FX_MYLEDS[] PROGMEM = "My LEDs@Speed;;;12;sx=128";
+
+// ---------------- diagnostics shown in the app (Setup tab and Wi-Fi card) ----------------
+static volatile uint8_t l4yWifiReason = 0;      // last reason the Wi-Fi station was disconnected (ESP-IDF wifi_err_reason_t), 0 = none
+static volatile uint16_t l4yWifiFails = 0;      // how many times joining the network failed since start
 
 // ---------------- messages from the BLE task ----------------
 struct L4yBleMsg {
@@ -450,7 +454,19 @@ class Led4youBle : public Usermod {
       }
       String out;
       out.reserve(gifJson.length() + presetJson.length() + x.length() + 20);
-      out = F("{\"m\":"); out += mapFile ? 1 : 0; out += F(",\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
+      // diagnostics: Wi-Fi status and whether LED settings are still waiting to be saved
+      String dg;
+      {
+        StaticJsonDocument<320> d;
+        d[F("ws")] = (int)WiFi.status(); d[F("wr")] = l4yWifiReason; d[F("wf")] = l4yWifiFails;
+        d[F("wm")] = (int)WiFi.getMode(); d[F("ap")] = apActive; d[F("ss")] = multiWiFi.size() ? multiWiFi[0].clientSSID : "";
+        d[F("ch")] = WiFi.channel(); d[F("tx")] = (int)WiFi.getTxPower();
+        d[F("cw")] = configNeedsWrite; d[F("ib")] = doInitBusses; d[F("rs")] = rebootAfterSave; d[F("jl")] = jsonBufferLock;
+        Bus* b0 = BusManager::getBus(0); uint8_t pp[5] = {255,255,255,255,255}; if (b0) b0->getPins(pp);
+        d[F("bp")] = pp[0] == 255 ? -1 : pp[0]; d[F("nb")] = BusManager::getNumBusses();
+        serializeJson(d, dg);
+      }
+      out = F("{\"d\":"); out += dg; out += F(",\"m\":"); out += mapFile ? 1 : 0; out += F(",\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
       if (out == lastList) return;
       lastList = out;
       ctlList->setValue((const uint8_t*)out.c_str(), out.length());
@@ -557,6 +573,11 @@ class Led4youBle : public Usermod {
 
   public:
     void setup() override {
+      // remember why joining the Wi-Fi failed, so the app can say it (wrong password, network not found...)
+      WiFi.onEvent([](WiFiEvent_t e, WiFiEventInfo_t info) {
+        if (e == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) { l4yWifiReason = info.wifi_sta_disconnected.reason; l4yWifiFails++; }
+        else if (e == ARDUINO_EVENT_WIFI_STA_GOT_IP) l4yWifiReason = 0;
+      });
       // My LEDs effect and the Studio page work with or without Bluetooth
       myLedsFxId = strip.addEffect(255, &mode_myleds, _data_FX_MYLEDS);
       ::server.on(F("/studio"), HTTP_GET, [](AsyncWebServerRequest* request) {
