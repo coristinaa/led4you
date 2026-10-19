@@ -13,7 +13,7 @@
 #include "wled.h"
 #include <WiFiUdp.h>
 
-#define L4Y_FW_VERSION 43      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
+#define L4Y_FW_VERSION 44      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
 #define L4Y_HOUSE_PORT 21329   // UDP port for house scenes ("L4YS" packets)
 extern const int l4yFwVersion = L4Y_FW_VERSION;   // shown by Improv (installer, Wi-Fi setup) as "v.."
 
@@ -328,7 +328,21 @@ class Led4youExtras : public Usermod {
       // text running up/down turns the matrix on its side: turn it back when another effect is chosen
       static bool textSideways = false;
       JsonVariant txv = root[F("l4y")][F("txv")];
-      if (!txv.isNull()) textSideways = txv.as<bool>();
+      if (!txv.isNull()) {
+        textSideways = txv.as<bool>();
+        // new text or new direction from the app: start the message from the edge now, instead of carrying on from
+        // where the old text was (that looked like a delay before left/right text started)
+        if (!so.isNull() && (so["fx"] | -1) == FX_MODE_2DSCROLLTEXT) {
+          static uint32_t lastTxt = 0;
+          Segment& seg = so.containsKey("id") ? strip.getSegment(so["id"] | 0) : strip.getMainSegment();
+          const char* n = seg.name ? seg.name : "";
+          uint32_t h = 2166136261u;
+          for (const char* c = n; *c; c++) h = (h ^ (uint8_t)*c) * 16777619u;
+          h = (h ^ (seg.check3 ? 1u : 0u)) * 16777619u;   // Reverse = right / down
+          h = (h ^ (seg.transpose ? 2u : 0u)) * 16777619u;
+          if (h != lastTxt) { lastTxt = h; seg.markForReset(); }
+        }
+      }
       else if (textSideways && !so.isNull() && so.containsKey("fx") && !so.containsKey(F("tp")) && (so["fx"] | 0) != FX_MODE_2DSCROLLTEXT) {
         Segment& seg = so.containsKey("id") ? strip.getSegment(so["id"] | 0) : strip.getMainSegment();
         seg.transpose = false; seg.markForReset(); textSideways = false;
