@@ -48,7 +48,7 @@ void l4yExtrasStatus(JsonObject o);   // l4y_extras.cpp
 
 #define L4Y_JSON_MAX   2048        // largest JSON command (the app sends pixel art in chunks of 150 LEDs, ~1.4 KB)
 #define L4Y_FILE_MAX   (64*1024)   // largest file accepted over Bluetooth
-#define L4Y_BLE_IDLE_OFF (3UL*60*1000) // with Wi-Fi up: switch Bluetooth off after this long without an app connected
+#define L4Y_BLE_IDLE_OFF (60UL*1000)   // with Wi-Fi up: switch Bluetooth off after this long without an app connected
 #define L4Y_MYLEDS_MAX 1024        // LEDs covered by the My LEDs table
 
 // ---------------- "My LEDs" effect ----------------
