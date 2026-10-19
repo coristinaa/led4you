@@ -929,7 +929,9 @@
 				const ok = await t.upload(name, bytes, play ? 1 : 0, p => { prog.textContent = 'Sending ' + f.n + '… ' + Math.round(p * 100) + '%'; });
 				if (!ok) throw new Error('upload');
 				stored.add(name);
-			} else if (play) await t.send({ on: true, seg: { fx: 53, n: name, frz: false } });
+			}
+			// Image effect: speed 128 = the GIF's own timing, Blur 0 (otherwise the last effect's intensity blurs the GIF)
+			if (play) await t.send({ on: true, seg: { fx: 53, n: name, frz: false, sx: 128, ix: 0 } });
 			prog.textContent = '';
 		};
 		const card = h('section', { class: 'card' },
@@ -1167,6 +1169,7 @@
 			const name = cleanName(f.name);
 			try {
 				const ok = await t.upload(name, new Uint8Array(await f.arrayBuffer()), 1, p => { gifMsg.textContent = 'Sending… ' + Math.round(p * 100) + '%'; });
+				if (ok) await t.send({ on: true, seg: { fx: 53, n: name, frz: false, sx: 128, ix: 0 } });
 				gifMsg.textContent = ok ? 'Playing ' + name + '.' : 'The lights could not save the GIF.';
 				if (ok) setTimeout(loadList, 800);
 			} catch (e) { gifMsg.textContent = 'Could not send the GIF.'; }
@@ -1189,7 +1192,7 @@
 					try { if (!t.remove) throw 0; await t.remove(name); toast(name + ' deleted.'); setTimeout(loadList, 600); } catch (e) { toast('Could not delete.'); }
 				};
 				return h('div', { class: 'gifrow2' }, h('span', { 'data-notr': '' }, name),
-					h('button', { type: 'button', class: 'btn small', onclick: () => t.send({ on: true, seg: { fx: 53, n: name, frz: false } }).then(() => toast('Playing ' + name + '.')).catch(() => toast('Could not send.')) }, 'Play'),
+					h('button', { type: 'button', class: 'btn small', onclick: () => t.send({ on: true, seg: { fx: 53, n: name, frz: false, sx: 128, ix: 0 } }).then(() => toast('Playing ' + name + '.')).catch(() => toast('Could not send.')) }, 'Play'),
 					del);
 			}));
 		}).catch(() => {});

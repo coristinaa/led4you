@@ -418,7 +418,7 @@ class Led4youBle : public Usermod {
       JsonObject root = pDoc->to<JsonObject>();
       root["on"] = true;
       JsonObject seg = root.createNestedObject("seg");
-      if (upAction == 1) { seg["fx"] = FX_MODE_IMAGE; seg["n"] = upName; }
+      if (upAction == 1) { seg["fx"] = FX_MODE_IMAGE; seg["n"] = upName; seg["sx"] = 128; seg["ix"] = 0; seg[F("frz")] = false; } // GIF timing as made, Blur 0
       else { myLedsVersion++; seg["fx"] = myLedsFxId; seg[F("frz")] = false; }
       deserializeState(root, CALL_MODE_DIRECT_CHANGE);
       releaseJSONBufferLock();
