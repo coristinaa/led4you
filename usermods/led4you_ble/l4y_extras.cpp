@@ -13,7 +13,7 @@
 #include "wled.h"
 #include <WiFiUdp.h>
 
-#define L4Y_FW_VERSION 36      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
+#define L4Y_FW_VERSION 37      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
 #define L4Y_HOUSE_PORT 21329   // UDP port for house scenes ("L4YS" packets)
 extern const int l4yFwVersion = L4Y_FW_VERSION;   // shown by Improv (installer, Wi-Fi setup) as "v.."
 
@@ -123,6 +123,9 @@ static void mode_retrotree(void) {
 }
 static const char _data_FX_L4Y_RETROTREE[] PROGMEM = "Retro Tree@Glow speed,Glow depth;;;01;sx=96,ix=128";
 
+#ifdef WLED_ENABLE_DMX_INPUT
+bool l4yDmxInOn = true;      // read by wled.cpp: DMX input starts at boot only when on (pins are in Sync Interfaces)
+#endif
 #ifdef WLED_ENABLE_DMX
 extern bool l4yDmxOutOn;     // dmx_output.cpp: DMX output on/off and its data pin (applied at boot)
 extern int8_t l4yDmxOutPin;
@@ -165,11 +168,6 @@ class Led4youExtras : public Usermod {
     bool udpUp = false;
     uint8_t txSeq = 0, txScene = 0, txLeft = 0, rxSeq = 0;
     uint32_t txNext = 0, rxTime = 0;
-
-    // DMX input on/off switch (Config › Usermods). The pins themselves are set in Config › Sync Interfaces;
-    // they are kept here while DMX is off, and WLED starts DMX input only at boot, so a change needs a restart.
-    bool dmxOn = true;
-    int dmxPins[4] = { -1, -1, -1, 2 };   // receive, transmit, enable pin, port (as in WLED's globals)
 
     bool timeValid() const { return toki.getTimeSource() > TOKI_TS_NONE && localTime > 1600000000UL; }
     static int minuteOf(time_t t) { return hour(t) * 60 + minute(t); }
@@ -449,10 +447,7 @@ class Led4youExtras : public Usermod {
       top[F("DMX output GPIO")] = l4yDmxOutPin;
       #endif
       #ifdef WLED_ENABLE_DMX_INPUT
-      if (dmxOn) { dmxPins[0] = dmxInputReceivePin; dmxPins[1] = dmxInputTransmitPin; dmxPins[2] = dmxInputEnablePin; dmxPins[3] = dmxInputPort; }
-      top[F("DMX input")] = dmxOn;
-      JsonArray dp = top.createNestedArray(F("dmx-pins (kept while DMX is off)"));
-      for (int v : dmxPins) dp.add(v);
+      top[F("DMX input")] = l4yDmxInOn;
       #endif
     }
 
@@ -481,15 +476,7 @@ class Led4youExtras : public Usermod {
       l4yDmxOutPin = top[F("DMX output GPIO")] | l4yDmxOutPin;
       #endif
       #ifdef WLED_ENABLE_DMX_INPUT
-      JsonArray dp = top[F("dmx-pins (kept while DMX is off)")];
-      if (dp.size() == 4) for (int i = 0; i < 4; i++) dmxPins[i] = dp[i] | dmxPins[i];
-      dmxOn = top[F("DMX input")] | dmxOn;
-      if (!dmxOn) {   // off: WLED sees no DMX pins and does not start DMX input at the next boot
-        if (dmxInputReceivePin >= 0 || dmxInputTransmitPin >= 0) { dmxPins[0] = dmxInputReceivePin; dmxPins[1] = dmxInputTransmitPin; dmxPins[2] = dmxInputEnablePin; dmxPins[3] = dmxInputPort; }
-        dmxInputReceivePin = dmxInputTransmitPin = dmxInputEnablePin = -1;
-      } else if (dmxInputReceivePin < 0 && dmxInputTransmitPin < 0 && (dmxPins[0] >= 0 || dmxPins[1] >= 0)) {   // back on: restore the kept pins
-        dmxInputReceivePin = dmxPins[0]; dmxInputTransmitPin = dmxPins[1]; dmxInputEnablePin = dmxPins[2]; dmxInputPort = dmxPins[3];
-      }
+      l4yDmxInOn = top[F("DMX input")] | l4yDmxInOn;
       #endif
       const int8_t p = top[F("pir-pin")] | pirPin;
       if (l4yExtras) setPirPin(p); else pirPin = p;   // before setup(): pin is allocated in setup()

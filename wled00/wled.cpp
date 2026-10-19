@@ -564,6 +564,10 @@ void WLED::setup()
   initDMXOutput();
 #endif
 #ifdef WLED_ENABLE_DMX_INPUT
+  #ifdef LED4YOU_BLE
+  extern bool l4yDmxInOn;   // LED4YOU: DMX input switch in Config > Usermods (pins stay in Sync Interfaces)
+  if (l4yDmxInOn)
+  #endif
   dmxInput.init(dmxInputReceivePin, dmxInputTransmitPin, dmxInputEnablePin, dmxInputPort);
 #endif
 
