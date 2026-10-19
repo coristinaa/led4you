@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0d0f14">
 <link rel="manifest" href="manifest.webmanifest">
 <script src="i18n.js?v=33"></script>
-<script src="studio.js?v=31"></script>
+<script src="studio.js?v=34"></script>
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -883,6 +883,7 @@ $('gifFile').onchange = async e => {
 	$('gifBar').hidden = false; $('gifProg').style.width = '0'; $('gifMsg').textContent = 'Sending ' + name + '…';
 	try {
 		const ok = await bleUpload(name, bytes, 1, p => { $('gifProg').style.width = Math.round(p * 100) + '%'; });
+		if (ok) await sendNow({ on: true, seg: { fx: 53, n: name, frz: false, sx: 128, ix: 0 } });
 		$('gifMsg').textContent = ok ? name + ' is playing and stays saved on the lights.' : 'The lights could not save the GIF.';
 	} catch (err) { $('gifMsg').textContent = err.message || 'Could not send the GIF.'; }
 };
@@ -972,7 +973,7 @@ function renderGifs(list) {
 		const row = document.createElement('div'); row.className = 'gifrow';
 		const t = document.createElement('span'); t.textContent = name; t.dataset.notr = '';
 		const play = document.createElement('button'); play.type = 'button'; play.textContent = 'Play';
-		play.onclick = () => sendNow({ on: true, seg: { fx: 53, n: name } }).then(() => toast('Playing ' + name)).catch(() => toast('Could not send.'));
+		play.onclick = () => sendNow({ on: true, seg: { fx: 53, n: name, frz: false, sx: 128, ix: 0 } }).then(() => toast('Playing ' + name)).catch(() => toast('Could not send.'));
 		const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Delete';
 		del.onclick = async () => {
 			if (del.dataset.c !== '1') { del.dataset.c = '1'; del.textContent = 'Tap to confirm'; setTimeout(() => { del.dataset.c = ''; del.textContent = 'Delete'; }, 3000); return; }

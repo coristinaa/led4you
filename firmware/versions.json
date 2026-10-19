@@ -1,3 +1,3 @@
-[{ "version": 40, "manifest": "manifest-v40.json", "notes": "Steadier LEDs on the ESP32-C3 while Bluetooth is on (one LED output on the C3)" },
- { "version": 39, "manifest": "manifest-v39.json", "notes": "Steadier LEDs on the ESP32-C3 when Bluetooth is off" },
- { "version": 38, "manifest": "manifest-v38.json", "notes": "Strip/matrix setting from the app is kept" }]
+[{ "version": 41, "manifest": "manifest-v41.json", "notes": "GIFs play sharp: Blur 0 and the GIF's own speed" },
+ { "version": 40, "manifest": "manifest-v40.json", "notes": "Steadier LEDs on the ESP32-C3 while Bluetooth is on (one LED output on the C3)" },
+ { "version": 39, "manifest": "manifest-v39.json", "notes": "Steadier LEDs on the ESP32-C3 when Bluetooth is off" }]
