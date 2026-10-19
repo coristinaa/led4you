@@ -951,7 +951,8 @@
 		const confirmOnce = k => { if (confirmOnce[k]) return true; confirmOnce[k] = true; toast('The lights restart to apply this. Tap again to confirm.'); return false; };
 		const cSound = h('section', { class: 'card' },
 			h('div', { class: 'ct' }, 'Sound'),
-			h('div', { class: 'note' }, 'Effects that move with music. Connect a microphone first and set its pins below.'),
+			h('div', { class: 'note' }, 'Effects that move with music. Use this phone\'s microphone, or connect a microphone to the lights and set its pins below.'),
+			t.audio ? phoneMic(t, toast) : '',
 			h('div', { class: 'themes' }, SOUND_FX.map(([n, id]) => h('button', { type: 'button', class: 'theme sound', onclick: () => t.send({ on: true, seg: { fx: id } }).then(ok(n + ' is on.')).catch(fail()) }, h('span', {}, n), PV.mini({ name: n, d2: /matrix/.test(n), w: 104, h: 12 })))),
 			h('details', { class: 'more' }, h('summary', {}, 'Microphone setup'),
 				h('label', { class: 'chk' }, micOn, ' Microphone on'),
@@ -1037,6 +1038,71 @@
 		}, 4000);
 		updDays(); updSch();
 		return [cSleep, cSeasons, cHouse, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
+	}
+
+	// ---------- Phone microphone: the phone listens to the music and sends the sound to the lights ----------
+	// Same data a WLED board with a microphone sends to others ("audio sync" V2, 44 bytes), about 20 times a second:
+	// volume, a beat flag and 16 frequency bands. The lights use it for the sound effects while it keeps coming.
+	const MIC_BANDS = [43, 86, 129, 216, 301, 430, 560, 818, 1120, 1421, 1895, 2412, 3015, 3704, 4479, 7106, 9259];   // WLED's 16 GEQ bands (Hz)
+	let micRun = null;   // one microphone for the whole page
+	function phoneMic(t, toast) {
+		const btn = h('button', { class: 'btn primary', type: 'button' }, 'Use this phone\'s microphone');
+		const meter = h('div', { class: 'micbars', 'aria-hidden': 'true' }, Array.from({ length: 16 }, () => h('i', {})));
+		const sens = track(h('input', { type: 'range', min: '1', max: '100', value: '50', 'aria-label': 'Sensitivity' }));
+		const note = h('div', { class: 'note' }, 'Keep the app open with the screen on, near the music. The lights use the phone\'s sound while it keeps coming, and go back to their own microphone a moment after you stop.');
+		const bars = [...meter.children];
+		const show = on => { btn.textContent = on ? 'Stop the phone\'s microphone' : 'Use this phone\'s microphone'; btn.classList.toggle('primary', !on); meter.classList.toggle('on', on); };
+		const stop = () => {
+			if (!micRun) return;
+			clearInterval(micRun.timer); micRun.stream.getTracks().forEach(k => k.stop()); try { micRun.ctx.close(); } catch (e) {}
+			micRun = null; show(false); bars.forEach(b => b.style.height = '0');
+		};
+		const start = async () => {
+			if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('This browser cannot use the microphone here.'); return; }
+			let stream;
+			// no echo cancelling or noise removal: those would hide the music
+			try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false }); }
+			catch (e) { toast('The microphone was not allowed.'); return; }
+			const AC = window.AudioContext || window.webkitAudioContext, ctx = new AC();
+			const an = ctx.createAnalyser(); an.fftSize = 2048; an.smoothingTimeConstant = .55;
+			ctx.createMediaStreamSource(stream).connect(an);
+			const hz = ctx.sampleRate / an.fftSize, fr = new Float32Array(an.frequencyBinCount), td = new Float32Array(an.fftSize);
+			const pkt = new Uint8Array(45), dv = new DataView(pkt.buffer);
+			pkt[0] = 0xA5; [48, 48, 48, 48, 50].forEach((c, i) => { pkt[1 + i] = c; });   // marker + header "00002"
+			// one level for all bands keeps the shape of the music (more bass than treble); high bands get a lift like WLED does
+			const TILT = [1, 1, 1, 1.05, 1.1, 1.2, 1.3, 1.4, 1.6, 1.8, 2, 2.4, 2.8, 3.5, 5, 7], vals = new Array(16).fill(0);
+			let agc = .02, bandTop = 1e-6, smooth = 0, avg = 0, lastPeak = 0, busy = false;
+			const tick = () => {
+				an.getFloatTimeDomainData(td); an.getFloatFrequencyData(fr);
+				let rms = 0; for (let i = 0; i < td.length; i++) rms += td[i] * td[i]; rms = Math.sqrt(rms / td.length);
+				const gain = Math.pow(2, (+sens.value - 50) / 15);   // sensitivity slider: x0.1 .. x10
+				agc = Math.max(rms, agc * .995, .002);                 // follows the loudest recent sound
+				const raw = Math.min(255, 255 * rms / agc * .8 * gain);
+				smooth = smooth * .6 + raw * .4; avg = avg * .95 + raw * .05;
+				const now = performance.now(), peak = raw > 60 && raw > avg * 1.6 && now - lastPeak > 120;
+				if (peak) lastPeak = now;
+				let maxMag = 0, maxBin = 1;
+				for (let b = 0; b < 16; b++) {
+					const lo = Math.max(1, Math.floor(MIC_BANDS[b] / hz)), hi = Math.max(lo + 1, Math.ceil(MIC_BANDS[b + 1] / hz));
+					let sum = 0; for (let i = lo; i < hi && i < fr.length; i++) { const m = Math.pow(10, fr[i] / 20); sum += m; if (m > maxMag) { maxMag = m; maxBin = i; } }
+					vals[b] = sum / (hi - lo) * TILT[b];
+				}
+				bandTop = Math.max(Math.max(...vals), bandTop * .997, 1e-6);
+				for (let b = 0; b < 16; b++) {
+					const out = raw < 4 ? 0 : Math.max(0, Math.min(255, Math.round(255 * vals[b] / bandTop * gain)));
+					pkt[19 + b] = out; bars[b].style.height = Math.round(out / 2.55) + '%';
+				}
+				dv.setFloat32(9, raw, true); dv.setFloat32(13, smooth, true); pkt[17] = peak ? 1 : 0;
+				dv.setFloat32(37, maxMag * 4096 * gain, true); dv.setFloat32(41, raw < 4 ? 1 : maxBin * hz, true);
+				if (!busy) { busy = true; t.audio(pkt).catch(() => {}).finally(() => { busy = false; }); }   // skip a frame rather than queue up
+			};
+			micRun = { stream, ctx, timer: setInterval(tick, 50) };
+			show(true);
+			toast('Listening. Pick a sound effect to see it move with the music.');
+		};
+		btn.onclick = () => micRun ? stop() : start();
+		if (micRun) show(true);
+		return h('div', { class: 'micbox' }, btn, meter, h('div', { class: 'lbl' }, h('span', {}, 'Sensitivity')), sens, note);
 	}
 
 	// ---------- GIF pack: original 16×16 animations hosted with the app ----------
@@ -1357,7 +1423,7 @@
 		'Schedule': 'Switches the lights on and off by themselves every day, at a set time or with the sunset and sunrise.',
 		'Countdown': 'Counts down to a date on a matrix, for example to Christmas.',
 		'Preset loop': 'Plays your saved presets one after another, again and again.',
-		'Sound': 'Effects that move with music. They need a microphone connected to the board.',
+		'Sound': 'Effects that move with music, from this phone\'s microphone or one connected to the board.',
 		'Motion scare': 'With a motion sensor connected, plays a preset when someone walks by.',
 		'Light group': 'Makes several lights copy each other over Wi-Fi.',
 		'Power': 'How much current the LEDs use now, compared with your power supply limit.',
@@ -1438,6 +1504,10 @@
 .theme.sound { background: linear-gradient(135deg, #0b2a3a, #2a0b3a); border-color: #1d4660; }
 .theme:active { transform: scale(.97); }
 .theme { display: flex; flex-direction: column; gap: 8px; }
+.micbox { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+.micbars { display: flex; align-items: flex-end; gap: 3px; height: 40px; opacity: .35; }
+.micbars.on { opacity: 1; }
+.micbars i { flex: 1; height: 0; min-height: 2px; border-radius: 2px; background: linear-gradient(to top, #2bd576, #ffd23f, #ff4d4d); transition: height .05s; }
 canvas.pvbig { display: block; width: 100%; max-width: 260px; height: auto; margin: 0 auto; border-radius: 12px; background: #05060a; }
 canvas.pv { display: block; width: 104px; max-width: 100%; height: 12px; border-radius: 6px; }
 .sc-pv { align-self: stretch; display: flex; flex-direction: column; gap: 3px; margin: 6px 0 2px; }

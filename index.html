@@ -6,8 +6,8 @@
 <title>LED4YOU</title>
 <meta name="theme-color" content="#0d0f14">
 <link rel="manifest" href="manifest.webmanifest">
-<script src="i18n.js?v=38"></script>
-<script src="studio.js?v=40"></script>
+<script src="i18n.js?v=41"></script>
+<script src="studio.js?v=41"></script>
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -804,6 +804,8 @@ const bleStudio = {
 	// a short recording of the lights (live preview frames), used as the picture of a saved scene
 	peek: ms => new Promise(res => { const fr = [], tap = f => fr.push(f); peekTaps.add(tap); setTimeout(() => { peekTaps.delete(tap); res(fr.filter((f, i) => i % 2 === 0).slice(0, 10)); }, ms); }),
 	send: obj => sendNow(obj),
+	// sound from the phone's microphone: 0xA5 + 44 bytes, written without waiting for an answer
+	audio: bytes => cmdChar ? gatt(() => cmdChar.writeValueWithoutResponse(bytes)) : Promise.reject(new Error('not connected')),
 	upload: (name, bytes, action, prog) => bleUpload(name, bytes, action, prog),
 	status: () => readList(),
 	cfg: obj => sendNow({ l4ycfg: obj })
