@@ -58,6 +58,9 @@ static const char MYLEDS_FILE[] = "/myleds.bin";
 static volatile uint16_t myLedsVersion = 1;   // bumped after every upload so the effect reloads the table
 static uint8_t myLedsFxId = 255;
 bool l4yBleActive = false;   // read by wled.cpp: Wi-Fi modem sleep only while Bluetooth runs
+// sound from the phone (audioreactive usermod, LED4YOU builds). This empty stand-in is used when that usermod
+// or its LED4YOU part is not in the build (e.g. the WLED CI "usermods" build), so linking never fails.
+__attribute__((weak)) void l4yAudioInject(const uint8_t*, size_t) {}
 
 // Small integer hash used to make twinkle patterns differ per LED and per cycle
 static inline uint32_t l4yHash(uint32_t x) {
@@ -225,7 +228,7 @@ class Led4youBle : public Usermod {
           if (which == 1)      um->onRpcWrite(v.data(), v.length());
           else if (which == 2) {
             // 0xA5 + 44 bytes: sound from the phone's microphone, straight to the sound effects (no JSON, no queue)
-            if (v.length() == 45 && v.data()[0] == 0xA5) { extern void l4yAudioInject(const uint8_t* d, size_t len); l4yAudioInject(v.data() + 1, 44); }
+            if (v.length() == 45 && v.data()[0] == 0xA5) { l4yAudioInject(v.data() + 1, 44); }
             else um->onCmdWrite(v.data(), v.length());
           }
           else if (which == 4) { if (v.length()) um->selectListPage(v.data()[0]); }   // app asks for another page of LIST
