@@ -182,7 +182,14 @@ void WLED::loop()
     #endif
     uint32_t heap = getContiguousFreeHeap(); // ESP32 family needs ~10k of contiguous free heap for UI to work properly
     #endif
+#ifdef LED4YOU_BLE
+    // LED4YOU: a playing GIF holds one 22 KB block, so with Bluetooth and Wi-Fi on the largest free block can be
+    // under 14 KB while plenty of memory is free. WLED would then switch every effect to Static after 15 s (a GIF
+    // turns dark). Only step in when memory is really short.
+    if (heap < 6 * 1024 || getFreeHeapSize() < MIN_HEAP_SIZE) heapDanger+=5;
+#else
     if (heap < MIN_HEAP_SIZE - 1024) heapDanger+=5; // allow 1k of "wiggle room" for things that do not respect min heap limits
+#endif
     else heapDanger = 0;
     switch (heapDanger) {
       case 15: // 15 consecutive seconds
