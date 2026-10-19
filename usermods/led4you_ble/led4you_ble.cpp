@@ -223,7 +223,11 @@ class Led4youBle : public Usermod {
         void onWrite(NimBLECharacteristic* c) override {
           NimBLEAttValue v = c->getValue();
           if (which == 1)      um->onRpcWrite(v.data(), v.length());
-          else if (which == 2) um->onCmdWrite(v.data(), v.length());
+          else if (which == 2) {
+            // 0xA5 + 44 bytes: sound from the phone's microphone, straight to the sound effects (no JSON, no queue)
+            if (v.length() == 45 && v.data()[0] == 0xA5) { extern void l4yAudioInject(const uint8_t* d, size_t len); l4yAudioInject(v.data() + 1, 44); }
+            else um->onCmdWrite(v.data(), v.length());
+          }
           else if (which == 4) { if (v.length()) um->selectListPage(v.data()[0]); }   // app asks for another page of LIST
           else                 um->enqueue(3, v.data(), v.length()); // file packets are self-contained
         }

@@ -76,6 +76,25 @@
 static volatile bool disableSoundProcessing = false;      // if true, sound processing (FFT, filters, AGC) will be suspended. "volatile" as its shared between tasks.
 static uint8_t audioSyncEnabled = 0;          // bit field: bit 0 - send, bit 1 - receive (config value)
 static bool udpSyncConnected = false;         // UDP connection status -> true if connected to multicast group
+#ifdef LED4YOU_BLE
+// LED4YOU: sound from the phone's microphone. The app measures it and sends the same 44-byte "V2" packet that
+// WLED boards use for audio sync (over Bluetooth or Wi-Fi); the LED4YOU usermod hands it over with l4yAudioInject().
+// It may be called from the Bluetooth or the web socket task, so the packet is handed over under a spinlock.
+static uint8_t  l4yExtAudio[44];
+static volatile uint32_t l4yExtAudioTime = 0;   // millis() of the last packet, 0 = never
+static volatile bool     l4yExtAudioNew = false;
+static portMUX_TYPE      l4yExtAudioMux = portMUX_INITIALIZER_UNLOCKED;
+void l4yAudioInject(const uint8_t* d, size_t len) {
+  if (!d || len < sizeof(l4yExtAudio)) return;
+  uint32_t now = millis(); if (!now) now = 1;
+  portENTER_CRITICAL(&l4yExtAudioMux);
+  memcpy(l4yExtAudio, d, sizeof(l4yExtAudio));
+  l4yExtAudioTime = now;
+  l4yExtAudioNew = true;
+  portEXIT_CRITICAL(&l4yExtAudioMux);
+}
+static inline bool l4yAudioExternal() { return l4yExtAudioTime && (millis() - l4yExtAudioTime < 1500); }   // phone sound arrived in the last 1.5 s
+#endif
 
 #define NUM_GEQ_CHANNELS 16                                           // number of frequency channels. Don't change !!
 
@@ -1533,6 +1552,23 @@ class AudioReactive : public Usermod {
     {
       static unsigned long lastUMRun = millis();
 
+#ifdef LED4YOU_BLE
+      // sound from the phone: use it instead of the board's microphone or network sync while it keeps arriving
+      if (l4yAudioExternal()) {
+        static float extVolumeSmth = 0;
+        disableSoundProcessing = true;   // the board's own sampling and FFT stay quiet meanwhile
+        uint8_t pkt[sizeof(l4yExtAudio)]; bool fresh = false;
+        portENTER_CRITICAL(&l4yExtAudioMux);
+        if (l4yExtAudioNew) { memcpy(pkt, l4yExtAudio, sizeof(pkt)); l4yExtAudioNew = false; fresh = true; }
+        portEXIT_CRITICAL(&l4yExtAudioMux);
+        if (fresh) { decodeAudioData(sizeof(pkt), pkt); last_UDPTime = millis(); extVolumeSmth = volumeSmth; }
+        else volumeSmth = extVolumeSmth;
+        limitSampleDynamics();
+        autoResetPeak();
+        lastUMRun = millis();
+        return;
+      }
+#endif
       if (!enabled) {
         disableSoundProcessing = true;   // keep processing suspended (FFT task)
         lastUMRun = millis();            // update time keeping
@@ -1676,6 +1712,9 @@ class AudioReactive : public Usermod {
 
     bool getUMData(um_data_t **data) override
     {
+#ifdef LED4YOU_BLE
+      if (data && !enabled && l4yAudioExternal()) { *data = um_data; return true; }   // phone sound works without a microphone set up
+#endif
       if (!data || !enabled) return false; // no pointer provided by caller or not enabled -> exit
       *data = um_data;
       return true;
