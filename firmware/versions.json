@@ -1,2 +1,3 @@
-[{ "version": 35, "manifest": "manifest-v35.json", "notes": "Installer shows the LED4YOU version and name" },
+[{ "version": 36, "manifest": "manifest-v36.json", "notes": "Installer shows the LED4YOU version" },
+ { "version": 35, "manifest": "manifest-v35.json", "notes": "Installer shows the LED4YOU name" },
  { "version": 34, "manifest": "manifest-v34.json", "notes": "DMX output on a GPIO you choose" }]
