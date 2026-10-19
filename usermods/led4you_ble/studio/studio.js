@@ -855,7 +855,7 @@
 				type: 'button', class: 'theme ' + group.toLowerCase(), onclick: () => {
 					const seg = f();
 					if (seg.fx === undefined || seg.fx === 255) { toast('Update the lights to the newest LED4YOU for this theme.'); return; }
-					t.send({ on: true, seg, l4y: { cd: { on: false } } }).then(ok(name + ' is on. Save it as a preset to keep it.')).catch(fail());
+					t.send({ on: true, seg: Object.assign(wholeSeg(t), seg), l4y: { cd: { on: false } } }).then(ok(name + ' is on. Save it as a preset to keep it.')).catch(fail());
 				}
 			}, h('span', {}, name), (() => { const sg = f(); return PV.mini({ sim, col: sg.col, speed: sg.sx, w: 104, h: 12 }); })())))]));
 
@@ -953,7 +953,7 @@
 			h('div', { class: 'ct' }, 'Sound'),
 			h('div', { class: 'note' }, 'Effects that move with music. Use this phone\'s microphone, or connect a microphone to the lights and set its pins below.'),
 			t.audio ? phoneMic(t, toast) : '',
-			h('div', { class: 'themes' }, SOUND_FX.map(([n, id]) => h('button', { type: 'button', class: 'theme sound', onclick: () => t.send({ on: true, seg: { fx: id } }).then(ok(n + ' is on.')).catch(fail()) }, h('span', {}, n), PV.mini({ name: n, d2: /matrix/.test(n), w: 104, h: 12 })))),
+			h('div', { class: 'themes' }, SOUND_FX.map(([n, id]) => h('button', { type: 'button', class: 'theme sound', onclick: () => t.send({ on: true, seg: Object.assign(wholeSeg(t), { fx: id }) }).then(ok(n + ' is on.')).catch(fail()) }, h('span', {}, n), PV.mini({ name: n, d2: /matrix/.test(n), w: 104, h: 12 })))),
 			h('details', { class: 'more' }, h('summary', {}, 'Microphone setup'),
 				h('label', { class: 'chk' }, micOn, ' Microphone on'),
 				field('Type', micType),
@@ -1039,6 +1039,14 @@
 		updDays(); updSch();
 		return [cSleep, cSeasons, cHouse, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
 	}
+
+	// The whole lights as one segment, with nothing that leaves LEDs out (grouping, spacing, mirror, an old smaller size
+	// from a preset made before the LEDs were changed). Season themes and sound effects use it so they fill every LED.
+	const wholeSeg = t => {
+		const i = t.info(), mx = i.mw && i.mh;
+		const g = { id: 0, start: 0, stop: mx ? i.mw : (i.leds || 30), grp: 1, spc: 0, of: 0, mi: false, rev: false };
+		return mx ? Object.assign(g, { startY: 0, stopY: i.mh, rY: false, mY: false, tp: false, m12: 0 }) : g;
+	};
 
 	// ---------- Phone microphone: the phone listens to the music and sends the sound to the lights ----------
 	// Same data a WLED board with a microphone sends to others ("audio sync" V2, 44 bytes), about 20 times a second:
