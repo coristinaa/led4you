@@ -992,7 +992,8 @@ function renderDiag(d) {
 	const why = d.wr ? (WIFI_REASON[d.wr] || 'reason ' + d.wr) : '';
 	$('suDiag').textContent = 'Wi-Fi: ' + wsTxt + (d.ss ? ' to "' + d.ss + '"' : '') + (why ? ' · last problem: ' + why : '') + (d.wf ? ' · failed tries: ' + d.wf : '') +
 		' · Wi-Fi radio: ' + (d.wm ? 'on' : 'OFF') + (d.ap ? ' · own network (AP) open' : '') +
-		' · LED data pin now: ' + (d.bp >= 0 ? 'GPIO ' + d.bp : 'none') + ' · outputs: ' + d.nb + (d.cw ? ' · settings waiting to be saved' : '') + (d.jl ? ' · busy (' + d.jl + ')' : '');
+		' · LED data pin now: ' + (d.bp >= 0 ? 'GPIO ' + d.bp : 'none') + ' · outputs: ' + d.nb + (d.cw ? ' · settings waiting to be saved' : '') + (d.jl ? ' · busy (' + d.jl + ')' : '') +
+		(d.rr ? ' · last restart: ' + ({ 1: 'power on', 3: 'normal restart', 4: 'crash', 5: 'crash (interrupt watchdog)', 6: 'crash (task watchdog)', 7: 'crash (watchdog)', 9: 'power too weak (brownout)' }[d.rr] || 'code ' + d.rr) : '');
 	const show = !!d.ss && d.ws !== 3 && (d.wr || d.wf);
 	$('wifiDiag').hidden = !show;
 	if (show) $('wifiDiag').textContent = 'The lights could not join "' + d.ss + '": ' + (why || 'no answer yet') + '.';

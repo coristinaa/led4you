@@ -1,3 +1,3 @@
-[{ "version": 42, "manifest": "manifest-v42.json", "notes": "ESP32-C3: LED data sent with SPI DMA, steady with Bluetooth on" },
- { "version": 41, "manifest": "manifest-v41.json", "notes": "GIFs play sharp: Blur 0 and the GIF's own speed" },
- { "version": 40, "manifest": "manifest-v40.json", "notes": "Steadier LEDs on the ESP32-C3 while Bluetooth is on (one LED output on the C3)" }]
+[{ "version": 43, "manifest": "manifest-v43.json", "notes": "No restart when choosing a GIF with little free memory" },
+ { "version": 42, "manifest": "manifest-v42.json", "notes": "ESP32-C3: LED data sent with SPI DMA, steady with Bluetooth on" },
+ { "version": 41, "manifest": "manifest-v41.json", "notes": "GIFs play sharp: Blur 0 and the GIF's own speed" }]
