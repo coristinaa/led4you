@@ -1083,11 +1083,15 @@
 		};
 		Promise.all([
 			fetch('/json/state', { cache: 'no-store' }).then(r => r.json()),
-			fetch(FW_URL + 'latest.json', { cache: 'no-store' }).then(r => r.json())
-		]).then(([st, lt]) => {
+			fetch(FW_URL + 'latest.json', { cache: 'no-store' }).then(r => r.json()),
+			fetch('/json/info', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}))
+		]).then(([st, lt, inf]) => {
 			const cur = (st.l4y && st.l4y.fw) || 0;   // 0: older LED4YOU that does not report its version yet
-			if (!lt || !lt.version || lt.version <= cur || !lt.update) return;
-			latest = lt;
+			// the right file for this chip ("release" is the build name: ESP32-C3, ESP32...); never offer another chip's firmware
+			const chip = String(inf.release || 'ESP32-C3');
+			const pick = lt && lt.builds ? lt.builds[chip] : (chip === 'ESP32-C3' ? lt : null);
+			if (!lt || !lt.version || lt.version <= cur || !pick || !pick.update) return;
+			latest = Object.assign({}, lt, pick);
 			info.textContent = cur ? 'LED4YOU v' + lt.version + ' is ready (these lights have v' + cur + ').' : 'LED4YOU v' + lt.version + ' is ready.';
 			notes.textContent = lt.notes || '';
 			card.hidden = false;
