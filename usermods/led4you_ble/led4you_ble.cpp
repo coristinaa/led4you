@@ -537,7 +537,19 @@ class Led4youBle : public Usermod {
         zj += zb;
       }
       zj += ']';
-      out = F("{\"d\":"); out += dg; out += F(",\"z\":"); out += zj; out += F(",\"m\":"); out += mapFile ? 1 : 0; out += F(",\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
+      // matrix panels: [x, y, width, height, options] in wiring order, so the app can draw and edit them
+      String pj = F("[");
+#ifndef WLED_DISABLE_2D
+      if (strip.isMatrix) for (size_t i = 0; i < strip.panel.size() && i < WLED_MAX_PANELS; i++) {
+        const auto& pn = strip.panel[i];
+        if (pj.length() > 1) pj += ',';
+        char pb[40];
+        snprintf_P(pb, sizeof(pb), PSTR("[%u,%u,%u,%u,%u]"), pn.xOffset, pn.yOffset, pn.width, pn.height, pn.options);
+        pj += pb;
+      }
+#endif
+      pj += ']';
+      out = F("{\"d\":"); out += dg; out += F(",\"z\":"); out += zj; out += F(",\"pn\":"); out += pj; out += F(",\"m\":"); out += mapFile ? 1 : 0; out += F(",\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
       if (out == lastList) return;
       lastList = out;
       // a Bluetooth value holds at most 512 bytes: the list is cut into pages "~" + page + count + up to 480 bytes,

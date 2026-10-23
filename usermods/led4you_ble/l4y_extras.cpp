@@ -13,7 +13,7 @@
 #include "wled.h"
 #include <WiFiUdp.h>
 
-#define L4Y_FW_VERSION 56      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
+#define L4Y_FW_VERSION 57      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
 #define L4Y_HOUSE_PORT 21329   // UDP port for house scenes ("L4YS" packets)
 extern const int l4yFwVersion = L4Y_FW_VERSION;   // shown by Improv (installer, Wi-Fi setup) as "v.."
 
@@ -488,6 +488,13 @@ class Led4youExtras : public Usermod {
       status(l);
       extern int l4yGifSlotCount();
       l[F("gs")] = l4yGifSlotCount();   // how many GIFs can play at the same time on this board
+#ifndef WLED_DISABLE_2D
+      // matrix panels [x, y, width, height, options] for the Studio's zones (panels of different sizes)
+      if (strip.isMatrix && strip.panel.size() > 1) {
+        JsonArray pa = l.createNestedArray(F("pn"));
+        for (const auto& pn : strip.panel) { JsonArray q = pa.createNestedArray(); q.add(pn.xOffset); q.add(pn.yOffset); q.add(pn.width); q.add(pn.height); q.add(pn.options); }
+      }
+#endif
     }
 
     void addToConfig(JsonObject& root) override {

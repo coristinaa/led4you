@@ -76,6 +76,7 @@ let INFO = { leds: 30, mw: 0, mh: 0, mfx: 255, gs: 1, zones: [0] };
 const readInfo = j => {
 	const m = j.info && j.info.leds && j.info.leds.matrix;
 	INFO = { key: location.host, leds: j.info.leds.count, mw: m ? m.w : 0, mh: m ? m.h : 0, mfx: j.state.l4y ? j.state.l4y.mfx : 255, gs: j.state.l4y ? j.state.l4y.gs : 1,
+		pn: j.state.l4y && j.state.l4y.pn || [],
 		zones: (j.state.seg || []).filter(g => g.stop > g.start).map(g => g.id),
 		zg: (j.state.seg || []).filter(g => g.stop > g.start).map(g => [g.id, g.start, g.stop, g.startY | 0, g.stopY || 1, g.on ? 1 : 0, g.rev ? 1 : 0, g.mi ? 1 : 0]) };
 };

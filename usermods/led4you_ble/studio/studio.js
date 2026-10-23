@@ -1040,8 +1040,7 @@
 			if (!document.hidden && cPower.offsetParent !== null) refresh();   // only while the "More" cards are on screen
 		}, 4000);
 		updDays(); updSch();
-		const inf0 = t.info();
-		return [cSleep, cSeasons, zonesCard(t, toast), cHouse, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
+		return [cSleep, cSeasons, ...(t.zonesElsewhere ? [] : [zonesCard(t, toast)]), cHouse, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
 	}
 
 	// The whole lights as one segment, with nothing that leaves LEDs out (grouping, spacing, mirror, an old smaller size
@@ -1140,7 +1139,13 @@
 			zl = Array.from({ length: n }, (_, k) => ({ id: k, a: k * step, b: k === n - 1 ? W : (k + 1) * step, ay: 0, by: 1, on: true, rev: false, mi: false, name: (zl[k] || {}).name || '' }));
 			draw(); msg.textContent = 'Split into ' + n + ' zones. Tap "Save zones" to send them.';
 		};
+		const realPanels = () => (inf().pn || []).filter(q => q[2] > 0 && q[3] > 0);
 		const perPanel = () => {
+			const rp = realPanels();
+			if (rp.length > 1) {   // the lights told us their panels (any sizes): one zone on each
+				zl = rp.slice(0, 12).map((q, k) => ({ id: k, a: q[0], b: q[0] + q[2], ay: q[1], by: q[1] + q[3], on: true, rev: false, mi: false, name: (zl[k] || {}).name || '' }));
+				draw(); msg.textContent = zl.length + ' zones, one per panel. Tap "Save zones" to send them.'; return;
+			}
 			const a = Math.max(1, +across.value | 0), d = Math.max(1, +down.value | 0), pw = Math.floor(inf().mw / a), ph = Math.floor(inf().mh / d);
 			if (pw < 1 || ph < 1) { toast('Too many panels for this matrix.'); return; }
 			try { localStorage.setItem('l4yPanels', JSON.stringify([a, d])); } catch (e) {}
@@ -1166,8 +1171,9 @@
 			h('div', { class: 'ct' }, 'Zones'),
 			h('div', { class: 'note' }, mxNow ? 'Split the matrix into zones (for example one per panel) that each show something else: text on one, a GIF on another, an effect on a third. Then pick the zone under "Send to".'
 				: 'Split the strip into zones (for example roof, window, door) that each show something else. Then pick the zone under "Send to".'),
-			mxNow ? h('div', { class: 'zquick' }, h('span', {}, 'Panels side by side'), across, h('span', {}, 'on top of each other'), down,
-					h('button', { type: 'button', class: 'btn small', onclick: perPanel }, 'One zone per panel'))
+			mxNow ? (realPanels().length > 1 ? h('div', { class: 'zquick' }, h('span', {}, realPanels().length + ' panels'), h('button', { type: 'button', class: 'btn small', onclick: perPanel }, 'One zone per panel'))
+				: h('div', { class: 'zquick' }, h('span', {}, 'Panels side by side'), across, h('span', {}, 'on top of each other'), down,
+					h('button', { type: 'button', class: 'btn small', onclick: perPanel }, 'One zone per panel')))
 				: h('div', { class: 'zquick' }, h('span', {}, 'Split into'), parts, h('span', {}, 'equal parts'), h('button', { type: 'button', class: 'btn small', onclick: split }, 'Split')),
 			box,
 			h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: add }, 'Add zone'), h('button', { class: 'btn primary', type: 'button', onclick: save }, 'Save zones'),
