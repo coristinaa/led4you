@@ -75,8 +75,9 @@ let INFO = { leds: 30, mw: 0, mh: 0, mfx: 255, gs: 1, zones: [0] };
 // zones = active segments, gs = how many GIFs play at once (from /json/si)
 const readInfo = j => {
 	const m = j.info && j.info.leds && j.info.leds.matrix;
-	INFO = { leds: j.info.leds.count, mw: m ? m.w : 0, mh: m ? m.h : 0, mfx: j.state.l4y ? j.state.l4y.mfx : 255, gs: j.state.l4y ? j.state.l4y.gs : 1,
-		zones: (j.state.seg || []).filter(g => g.stop > g.start).map(g => g.id) };
+	INFO = { key: location.host, leds: j.info.leds.count, mw: m ? m.w : 0, mh: m ? m.h : 0, mfx: j.state.l4y ? j.state.l4y.mfx : 255, gs: j.state.l4y ? j.state.l4y.gs : 1,
+		zones: (j.state.seg || []).filter(g => g.stop > g.start).map(g => g.id),
+		zg: (j.state.seg || []).filter(g => g.stop > g.start).map(g => [g.id, g.start, g.stop, g.startY | 0, g.stopY || 1, g.on ? 1 : 0, g.rev ? 1 : 0, g.mi ? 1 : 0]) };
 };
 const toast = m => { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 3000); };
 const wifi = {

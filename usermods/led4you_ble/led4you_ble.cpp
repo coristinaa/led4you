@@ -513,7 +513,7 @@ class Led4youBle : public Usermod {
         serializeJson(d, x);
       }
       String out;
-      out.reserve(gifJson.length() + presetJson.length() + x.length() + 20);
+      out.reserve(gifJson.length() + presetJson.length() + x.length() + 600);
       // diagnostics: Wi-Fi status and whether LED settings are still waiting to be saved
       String dg;
       {
@@ -526,7 +526,18 @@ class Led4youBle : public Usermod {
         d[F("bp")] = pp[0] == 255 ? -1 : pp[0]; d[F("nb")] = BusManager::getNumBusses(); d[F("rr")] = (int)esp_reset_reason(); d[F("hf")] = (ESP.getFreeHeap() >> 12) << 2; d[F("hb")] = (heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) >> 12) << 2;   // KB, in 4 KB steps
         serializeJson(d, dg);
       }
-      out = F("{\"d\":"); out += dg; out += F(",\"m\":"); out += mapFile ? 1 : 0; out += F(",\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
+      // zones (segments): [id, start, stop, startY, stopY, on, reverse, mirror] for the app's zone editor
+      String zj = F("[");
+      for (unsigned i = 0; i < strip.getSegmentsNum() && i < 16; i++) {
+        Segment& sg = strip.getSegment(i);
+        if (!sg.isActive()) continue;
+        if (zj.length() > 1) zj += ',';
+        char zb[48];
+        snprintf_P(zb, sizeof(zb), PSTR("[%u,%u,%u,%u,%u,%u,%u,%u]"), i, sg.start, sg.stop, sg.startY, sg.stopY, sg.on ? 1 : 0, sg.reverse ? 1 : 0, sg.mirror ? 1 : 0);
+        zj += zb;
+      }
+      zj += ']';
+      out = F("{\"d\":"); out += dg; out += F(",\"z\":"); out += zj; out += F(",\"m\":"); out += mapFile ? 1 : 0; out += F(",\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
       if (out == lastList) return;
       lastList = out;
       // a Bluetooth value holds at most 512 bytes: the list is cut into pages "~" + page + count + up to 480 bytes,
