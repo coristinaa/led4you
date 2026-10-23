@@ -568,6 +568,18 @@ class Led4youBle : public Usermod {
       }
 #endif
       pj += ']';
+      // LED outputs: [pin, LED count, chip type, colour order, first LED] for each digital output, and how many the board can drive
+      String oj = F("[");
+      for (unsigned i = 0; i < BusManager::getNumBusses() && i < 8; i++) {
+        Bus* bb = BusManager::getBus(i);
+        if (!bb || !bb->isDigital()) continue;
+        uint8_t bp[5] = {255,255,255,255,255}; bb->getPins(bp);
+        if (oj.length() > 1) oj += ',';
+        char ob[48];
+        snprintf_P(ob, sizeof(ob), PSTR("[%d,%u,%u,%u,%u]"), bp[0] == 255 ? -1 : bp[0], bb->getLength(), bb->getType() & 0x7F, bb->getColorOrder() & 0x0F, bb->getStart());
+        oj += ob;
+      }
+      oj += ']';
       // DMX output settings: [on, pin, channels per fixture, gap, start address, first LED, fixtures, [channel map]]
       String dx;
 #ifdef WLED_ENABLE_DMX
@@ -582,7 +594,7 @@ class Led4youBle : public Usermod {
 #else
       dx = F("null");
 #endif
-      out = F("{\"d\":"); out += dg; out += F(",\"z\":"); out += zj; out += F(",\"pn\":"); out += pj; out += F(",\"dx\":"); out += dx; out += F(",\"m\":"); out += mapFile ? 1 : 0; out += F(",\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
+      out = F("{\"d\":"); out += dg; out += F(",\"z\":"); out += zj; out += F(",\"pn\":"); out += pj; out += F(",\"dx\":"); out += dx; out += F(",\"o\":"); out += oj; out += F(",\"mo\":"); out += (WLED_MAX_RMT_CHANNELS > 4 ? 4 : WLED_MAX_RMT_CHANNELS); out += F(",\"m\":"); out += mapFile ? 1 : 0; out += F(",\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
       if (out == lastList) return;
       lastList = out;
       // a Bluetooth value holds at most 512 bytes: the list is cut into pages "~" + page + count + up to 480 bytes,

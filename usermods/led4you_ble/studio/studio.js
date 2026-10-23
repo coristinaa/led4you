@@ -1156,6 +1156,13 @@
 			for (let r = 0; r < d; r++) for (let c = 0; c < a; c++) zl.push({ id: zl.length, a: c * pw, b: (c + 1) * pw, ay: r * ph, by: (r + 1) * ph, on: true, rev: false, mi: false, name: '' });
 			draw(); msg.textContent = zl.length + ' zones, one per panel. Tap "Save zones" to send them.';
 		};
+		// one zone per LED output (GPIO): zone k = the LEDs of output k
+		const outs = () => (inf().outs || []).filter(o => o[1] > 0);
+		const perOutput = () => {
+			const os = outs();
+			zl = os.slice(0, 12).map((o, k) => ({ id: k, a: o[4], b: o[4] + o[1], ay: 0, by: 1, on: true, rev: false, mi: false, name: (zl[k] || {}).name || ('GPIO ' + o[0]) }));
+			draw(); msg.textContent = zl.length + ' zones, one per output. Tap "Save zones" to send them.';
+		};
 		const clearFrom = ids => Array.from({ length: 16 }, (_, i) => i).filter(i => !ids.includes(i)).map(id => ({ id, stop: 0 }));
 		const save = () => {
 			const mx = isMx();
@@ -1177,7 +1184,8 @@
 			mxNow ? (realPanels().length > 1 ? h('div', { class: 'zquick' }, h('span', {}, realPanels().length + ' panels'), h('button', { type: 'button', class: 'btn small', onclick: perPanel }, 'One zone per panel'))
 				: h('div', { class: 'zquick' }, h('span', {}, 'Panels side by side'), across, h('span', {}, 'on top of each other'), down,
 					h('button', { type: 'button', class: 'btn small', onclick: perPanel }, 'One zone per panel')))
-				: h('div', { class: 'zquick' }, h('span', {}, 'Split into'), parts, h('span', {}, 'equal parts'), h('button', { type: 'button', class: 'btn small', onclick: split }, 'Split')),
+				: h('div', {}, h('div', { class: 'zquick' }, h('span', {}, 'Split into'), parts, h('span', {}, 'equal parts'), h('button', { type: 'button', class: 'btn small', onclick: split }, 'Split')),
+					outs().length > 1 ? h('div', { class: 'zquick' }, h('span', {}, outs().length + ' LED outputs'), h('button', { type: 'button', class: 'btn small', onclick: perOutput }, 'One zone per output')) : ''),
 			box,
 			h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: add }, 'Add zone'), h('button', { class: 'btn primary', type: 'button', onclick: save }, 'Save zones'),
 				h('button', { class: 'btn', type: 'button', onclick: join }, 'All in one zone')),
@@ -1612,6 +1620,8 @@
 		targetBar,
 		segOut,
 		target: () => TARGET,
+		redrawTargets: () => targetListeners.forEach(f => f()),
+		onTarget: f => targetListeners.add(f),
 		houseCards,
 		preview: PV.mini,
 		matrixPreview: PV.big,
