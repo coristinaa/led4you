@@ -43,7 +43,7 @@ void l4yExtrasStatus(JsonObject o);   // l4y_extras.cpp
 #define L4Y_FILE     "c0de4c45-4434-594f-55aa-000000000003"
 #define L4Y_LIST     "c0de4c45-4434-594f-55aa-000000000004"
 #define L4Y_PEEK     "c0de4c45-4434-594f-55aa-000000000005"   // live preview: [cols][rows] + RGB per sampled LED
-#define L4Y_PEEK_MAX 160         // LEDs per preview frame (fits one BLE packet)
+#define L4Y_PEEK_MAX 168         // LEDs per preview frame (2 + 168 x 3 bytes fits one 512-byte BLE value)
 #define L4Y_LIST_PAGE 480        // bytes of the LIST JSON per page (a Bluetooth value is at most 512 bytes)
 
 #define L4Y_JSON_MAX   2048        // largest JSON command (the app sends pixel art in chunks of 150 LEDs, ~1.4 KB)
@@ -488,6 +488,20 @@ class Led4youBle : public Usermod {
       buf[0] = cols; buf[1] = rows;
       size_t p = 2;
       for (unsigned y = 0; y < rows; y++) for (unsigned x = 0; x < cols; x++) {
+        if (mx && step > 1) {
+          // a big matrix is shown smaller: average each step x step block, so pictures and text stay readable
+          // (taking one LED per block made thin lines and text flicker in and out)
+          unsigned r = 0, g = 0, b = 0;
+          for (unsigned dy = 0; dy < step; dy++) for (unsigned dx = 0; dx < step; dx++) {
+            const uint32_t c = strip.getPixelColorXY(x * step + dx, y * step + dy);
+            r += R(c); g += G(c); b += B(c);
+          }
+          const unsigned n = step * step;
+          // a bit brighter than the plain average, so a few lit LEDs in a block still show
+          r = min(255u, r * 3 / (n * 2)); g = min(255u, g * 3 / (n * 2)); b = min(255u, b * 3 / (n * 2));
+          buf[p++] = r; buf[p++] = g; buf[p++] = b;
+          continue;
+        }
         uint32_t c;
         if (mx) c = strip.getPixelColorXY(x * step, y * step);
         else c = strip.getPixelColor((x * strip.getLengthTotal()) / cols);
