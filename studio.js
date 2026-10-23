@@ -1041,7 +1041,7 @@
 		}, 4000);
 		updDays(); updSch();
 		const inf0 = t.info();
-		return [cSleep, cSeasons, ...(inf0.mw && inf0.mh ? [zonesCard(t, toast)] : []), cHouse, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
+		return [cSleep, cSeasons, zonesCard(t, toast), cHouse, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
 	}
 
 	// The whole lights as one segment, with nothing that leaves LEDs out (grouping, spacing, mirror, an old smaller size
@@ -1081,42 +1081,99 @@
 			if (TARGET !== null && !z.includes(TARGET)) TARGET = null;
 			const btn = (v, label) => h('button', { type: 'button', class: 'seg' + (TARGET === v ? ' sel' : ''), onclick: () => setTarget(v) }, label);
 			box.replaceChildren(h('div', { class: 'lab' }, 'Send to'),
-				h('div', { class: 'segs' }, btn(null, 'All panels'), ...z.map((id, k) => btn(id, 'Panel ' + (k + 1)))),
-				gs === 1 ? h('div', { class: 'note' }, 'ESP32-C3: one panel at a time can show a GIF. Text and effects work on every panel. For several GIFs at once use a classic ESP32.') : '');
+				h('div', { class: 'segs' }, btn(null, t.info().mw && t.info().mh ? 'All panels' : 'All zones'), ...z.map((id, k) => btn(id, zoneLabel(t, id, k)))),
+				gs === 1 ? h('div', { class: 'note' }, 'ESP32-C3: one zone at a time can show a GIF. Text and effects work on every zone. For several GIFs at once use a classic ESP32.') : '');
 		};
 		targetListeners.add(draw); draw();
 		setTimeout(draw, 1500);   // the zone list may arrive a moment later
 		return box;
 	}
 	// panels: one zone (segment) per panel of a matrix made of several panels
+	// zone names are kept on this phone / computer (the lights use segment names for GIF files and text)
+	const zoneNames = t => { try { return JSON.parse(localStorage.getItem('l4yZoneNames:' + t.info().key) || '{}'); } catch (e) { return {}; } };
+	const zoneLabel = (t, id, k) => zoneNames(t)[id] || ((t.info().mw && t.info().mh ? 'Panel ' : 'Zone ') + (k + 1));
+	// Zones editor: split the lights into parts (segments) that can each show something else.
+	// Strip: LED ranges. Matrix: rectangles, with a quick "one zone per panel" for matrices made of panels.
 	function zonesCard(t, toast) {
-		const inf = t.info();
-		const across = h('input', { type: 'number', min: '1', max: '8', value: '1' }), down = h('input', { type: 'number', min: '1', max: '4', value: '1' });
+		const box = h('div', { class: 'zlist' });
+		const msg = h('div', { class: 'note' });
+		let zl = null;   // zones being edited: { id, a, b, ay, by, on, rev, mi, name }
+		const inf = () => t.info(), isMx = () => !!(inf().mw && inf().mh);
+		const total = () => isMx() ? inf().mw : (inf().leds || 30);
+		const load = () => {
+			const g = inf().zg;
+			const names = zoneNames(t);
+			zl = (g && g.length ? g : [[0, 0, total(), 0, isMx() ? inf().mh : 1, 1, 0, 0]]).map(z => ({ id: z[0], a: z[1], b: z[2], ay: z[3], by: z[4], on: !!z[5], rev: !!z[6], mi: !!z[7], name: names[z[0]] || '' }));
+			draw();
+		};
+		const num = (v, min, max, f) => { const e = h('input', { type: 'number', min: String(min), max: String(max), value: String(v), class: 'znum' }); e.onchange = () => f(Math.max(min, Math.min(max, +e.value | 0))); return e; };
+		const chk = (v, label, f) => { const e = h('input', { type: 'checkbox' }); e.checked = v; e.onchange = () => f(e.checked); return h('label', { class: 'chk' }, e, ' ' + label); };
+		const draw = () => {
+			const mx = isMx(), W = total(), H = mx ? inf().mh : 1;
+			box.replaceChildren(...zl.map((z, k) => {
+				const name = h('input', { class: 'search zname', type: 'text', maxlength: '16', placeholder: (mx ? 'Panel ' : 'Zone ') + (k + 1), value: z.name });
+				name.oninput = () => { z.name = name.value.trim(); };
+				const del = h('button', { type: 'button', class: 'btn small' }, 'Remove');
+				del.onclick = () => { if (zl.length < 2) { toast('Keep at least one zone.'); return; } zl.splice(k, 1); draw(); };
+				return h('div', { class: 'zrow' }, h('div', { class: 'zhead' }, h('b', {}, String(k + 1)), name, del),
+					mx ? h('div', { class: 'zgrid' },
+						h('span', {}, 'Columns'), num(z.a + 1, 1, W, v => z.a = v - 1), h('span', {}, 'to'), num(z.b, 1, W, v => z.b = v),
+						h('span', {}, 'Rows'), num(z.ay + 1, 1, H, v => z.ay = v - 1), h('span', {}, 'to'), num(z.by, 1, H, v => z.by = v))
+						: h('div', { class: 'zgrid' }, h('span', {}, 'LEDs'), num(z.a + 1, 1, W, v => z.a = v - 1), h('span', {}, 'to'), num(z.b, 1, W, v => z.b = v)),
+					h('div', { class: 'zopts' }, chk(z.on, 'Zone on', v => z.on = v), chk(z.rev, 'Reverse', v => z.rev = v), chk(z.mi, 'Mirror', v => z.mi = v)));
+			}));
+		};
+		const add = () => {
+			if (zl.length >= 12) { toast('Up to 12 zones.'); return; }
+			const ids = zl.map(z => z.id); let id = 0; while (ids.includes(id)) id++;
+			const mx = isMx(), last = zl[zl.length - 1];
+			zl.push(mx ? { id, a: 0, b: inf().mw, ay: 0, by: inf().mh, on: true, rev: false, mi: false, name: '' }
+				: { id, a: last ? Math.min(last.b, total() - 1) : 0, b: total(), ay: 0, by: 1, on: true, rev: false, mi: false, name: '' });
+			draw();
+		};
+		const parts = h('input', { type: 'number', min: '2', max: '12', value: '2', class: 'znum' });
+		const across = h('input', { type: 'number', min: '1', max: '8', value: '2', class: 'znum' }), down = h('input', { type: 'number', min: '1', max: '4', value: '1', class: 'znum' });
 		try { const p = JSON.parse(localStorage.getItem('l4yPanels') || 'null'); if (p) { across.value = p[0]; down.value = p[1]; } } catch (e) {}
-		const sizeTxt = h('div', { class: 'note' });
-		const upd = () => { const i = t.info(), a = Math.max(1, +across.value | 0), d = Math.max(1, +down.value | 0);
-			sizeTxt.textContent = i.mw && i.mh ? 'Matrix ' + i.mw + ' x ' + i.mh + ': ' + a * d + ' panel(s) of ' + Math.floor(i.mw / a) + ' x ' + Math.floor(i.mh / d) + '. Now: ' + zonesOf(t).length + ' zone(s).' : 'Set the matrix size in LED setup first.'; };
-		[across, down].forEach(e => e.addEventListener('input', upd)); upd(); setTimeout(upd, 1500);
-		const clearFrom = n => Array.from({ length: Math.max(0, 16 - n) }, (_, k) => ({ id: n + k, stop: 0 }));
-		const make = () => {
-			const i = t.info(); if (!(i.mw && i.mh)) { toast('Set the matrix size in LED setup first.'); return; }
-			const a = Math.max(1, +across.value | 0), d = Math.max(1, +down.value | 0), pw = Math.floor(i.mw / a), ph = Math.floor(i.mh / d);
+		const split = () => {
+			const n = Math.max(2, Math.min(12, +parts.value | 0)), W = total(), step = Math.floor(W / n);
+			if (step < 1) { toast('Too many parts for so few LEDs.'); return; }
+			zl = Array.from({ length: n }, (_, k) => ({ id: k, a: k * step, b: k === n - 1 ? W : (k + 1) * step, ay: 0, by: 1, on: true, rev: false, mi: false, name: (zl[k] || {}).name || '' }));
+			draw(); msg.textContent = 'Split into ' + n + ' zones. Tap "Save zones" to send them.';
+		};
+		const perPanel = () => {
+			const a = Math.max(1, +across.value | 0), d = Math.max(1, +down.value | 0), pw = Math.floor(inf().mw / a), ph = Math.floor(inf().mh / d);
 			if (pw < 1 || ph < 1) { toast('Too many panels for this matrix.'); return; }
 			try { localStorage.setItem('l4yPanels', JSON.stringify([a, d])); } catch (e) {}
-			const segs = [];
-			for (let r = 0; r < d; r++) for (let c = 0; c < a; c++) segs.push({ id: segs.length, start: c * pw, stop: (c + 1) * pw, startY: r * ph, stopY: (r + 1) * ph, on: true, sel: true, grp: 1, spc: 0, of: 0, tp: false, m12: 0 });
-			t.send({ on: true, seg: segs.concat(clearFrom(segs.length)) }).then(() => { setTarget(null); toast(segs.length + ' zones made: pick a panel under "Send to".'); t.refresh && setTimeout(() => t.refresh().then(upd), 700); }).catch(() => toast('Could not send.'));
+			zl = [];
+			for (let r = 0; r < d; r++) for (let c = 0; c < a; c++) zl.push({ id: zl.length, a: c * pw, b: (c + 1) * pw, ay: r * ph, by: (r + 1) * ph, on: true, rev: false, mi: false, name: '' });
+			draw(); msg.textContent = zl.length + ' zones, one per panel. Tap "Save zones" to send them.';
 		};
-		const join = () => {
-			t.send({ on: true, seg: [Object.assign(wholeSeg(t), { on: true, sel: true })].concat(clearFrom(1)) }).then(() => { setTarget(null); toast('One zone over all the lights.'); t.refresh && setTimeout(() => t.refresh().then(upd), 700); }).catch(() => toast('Could not send.'));
+		const clearFrom = ids => Array.from({ length: 16 }, (_, i) => i).filter(i => !ids.includes(i)).map(id => ({ id, stop: 0 }));
+		const save = () => {
+			const mx = isMx();
+			for (const z of zl) if (z.b <= z.a || (mx && z.by <= z.ay)) { toast('A zone ends before it starts. Check the numbers.'); return; }
+			const segs = zl.map(z => Object.assign({ id: z.id, start: z.a, stop: z.b, on: z.on, rev: z.rev, mi: z.mi, sel: true, grp: 1, spc: 0, of: 0 },
+				mx ? { startY: z.ay, stopY: z.by, tp: false, m12: 0 } : {}));
+			try { const n = {}; zl.forEach(z => { if (z.name) n[z.id] = z.name; }); localStorage.setItem('l4yZoneNames:' + inf().key, JSON.stringify(n)); } catch (e) {}
+			t.send({ on: true, seg: segs.concat(clearFrom(zl.map(z => z.id))) })
+				.then(() => { setTarget(null); toast(zl.length + ' zone(s) saved: pick one under "Send to".'); msg.textContent = ''; t.refresh && setTimeout(() => t.refresh().then(load), 900); })
+				.catch(() => toast('Could not send.'));
 		};
+		const join = () => { zl = [{ id: 0, a: 0, b: total(), ay: 0, by: isMx() ? inf().mh : 1, on: true, rev: false, mi: false, name: '' }]; draw(); save(); };
+		load(); setTimeout(() => { if (!zl || zl.length <= 1) load(); }, 1600);
+		const mxNow = isMx();
 		return h('section', { class: 'card' },
-			h('div', { class: 'ct' }, 'Panels'),
-			h('div', { class: 'note' }, 'Several matrix panels joined into one matrix can each show something different: text on one, a GIF on another, an effect on a third. First set the panel layout in the lights\' 2D settings (Config > 2D Configuration) so the picture is right, then make one zone per panel here.'),
-			h('div', { class: 'pins' }, h('label', { class: 'fld' }, h('span', {}, 'Panels side by side'), across), h('label', { class: 'fld' }, h('span', {}, 'Panels on top of each other'), down)),
-			sizeTxt,
-			h('div', { class: 'row' }, h('button', { class: 'btn primary', type: 'button', onclick: make }, 'One zone per panel'), h('button', { class: 'btn', type: 'button', onclick: join }, 'All in one zone')),
-			inf.gs === 1 ? h('div', { class: 'note' }, 'ESP32-C3: one panel at a time can show a GIF (not enough memory for more). Text, effects and seasons work on every panel.') : '');
+			h('div', { class: 'ct' }, 'Zones'),
+			h('div', { class: 'note' }, mxNow ? 'Split the matrix into zones (for example one per panel) that each show something else: text on one, a GIF on another, an effect on a third. Then pick the zone under "Send to".'
+				: 'Split the strip into zones (for example roof, window, door) that each show something else. Then pick the zone under "Send to".'),
+			mxNow ? h('div', { class: 'zquick' }, h('span', {}, 'Panels side by side'), across, h('span', {}, 'on top of each other'), down,
+					h('button', { type: 'button', class: 'btn small', onclick: perPanel }, 'One zone per panel'))
+				: h('div', { class: 'zquick' }, h('span', {}, 'Split into'), parts, h('span', {}, 'equal parts'), h('button', { type: 'button', class: 'btn small', onclick: split }, 'Split')),
+			box,
+			h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: add }, 'Add zone'), h('button', { class: 'btn primary', type: 'button', onclick: save }, 'Save zones'),
+				h('button', { class: 'btn', type: 'button', onclick: join }, 'All in one zone')),
+			msg,
+			inf().gs === 1 ? h('div', { class: 'note' }, 'ESP32-C3: one zone at a time can show a GIF (not enough memory for more). Text, effects and seasons work on every zone.') : '');
 	}
 
 	// ---------- Phone microphone: the phone listens to the music and sends the sound to the lights ----------
@@ -1506,7 +1563,7 @@
 		'Countdown': 'Counts down to a date on a matrix, for example to Christmas.',
 		'Preset loop': 'Plays your saved presets one after another, again and again.',
 		'Sound': 'Effects that move with music, from this phone\'s microphone or one connected to the board.',
-		'Panels': 'Split a matrix made of several panels into one zone per panel, then pick the panel under "Send to".',
+		'Zones': 'Split the lights into zones (parts) that each show something else, then pick the zone under "Send to".',
 		'Motion scare': 'With a motion sensor connected, plays a preset when someone walks by.',
 		'Light group': 'Makes several lights copy each other over Wi-Fi.',
 		'Power': 'How much current the LEDs use now, compared with your power supply limit.',
@@ -1591,6 +1648,16 @@
 .theme.sound { background: linear-gradient(135deg, #0b2a3a, #2a0b3a); border-color: #1d4660; }
 .theme:active { transform: scale(.97); }
 .theme { display: flex; flex-direction: column; gap: 8px; }
+.zlist { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.zrow { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.zhead { display: flex; gap: 8px; align-items: center; }
+.zhead .zname { flex: 1; margin: 0; padding: 7px 10px; }
+.zgrid { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 6px 8px; align-items: center; font-size: 13px; color: var(--muted); }
+.card input.znum { width: 100%; min-width: 0; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise); color: var(--fg); font: inherit; }
+.zopts { display: flex; gap: 14px; flex-wrap: wrap; }
+.zopts .chk { margin: 0; }
+.zquick { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--muted); }
+.card .zquick input.znum { width: 64px; }
 .tgtbar { margin: 4px 0 10px; display: flex; flex-direction: column; gap: 6px; }
 .tgtbar .segs { flex-wrap: wrap; }
 .micbox { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
