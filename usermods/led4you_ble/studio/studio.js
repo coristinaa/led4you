@@ -1077,18 +1077,54 @@
 		const box = h('div', { class: 'tgtbar' });
 		const draw = () => {
 			if (!box.isConnected && draw.seen) { targetListeners.delete(draw); return; }
-			const z = zonesOf(t), gs = t.info().gs;
-			if (z.length <= 1) { box.replaceChildren(); box.hidden = true; return; }
+			const z = zonesOf(t), gs = t.info().gs, snap = zoneSnap(t);
+			if (z.length <= 1 && !snap) { box.replaceChildren(); box.hidden = true; return; }
 			draw.seen = true; box.hidden = false;
 			if (TARGET !== null && !z.includes(TARGET)) TARGET = null;
 			const btn = (v, label) => h('button', { type: 'button', class: 'seg' + (TARGET === v ? ' sel' : ''), onclick: () => setTarget(v) }, label);
+			// after "All as one picture" the matrix is one zone: the way back to the separate zones
+			const one = h('button', { type: 'button', class: 'seg' + (snap && TARGET === null ? ' sel' : ''), onclick: () => snap ? setTarget(null) : joinAll(t).catch(() => {}) }, 'All as one picture');
 			box.replaceChildren(h('div', { class: 'lab' }, 'Send to'),
-				h('div', { class: 'segs' }, btn(null, t.info().mw && t.info().mh ? 'All panels' : 'All zones'), ...z.map((id, k) => btn(id, zoneLabel(t, id, k)))),
+				h('div', { class: 'segs' }, ...(snap ? [] : [btn(null, t.info().mw && t.info().mh ? 'All panels (each its own)' : 'All zones (each its own)')]),
+					...(z.length > 1 ? z.map((id, k) => btn(id, zoneLabel(t, id, k))) : []), one,
+					snap ? h('button', { type: 'button', class: 'seg', onclick: () => splitAgain(t).catch(() => {}) }, 'Separate zones again (' + snap.z.length + ')') : ''),
 				gs === 1 ? h('div', { class: 'note' }, 'ESP32-C3: one zone at a time can show a GIF. Text and effects work on every zone. For several GIFs at once use a classic ESP32.') : '');
 		};
 		targetListeners.add(draw); draw();
 		setTimeout(draw, 1500);   // the zone list may arrive a moment later
 		return box;
+	}
+	// "All as one picture": the zones become one zone over the whole matrix (or strip), so a picture, text or effect
+	// covers everything; the zones are kept on this phone / computer to make them again ("Separate zones again").
+	// Strip zones after a matrix stay as they are.
+	const zoneSnapKey = t => 'l4yZoneSnap:' + t.info().key;
+	const zoneSnap = t => { try { return JSON.parse(localStorage.getItem(zoneSnapKey(t)) || 'null'); } catch (e) { return null; } };
+	async function joinAll(t) {
+		const i = t.info(), mx = i.mw && i.mh, area = mx ? i.mw * i.mh : 0, zg = i.zg || [];
+		const inside = zg.filter(z => !(mx && z[1] >= area));
+		if (inside.length < 2) return;
+		try { localStorage.setItem(zoneSnapKey(t), JSON.stringify({ z: inside.map(z => z.slice()), mx: !!mx })); } catch (e) {}
+		const keepId = inside[0][0];
+		const segs = [Object.assign(wholeSeg(t), { id: keepId, on: true, sel: true })].concat(inside.slice(1).map(z => ({ id: z[0], stop: 0 })));
+		await t.send({ on: true, seg: segs });
+		const w = wholeSeg(t);
+		for (let k = zg.length - 1; k >= 0; k--) if (inside.slice(1).some(q => q[0] === zg[k][0])) zg.splice(k, 1);
+		const own = zg.find(z => z[0] === keepId); if (own) { own[1] = w.start; own[2] = w.stop; own[3] = w.startY || 0; own[4] = w.stopY || 1; }
+		TARGET = null; targetListeners.forEach(f => f());
+		if (t.refresh) setTimeout(() => t.refresh(), 1800);
+	}
+	async function splitAgain(t) {
+		const snap = zoneSnap(t); if (!snap) return;
+		const i = t.info(), mx = i.mw && i.mh;
+		const segs = snap.z.map(z => Object.assign({ id: z[0], start: z[1], stop: z[2], on: !!z[5], rev: !!z[6], mi: !!z[7], sel: true, grp: 1, spc: 0, of: 0 },
+			mx ? { startY: z[3], stopY: z[4], tp: false, m12: 0 } : {}));
+		await t.send({ on: true, seg: segs });
+		try { localStorage.removeItem(zoneSnapKey(t)); } catch (e) {}
+		const zg = i.zg || [];
+		snap.z.forEach(z => { const own = zg.find(q => q[0] === z[0]); if (own) own.splice(0, 8, ...z); else zg.push(z.slice()); });
+		zg.sort((p, q) => p[1] - q[1] || p[0] - q[0]);
+		targetListeners.forEach(f => f());
+		if (t.refresh) setTimeout(() => t.refresh(), 1800);
 	}
 	// Make or change a strip zone from LED "from" to LED "to" (1-based, both included). Zones it overlaps are made
 	// shorter (or removed when fully covered), so the zones never overlap. Returns { id, changed: [names] }.
@@ -1112,6 +1148,7 @@
 		});
 		segs.push(Object.assign({ id, start: a, stop: b, on: true, sel: true, grp: 1, spc: 0, of: 0 }, mx ? { startY: 0, stopY: 1 } : {}));
 		await t.send({ on: true, seg: segs });
+		try { localStorage.removeItem(zoneSnapKey(t)); } catch (e) {}
 		// local copy until the lights report their zones again
 		for (let k = zg.length - 1; k >= 0; k--) if (zg[k][2] <= zg[k][1]) zg.splice(k, 1);
 		const own = zg.find(z => z[0] === id);
@@ -1236,6 +1273,7 @@
 			const segs = zl.map(z => Object.assign({ id: z.id, start: z.a, stop: z.b, on: z.on, rev: z.rev, mi: z.mi, sel: true, grp: 1, spc: 0, of: 0 },
 				z.st ? { startY: 0, stopY: 1 } : mx ? { startY: z.ay, stopY: z.by, tp: false, m12: 0 } : {}));
 			try { const n = {}; zl.forEach(z => { if (z.name) n[z.id] = z.name; }); localStorage.setItem('l4yZoneNames:' + inf().key, JSON.stringify(n)); } catch (e) {}
+			try { localStorage.removeItem(zoneSnapKey(t)); } catch (e) {}   // new zones: forget the zones kept by "All as one picture"
 			t.send({ on: true, seg: segs.concat(clearFrom(zl.map(z => z.id))) })
 				.then(() => { setTarget(null); toast(zl.length + ' zone(s) saved: pick one under "Send to".'); msg.textContent = ''; t.refresh && setTimeout(() => t.refresh().then(load), 900); })
 				.catch(() => toast('Could not send.'));
