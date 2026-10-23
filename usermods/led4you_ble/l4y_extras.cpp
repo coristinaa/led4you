@@ -13,7 +13,7 @@
 #include "wled.h"
 #include <WiFiUdp.h>
 
-#define L4Y_FW_VERSION 53      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
+#define L4Y_FW_VERSION 54      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
 #define L4Y_HOUSE_PORT 21329   // UDP port for house scenes ("L4YS" packets)
 extern const int l4yFwVersion = L4Y_FW_VERSION;   // shown by Improv (installer, Wi-Fi setup) as "v.."
 
@@ -195,10 +195,12 @@ class Led4youExtras : public Usermod {
     char gifRotPrefix[8] = "";
     uint16_t gifRotSec = 0;
     uint32_t gifRotNext = 0;
+    int gifRotSeg = -1;      // segment (zone / panel) that rotates, -1 = main segment
     void runGifRotation() {
       if (!gifRotSec || (long)(millis() - gifRotNext) < 0) return;
       gifRotNext = millis() + gifRotSec * 1000UL;
-      Segment& seg = strip.getMainSegment();
+      if (gifRotSeg >= (int)strip.getSegmentsNum()) { gifRotSec = 0; return; }
+      Segment& seg = gifRotSeg >= 0 ? strip.getSegment(gifRotSeg) : strip.getMainSegment();
       if (seg.mode != FX_MODE_IMAGE) { gifRotSec = 0; return; }
       const char* cur = seg.name ? seg.name : "";
       String first, next;
@@ -385,7 +387,8 @@ class Led4youExtras : public Usermod {
         strlcpy(gifRotPrefix, gr["p"] | "", sizeof(gifRotPrefix));
         gifRotSec = gifRotPrefix[0] ? constrain((int)(gr["s"] | 10), 3, 600) : 0;
         gifRotNext = millis() + gifRotSec * 1000UL;
-      } else if (gifRotSec && !so.isNull() && so.containsKey("fx")) gifRotSec = 0;
+        gifRotSeg = gr["id"] | -1;
+      } else if (gifRotSec && !so.isNull() && so.containsKey("fx") && (gifRotSeg < 0 || (so["id"] | -1) == gifRotSeg || !so.containsKey("id"))) gifRotSec = 0;
       if (l.isNull()) return;
       bool save = false;
 
@@ -483,6 +486,8 @@ class Led4youExtras : public Usermod {
       JsonObject l = root[F("l4y")];
       if (l.isNull()) l = root.createNestedObject(F("l4y"));
       status(l);
+      extern int l4yGifSlotCount();
+      l[F("gs")] = l4yGifSlotCount();   // how many GIFs can play at the same time on this board
     }
 
     void addToConfig(JsonObject& root) override {

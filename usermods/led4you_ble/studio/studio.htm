@@ -71,10 +71,17 @@ input[type=range] { width: 100%; accent-color: var(--hot); }
 <script src="studio.js"></script>
 <script>
 // Wi-Fi transport for LED4YOU Studio: talks to the lights' own JSON API and file upload
-let INFO = { leds: 30, mw: 0, mh: 0, mfx: 255 };
+let INFO = { leds: 30, mw: 0, mh: 0, mfx: 255, gs: 1, zones: [0] };
+// zones = active segments, gs = how many GIFs play at once (from /json/si)
+const readInfo = j => {
+	const m = j.info && j.info.leds && j.info.leds.matrix;
+	INFO = { leds: j.info.leds.count, mw: m ? m.w : 0, mh: m ? m.h : 0, mfx: j.state.l4y ? j.state.l4y.mfx : 255, gs: j.state.l4y ? j.state.l4y.gs : 1,
+		zones: (j.state.seg || []).filter(g => g.stop > g.start).map(g => g.id) };
+};
 const toast = m => { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 3000); };
 const wifi = {
 	info: () => Object.assign({ key: location.host }, INFO),
+	refresh: () => fetch('/json/si').then(r => r.json()).then(readInfo).catch(() => {}),
 	// a short recording of the lights (WLED /json/live), used as the picture of a saved scene
 	peek: async ms => {
 		const fr = [], end = Date.now() + ms;
@@ -125,10 +132,7 @@ function show(id) {
 	});
 }
 ['Text', 'Leds', 'Gifs', 'Lay', 'More', 'House'].forEach(k => { document.getElementById('tab' + k).onclick = () => show(k); });
-fetch('/json/si').then(r => r.json()).then(j => {
-	const m = j.info && j.info.leds && j.info.leds.matrix;
-	INFO = { leds: j.info.leds.count, mw: m ? m.w : 0, mh: m ? m.h : 0, mfx: j.state.l4y ? j.state.l4y.mfx : 255 };
-}).catch(() => toast('Could not read the lights. Reload the page.')).finally(() => {
+fetch('/json/si').then(r => r.json()).then(readInfo).catch(() => toast('Could not read the lights. Reload the page.')).finally(() => {
 	document.getElementById('paneText').append(L4YStudio.textCard(wifi, toast));
 	document.getElementById('paneLeds').append(...L4YStudio.myLedsCards(wifi, toast));
 	document.getElementById('paneMore').append(...L4YStudio.extrasCards(wifi, toast));

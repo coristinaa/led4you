@@ -6,8 +6,8 @@
 <title>LED4YOU</title>
 <meta name="theme-color" content="#0d0f14">
 <link rel="manifest" href="manifest.webmanifest">
-<script src="i18n.js?v=41"></script>
-<script src="studio.js?v=42"></script>
+<script src="i18n.js?v=43"></script>
+<script src="studio.js?v=43"></script>
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -380,6 +380,7 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 
 		<section class="card">
 			<div class="ct">Effect <span id="fxName" data-notr>Solid</span></div>
+			<div id="fxTarget"></div>
 			<div class="segs fxkind" id="fxKind"><button type="button" class="seg sel" data-k="strip">Strip</button><button type="button" class="seg" data-k="matrix">Matrix</button></div>
 			<input class="search" id="fxSearch" type="search" placeholder="Search effects" aria-label="Search effects">
 			<div id="fxBigWrap" class="fxbig" hidden><div class="note">How the chosen effect looks on your matrix (an imitation: the real lights may differ a little).</div></div>
@@ -460,6 +461,9 @@ function sendNow(obj) { if (!cmdChar) return Promise.reject(new Error('not conne
 function merge(a, b) { const o = Object.assign({}, a, b); if (a.seg && b.seg) o.seg = Object.assign({}, a.seg, b.seg); return o; }
 function send(obj) {
 	if (!cmdChar) return;
+	// main controls follow the panel chosen under "Send to" (Studio): a plain segment command gets that zone's id
+	const tg = window.L4YStudio && L4YStudio.target ? L4YStudio.target() : null;
+	if (tg !== null && obj.seg && !Array.isArray(obj.seg) && obj.seg.id === undefined) obj = Object.assign({}, obj, { seg: Object.assign({ id: tg }, obj.seg) });
 	pending = pending ? merge(pending, obj) : obj;
 	if (!busy) flush();
 }
@@ -800,7 +804,9 @@ async function bleDelete(name) {
 
 // ---- Text and My LEDs (shared LED4YOU Studio module) ----
 const bleStudio = {
-	info: () => ({ leds: state.leds || 30, mw: state.mw || 0, mh: state.mh || 0, mfx: state.mfx ?? 255, key: dev ? dev.name : 'x' }),
+	info: () => ({ leds: state.leds || 30, mw: state.mw || 0, mh: state.mh || 0, mfx: state.mfx ?? 255, key: dev ? dev.name : 'x', gs: state.gs,
+		zones: Array.from({ length: 32 }, (_, i) => i).filter(i => (state.zs >>> i) & 1) }),
+	refresh: () => Promise.resolve(),
 	// a short recording of the lights (live preview frames), used as the picture of a saved scene
 	peek: ms => new Promise(res => { const fr = [], tap = f => fr.push(f); peekTaps.add(tap); setTimeout(() => { peekTaps.delete(tap); res(fr.filter((f, i) => i % 2 === 0).slice(0, 10)); }, ms); }),
 	send: obj => sendNow(obj),
@@ -810,6 +816,7 @@ const bleStudio = {
 	status: () => readList(),
 	cfg: obj => sendNow({ l4ycfg: obj })
 };
+$('fxTarget').append(L4YStudio.targetBar(bleStudio));   // effects, colours and sliders go to the chosen panel
 let moreMounted = false;
 // "See it": the effects drawn on a tree, a house, a garden or a window (layouts.js)
 function mountLayout() {
@@ -895,8 +902,8 @@ $('gifFile').onchange = async e => {
 	const bytes = new Uint8Array(await f.arrayBuffer()), name = gifName(f.name);
 	$('gifBar').hidden = false; $('gifProg').style.width = '0'; $('gifMsg').textContent = 'Sending ' + name + '…';
 	try {
-		const ok = await bleUpload(name, bytes, 1, p => { $('gifProg').style.width = Math.round(p * 100) + '%'; });
-		if (ok) await sendNow({ on: true, seg: { fx: 53, n: name, frz: false, sx: 128, ix: 0 } });
+		const ok = await bleUpload(name, bytes, 0, p => { $('gifProg').style.width = Math.round(p * 100) + '%'; });
+		if (ok) await sendNow({ on: true, seg: L4YStudio.segOut(bleStudio, { fx: 53, n: name, frz: false, sx: 128, ix: 0 }) });
 		$('gifMsg').textContent = ok ? name + ' is playing and stays saved on the lights.' : 'The lights could not save the GIF.';
 	} catch (err) { $('gifMsg').textContent = err.message || 'Could not send the GIF.'; }
 };
@@ -986,7 +993,7 @@ function renderGifs(list) {
 		const row = document.createElement('div'); row.className = 'gifrow';
 		const t = document.createElement('span'); t.textContent = name; t.dataset.notr = '';
 		const play = document.createElement('button'); play.type = 'button'; play.textContent = 'Play';
-		play.onclick = () => sendNow({ on: true, seg: { fx: 53, n: name, frz: false, sx: 128, ix: 0 } }).then(() => toast('Playing ' + name)).catch(() => toast('Could not send.'));
+		play.onclick = () => sendNow({ on: true, seg: L4YStudio.segOut(bleStudio, { fx: 53, n: name, frz: false, sx: 128, ix: 0 }) }).then(() => toast('Playing ' + name)).catch(() => toast('Could not send.'));
 		const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Delete';
 		del.onclick = async () => {
 			if (del.dataset.c !== '1') { del.dataset.c = '1'; del.textContent = 'Tap to confirm'; setTimeout(() => { del.dataset.c = ''; del.textContent = 'Delete'; }, 3000); return; }

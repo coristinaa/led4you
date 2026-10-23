@@ -122,7 +122,7 @@
 			const conv = toLights(s);
 			if (new TextEncoder().encode(conv.out).length > 64) { toast('Message too long for the lights. Use fewer emoji or accents.'); return; }
 			if (conv.special && !await ensureFonts()) return;
-			t.send({ on: true, seg: seg(conv), l4y: { cd: { on: false }, txv: o.dir >= 2 } })
+			t.send({ on: true, seg: segOut(t, seg(conv)), l4y: { cd: { on: false }, txv: o.dir >= 2 } })
 				.then(() => { shown = true; quiet || toast('Showing your text.'); }).catch(() => quiet || toast('Could not send the text.'));
 		};
 		const insert = ch => {
@@ -189,6 +189,7 @@
 		return h('section', { class: 'card' },
 			h('div', { class: 'ct' }, 'Text'),
 			warn,
+			targetBar(t),
 			h('label', { for: 'stText', class: 'lab' }, 'Message'),
 			txt,
 			h('details', { class: 'more emobox' }, h('summary', {}, 'Emoji'), emoRow,
@@ -851,11 +852,12 @@
 		];
 		const cSeasons = h('section', { class: 'card' },
 			h('div', { class: 'ct' }, 'Seasons'),
+			targetBar(t),
 			THEMES.flatMap(([group, list]) => [h('div', { class: 'lab sp' }, group), h('div', { class: 'themes' }, list.map(([name, sim, f]) => h('button', {
 				type: 'button', class: 'theme ' + group.toLowerCase(), onclick: () => {
 					const seg = f();
 					if (seg.fx === undefined || seg.fx === 255) { toast('Update the lights to the newest LED4YOU for this theme.'); return; }
-					t.send({ on: true, seg: Object.assign(wholeSeg(t), seg), l4y: { cd: { on: false } } }).then(ok(name + ' is on. Save it as a preset to keep it.')).catch(fail());
+					t.send({ on: true, seg: segOut(t, seg, true), l4y: { cd: { on: false } } }).then(ok(name + ' is on. Save it as a preset to keep it.')).catch(fail());
 				}
 			}, h('span', {}, name), (() => { const sg = f(); return PV.mini({ sim, col: sg.col, speed: sg.sx, w: 104, h: 12 }); })())))]));
 
@@ -951,9 +953,10 @@
 		const confirmOnce = k => { if (confirmOnce[k]) return true; confirmOnce[k] = true; toast('The lights restart to apply this. Tap again to confirm.'); return false; };
 		const cSound = h('section', { class: 'card' },
 			h('div', { class: 'ct' }, 'Sound'),
+			targetBar(t),
 			h('div', { class: 'note' }, 'Effects that move with music. Use this phone\'s microphone, or connect a microphone to the lights and set its pins below.'),
 			t.audio ? phoneMic(t, toast) : '',
-			h('div', { class: 'themes' }, SOUND_FX.map(([n, id]) => h('button', { type: 'button', class: 'theme sound', onclick: () => t.send({ on: true, seg: Object.assign(wholeSeg(t), { fx: id }) }).then(ok(n + ' is on.')).catch(fail()) }, h('span', {}, n), PV.mini({ name: n, d2: /matrix/.test(n), w: 104, h: 12 })))),
+			h('div', { class: 'themes' }, SOUND_FX.map(([n, id]) => h('button', { type: 'button', class: 'theme sound', onclick: () => t.send({ on: true, seg: segOut(t, { fx: id }, true) }).then(ok(n + ' is on.')).catch(fail()) }, h('span', {}, n), PV.mini({ name: n, d2: /matrix/.test(n), w: 104, h: 12 })))),
 			h('details', { class: 'more' }, h('summary', {}, 'Microphone setup'),
 				h('label', { class: 'chk' }, micOn, ' Microphone on'),
 				field('Type', micType),
@@ -1037,7 +1040,8 @@
 			if (!document.hidden && cPower.offsetParent !== null) refresh();   // only while the "More" cards are on screen
 		}, 4000);
 		updDays(); updSch();
-		return [cSleep, cSeasons, cHouse, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
+		const inf0 = t.info();
+		return [cSleep, cSeasons, ...(inf0.mw && inf0.mh ? [zonesCard(t, toast)] : []), cHouse, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
 	}
 
 	// The whole lights as one segment, with nothing that leaves LEDs out (grouping, spacing, mirror, an old smaller size
@@ -1047,6 +1051,73 @@
 		const g = { id: 0, start: 0, stop: mx ? i.mw : (i.leds || 30), grp: 1, spc: 0, of: 0, mi: false, rev: false };
 		return mx ? Object.assign(g, { startY: 0, stopY: i.mh, rY: false, mY: false, tp: false, m12: 0 }) : g;
 	};
+
+	// ---------- Zones (one per matrix panel) and "Send to" ----------
+	// t.info().zones: ids of the active segments; t.info().gs: how many GIFs the board plays at once (ESP32-C3: 1).
+	let TARGET = null;   // null = all zones, otherwise a segment id
+	try { const v = localStorage.getItem('l4yTarget'); TARGET = v === null || v === '' ? null : +v; } catch (e) {}
+	const targetListeners = new Set();
+	const zonesOf = t => { const z = (t.info().zones || []).slice(); return z.length ? z : [0]; };
+	const setTarget = v => { TARGET = v; try { localStorage.setItem('l4yTarget', v === null ? '' : String(v)); } catch (e) {} targetListeners.forEach(f => f()); };
+	// the "seg" part of a command for the chosen zone; whole = one zone over all LEDs when there is only one zone
+	const segOut = (t, obj, whole) => {
+		const z = zonesOf(t);
+		if (TARGET !== null && z.includes(TARGET)) return Object.assign({ id: TARGET }, obj);
+		if (z.length <= 1) return whole ? Object.assign(wholeSeg(t), obj) : obj;
+		return z.map(id => Object.assign({ id }, obj));    // the same on every zone
+	};
+	// a GIF on more zones than the board can play at once: say so (the others keep what they show)
+	const gifWarn = (t, toast) => {
+		const z = zonesOf(t), gs = t.info().gs;
+		if (gs && TARGET === null && z.length > gs) toast(gs === 1 ? 'This board (ESP32-C3) plays one GIF at a time: only one panel shows it.' : 'This board plays up to ' + gs + ' GIFs at a time: some panels will not show it.');
+	};
+	function targetBar(t) {
+		const box = h('div', { class: 'tgtbar' });
+		const draw = () => {
+			if (!box.isConnected && draw.seen) { targetListeners.delete(draw); return; }
+			const z = zonesOf(t), gs = t.info().gs;
+			if (z.length <= 1) { box.replaceChildren(); box.hidden = true; return; }
+			draw.seen = true; box.hidden = false;
+			if (TARGET !== null && !z.includes(TARGET)) TARGET = null;
+			const btn = (v, label) => h('button', { type: 'button', class: 'seg' + (TARGET === v ? ' sel' : ''), onclick: () => setTarget(v) }, label);
+			box.replaceChildren(h('div', { class: 'lab' }, 'Send to'),
+				h('div', { class: 'segs' }, btn(null, 'All panels'), ...z.map((id, k) => btn(id, 'Panel ' + (k + 1)))),
+				gs === 1 ? h('div', { class: 'note' }, 'ESP32-C3: one panel at a time can show a GIF. Text and effects work on every panel. For several GIFs at once use a classic ESP32.') : '');
+		};
+		targetListeners.add(draw); draw();
+		setTimeout(draw, 1500);   // the zone list may arrive a moment later
+		return box;
+	}
+	// panels: one zone (segment) per panel of a matrix made of several panels
+	function zonesCard(t, toast) {
+		const inf = t.info();
+		const across = h('input', { type: 'number', min: '1', max: '8', value: '1' }), down = h('input', { type: 'number', min: '1', max: '4', value: '1' });
+		try { const p = JSON.parse(localStorage.getItem('l4yPanels') || 'null'); if (p) { across.value = p[0]; down.value = p[1]; } } catch (e) {}
+		const sizeTxt = h('div', { class: 'note' });
+		const upd = () => { const i = t.info(), a = Math.max(1, +across.value | 0), d = Math.max(1, +down.value | 0);
+			sizeTxt.textContent = i.mw && i.mh ? 'Matrix ' + i.mw + ' x ' + i.mh + ': ' + a * d + ' panel(s) of ' + Math.floor(i.mw / a) + ' x ' + Math.floor(i.mh / d) + '. Now: ' + zonesOf(t).length + ' zone(s).' : 'Set the matrix size in LED setup first.'; };
+		[across, down].forEach(e => e.addEventListener('input', upd)); upd(); setTimeout(upd, 1500);
+		const clearFrom = n => Array.from({ length: Math.max(0, 16 - n) }, (_, k) => ({ id: n + k, stop: 0 }));
+		const make = () => {
+			const i = t.info(); if (!(i.mw && i.mh)) { toast('Set the matrix size in LED setup first.'); return; }
+			const a = Math.max(1, +across.value | 0), d = Math.max(1, +down.value | 0), pw = Math.floor(i.mw / a), ph = Math.floor(i.mh / d);
+			if (pw < 1 || ph < 1) { toast('Too many panels for this matrix.'); return; }
+			try { localStorage.setItem('l4yPanels', JSON.stringify([a, d])); } catch (e) {}
+			const segs = [];
+			for (let r = 0; r < d; r++) for (let c = 0; c < a; c++) segs.push({ id: segs.length, start: c * pw, stop: (c + 1) * pw, startY: r * ph, stopY: (r + 1) * ph, on: true, sel: true, grp: 1, spc: 0, of: 0, tp: false, m12: 0 });
+			t.send({ on: true, seg: segs.concat(clearFrom(segs.length)) }).then(() => { setTarget(null); toast(segs.length + ' zones made: pick a panel under "Send to".'); t.refresh && setTimeout(() => t.refresh().then(upd), 700); }).catch(() => toast('Could not send.'));
+		};
+		const join = () => {
+			t.send({ on: true, seg: [Object.assign(wholeSeg(t), { on: true, sel: true })].concat(clearFrom(1)) }).then(() => { setTarget(null); toast('One zone over all the lights.'); t.refresh && setTimeout(() => t.refresh().then(upd), 700); }).catch(() => toast('Could not send.'));
+		};
+		return h('section', { class: 'card' },
+			h('div', { class: 'ct' }, 'Panels'),
+			h('div', { class: 'note' }, 'Several matrix panels joined into one matrix can each show something different: text on one, a GIF on another, an effect on a third. First set the panel layout in the lights\' 2D settings (Config > 2D Configuration) so the picture is right, then make one zone per panel here.'),
+			h('div', { class: 'pins' }, h('label', { class: 'fld' }, h('span', {}, 'Panels side by side'), across), h('label', { class: 'fld' }, h('span', {}, 'Panels on top of each other'), down)),
+			sizeTxt,
+			h('div', { class: 'row' }, h('button', { class: 'btn primary', type: 'button', onclick: make }, 'One zone per panel'), h('button', { class: 'btn', type: 'button', onclick: join }, 'All in one zone')),
+			inf.gs === 1 ? h('div', { class: 'note' }, 'ESP32-C3: one panel at a time can show a GIF (not enough memory for more). Text, effects and seasons work on every panel.') : '');
+	}
 
 	// ---------- Phone microphone: the phone listens to the music and sends the sound to the lights ----------
 	// Same data a WLED board with a microphone sends to others ("audio sync" V2, 44 bytes), about 20 times a second:
@@ -1125,16 +1196,17 @@
 				const r = await fetch(base + name);
 				if (!r.ok) throw new Error('download');
 				const bytes = new Uint8Array(await r.arrayBuffer());
-				const ok = await t.upload(name, bytes, play ? 1 : 0, p => { prog.textContent = 'Sending ' + f.n + '… ' + Math.round(p * 100) + '%'; });
+				const ok = await t.upload(name, bytes, 0, p => { prog.textContent = 'Sending ' + f.n + '… ' + Math.round(p * 100) + '%'; });
 				if (!ok) throw new Error('upload');
 				stored.add(name);
 			}
 			// Image effect: speed 128 = the GIF's own timing, Blur 0 (otherwise the last effect's intensity blurs the GIF)
-			if (play) await t.send({ on: true, seg: { fx: 53, n: name, frz: false, sx: 128, ix: 0 } });
+			if (play) { gifWarn(t, toast); await t.send({ on: true, seg: segOut(t, { fx: 53, n: name, frz: false, sx: 128, ix: 0 }) }); }
 			prog.textContent = '';
 		};
 		const card = h('section', { class: 'card' },
 			h('div', { class: 'ct' }, 'GIF pack'),
+			targetBar(t),
 			h('div', { class: 'note' }, 'Tap an animation to send it to the lights and play it. Made for matrices; on a strip it is squeezed into one line.'),
 			grid, prog);
 		const refreshStored = () => t.status ? t.status().then(s => { if (s && Array.isArray(s.g)) stored = new Set(s.g); }).catch(() => {}) : Promise.resolve();
@@ -1152,7 +1224,8 @@
 						prog.textContent = '';
 						// then play them one after the other: the lights change to the next one every 10 s (same file name start)
 						const pre = list[0].f.split('-')[0] + '-';
-						await t.send({ on: true, seg: { fx: 53, n: list[0].f, frz: false, sx: 128, ix: 0 }, l4y: { gr: { p: pre, s: 10 } } });
+						gifWarn(t, toast);
+						await t.send({ on: true, seg: segOut(t, { fx: 53, n: list[0].f, frz: false, sx: 128, ix: 0 }), l4y: { gr: { p: pre, s: 10, id: TARGET === null ? -1 : TARGET } } });
 						toast(th + ': playing all ' + list.length + ' animations, a new one every 10 seconds.');
 					} catch (e) {
 						// say which one stopped it and why, so a full memory and a lost connection can be told apart
@@ -1379,14 +1452,15 @@
 			if (f.size > 65536) { gifMsg.textContent = 'This GIF is ' + Math.round(f.size / 1024) + ' KB. The limit is 64 KB: use a smaller one (made for LED matrices).'; return; }
 			const name = cleanName(f.name);
 			try {
-				const ok = await t.upload(name, new Uint8Array(await f.arrayBuffer()), 1, p => { gifMsg.textContent = 'Sending… ' + Math.round(p * 100) + '%'; });
-				if (ok) await t.send({ on: true, seg: { fx: 53, n: name, frz: false, sx: 128, ix: 0 } });
+				const ok = await t.upload(name, new Uint8Array(await f.arrayBuffer()), 0, p => { gifMsg.textContent = 'Sending… ' + Math.round(p * 100) + '%'; });
+				if (ok) { gifWarn(t, toast); await t.send({ on: true, seg: segOut(t, { fx: 53, n: name, frz: false, sx: 128, ix: 0 }) }); }
 				gifMsg.textContent = ok ? 'Playing ' + name + '.' : 'The lights could not save the GIF.';
 				if (ok) setTimeout(loadList, 800);
 			} catch (e) { gifMsg.textContent = 'Could not send the GIF.'; }
 		};
 		const cGif = h('section', { class: 'card' },
 			h('div', { class: 'ct' }, 'Your GIF'),
+			targetBar(t),
 			h('div', { class: 'note' }, 'Small GIFs made for LED matrices work best (up to 64 KB). The lights resize them to fit.'),
 			h('div', { class: 'row' }, h('label', { class: 'btn primary' }, 'Choose GIF', gifIn)),
 			gifMsg);
@@ -1403,7 +1477,7 @@
 					try { if (!t.remove) throw 0; await t.remove(name); toast(name + ' deleted.'); setTimeout(loadList, 600); } catch (e) { toast('Could not delete.'); }
 				};
 				return h('div', { class: 'gifrow2' }, h('span', { 'data-notr': '' }, name),
-					h('button', { type: 'button', class: 'btn small', onclick: () => t.send({ on: true, seg: { fx: 53, n: name, frz: false, sx: 128, ix: 0 } }).then(() => toast('Playing ' + name + '.')).catch(() => toast('Could not send.')) }, 'Play'),
+					h('button', { type: 'button', class: 'btn small', onclick: () => { gifWarn(t, toast); t.send({ on: true, seg: segOut(t, { fx: 53, n: name, frz: false, sx: 128, ix: 0 }) }).then(() => toast('Playing ' + name + '.')).catch(() => toast('Could not send.')); } }, 'Play'),
 					del);
 			}));
 		}).catch(() => {});
@@ -1432,6 +1506,7 @@
 		'Countdown': 'Counts down to a date on a matrix, for example to Christmas.',
 		'Preset loop': 'Plays your saved presets one after another, again and again.',
 		'Sound': 'Effects that move with music, from this phone\'s microphone or one connected to the board.',
+		'Panels': 'Split a matrix made of several panels into one zone per panel, then pick the panel under "Send to".',
 		'Motion scare': 'With a motion sensor connected, plays a preset when someone walks by.',
 		'Light group': 'Makes several lights copy each other over Wi-Fi.',
 		'Power': 'How much current the LEDs use now, compared with your power supply limit.',
@@ -1467,6 +1542,10 @@
 		myLedsCards,
 		extrasCards,
 		gifPackCard,
+		zonesCard,
+		targetBar,
+		segOut,
+		target: () => TARGET,
 		houseCards,
 		preview: PV.mini,
 		matrixPreview: PV.big,
@@ -1512,6 +1591,8 @@
 .theme.sound { background: linear-gradient(135deg, #0b2a3a, #2a0b3a); border-color: #1d4660; }
 .theme:active { transform: scale(.97); }
 .theme { display: flex; flex-direction: column; gap: 8px; }
+.tgtbar { margin: 4px 0 10px; display: flex; flex-direction: column; gap: 6px; }
+.tgtbar .segs { flex-wrap: wrap; }
 .micbox { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
 .micbars { display: flex; align-items: flex-end; gap: 3px; height: 40px; opacity: .35; }
 .micbars.on { opacity: 1; }

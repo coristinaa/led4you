@@ -61,6 +61,8 @@ bool l4yBleActive = false;   // read by wled.cpp: Wi-Fi modem sleep only while B
 // sound from the phone (audioreactive usermod, LED4YOU builds). This empty stand-in is used when that usermod
 // or its LED4YOU part is not in the build (e.g. the WLED CI "usermods" build), so linking never fails.
 __attribute__((weak)) void l4yAudioInject(const uint8_t*, size_t) {}
+// how many GIFs can play at once (image_loader.cpp); 0 when the build has no GIF player
+__attribute__((weak)) int l4yGifSlotCount() { return 0; }
 
 // Small integer hash used to make twinkle patterns differ per LED and per cycle
 static inline uint32_t l4yHash(uint32_t x) {
@@ -564,6 +566,12 @@ class Led4youBle : public Usermod {
       psMaskTime = presetsModifiedTime;
     }
 
+    // active segments (zones) as a bit mask, for the app's "send to" choice
+    static uint32_t zoneMask() {
+      uint32_t m = 0;
+      for (unsigned i = 0; i < strip.getSegmentsNum() && i < 32; i++) if (strip.getSegment(i).isActive()) m |= 1UL << i;
+      return m;
+    }
     String buildState() {
       Segment& s = strip.getMainSegment();
       String ip = WLED_CONNECTED ? Network.localIP().toString() : String();
@@ -579,11 +587,11 @@ class Led4youBle : public Usermod {
       snprintf_P(buf, sizeof(buf),
         PSTR("{\"on\":%s,\"bri\":%u,\"fx\":%u,\"pal\":%u,\"sx\":%u,\"ix\":%u,\"c1\":%u,\"c2\":%u,\"c3\":%u,\"ps\":%d,\"col\":[%u,%u,%u],"
              "\"ip\":\"%s\",\"leds\":%u,\"mw\":%u,\"mh\":%u,\"mfx\":%u,\"fsf\":%u,"
-             "\"hw\":{\"pin\":%d,\"len\":%d,\"type\":%d,\"co\":%d,\"ma\":%u},\"psl\":%u}"),
+             "\"hw\":{\"pin\":%d,\"len\":%d,\"type\":%d,\"co\":%d,\"ma\":%u},\"psl\":%u,\"gs\":%d,\"nz\":%u,\"zs\":%u}"),
         bri ? "true" : "false", bri ? bri : briLast, s.mode, s.palette, s.speed, s.intensity, s.custom1, s.custom2, s.custom3, (int)currentPreset,
         R(s.colors[0]), G(s.colors[0]), B(s.colors[0]),
         ip.c_str(), strip.getLengthTotal(), mw, mh, myLedsFxId, (unsigned)((fsBytesTotal - fsBytesUsed) / 1024),
-        pin, blen, btype, bco, BusManager::ablMilliampsMax(), (unsigned)psMask);
+        pin, blen, btype, bco, BusManager::ablMilliampsMax(), (unsigned)psMask, l4yGifSlotCount(), (unsigned)strip.getActiveSegmentsNum(), (unsigned)zoneMask());
       return String(buf);
     }
 
