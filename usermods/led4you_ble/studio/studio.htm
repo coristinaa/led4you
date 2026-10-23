@@ -162,7 +162,7 @@ fetch('/json/si').then(r => r.json()).then(readInfo).catch(() => toast('Could no
 			}
 			await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://coristinaa.github.io/led4you/layouts.js?h=' + Math.floor(Date.now() / 36e5); /* newest copy, at most an hour old */ sc.onload = ok; sc.onerror = no; document.head.append(sc); });
 			const st = document.createElement('style'); st.textContent = L4YLayout.css; document.head.append(st);
-			L4YLayout.mount(box, { fx, pal, palStops: id => stops[id] || null, toast, send: wifi.send,
+			L4YLayout.mount(box, { fx, pal, palStops: id => stops[id] || null, toast, send: wifi.send, zones: L4YStudio.zoneList ? () => L4YStudio.zoneList(wifi) : undefined,
 				current: async () => { const s = (await (await fetch('/json/state')).json()).seg[0]; return { fx: s.fx, col: s.col, pal: s.pal, sx: s.sx }; } });
 		} catch (e) { layMounted = false; box.textContent = 'Could not load the preview. It needs internet on this phone or computer.'; }
 	};
