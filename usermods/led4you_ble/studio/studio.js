@@ -1090,6 +1090,38 @@
 		setTimeout(draw, 1500);   // the zone list may arrive a moment later
 		return box;
 	}
+	// Make or change a strip zone from LED "from" to LED "to" (1-based, both included). Zones it overlaps are made
+	// shorter (or removed when fully covered), so the zones never overlap. Returns { id, changed: [names] }.
+	async function saveZone(t, { id = null, from, to, name = '' }) {
+		const i = t.info(), mx = i.mw && i.mh, area = mx ? i.mw * i.mh : 0, leds = i.leds || 0;
+		from |= 0; to |= 0;
+		if (!(from >= area + 1 && to >= from && to <= leds)) throw new Error(mx && from <= area ? 'matrix' : 'range');
+		const zg = i.zg || [];
+		const a = from - 1, b = to, segs = [], changed = [];
+		// a new zone takes the number of a zone it covers completely (the lights renumber zones when some are removed)
+		if (id === null) { const cov = zg.find(z => !(mx && z[1] < area) && z[1] >= a && z[2] <= b); if (cov) id = cov[0]; }
+		if (id === null) { const used = zg.map(z => z[0]); id = 0; while (used.includes(id)) id++; if (id > 15) throw new Error('full'); }
+		zg.forEach((z, k) => {
+			if (z[0] === id || z[2] <= a || z[1] >= b) return;
+			if (mx && z[1] < area) return;   // a matrix zone is never touched here
+			const nm = zoneLabel(t, z[0], k);
+			if (z[1] >= a && z[2] <= b) { segs.push({ id: z[0], stop: 0 }); z[2] = z[1]; }   // fully covered: removed
+			else if (z[1] < a) { segs.push({ id: z[0], stop: a }); z[2] = a; }                // keeps the part before
+			else { segs.push({ id: z[0], start: b }); z[1] = b; }                               // keeps the part after
+			changed.push(nm);
+		});
+		segs.push(Object.assign({ id, start: a, stop: b, on: true, sel: true, grp: 1, spc: 0, of: 0 }, mx ? { startY: 0, stopY: 1 } : {}));
+		await t.send({ on: true, seg: segs });
+		// local copy until the lights report their zones again
+		for (let k = zg.length - 1; k >= 0; k--) if (zg[k][2] <= zg[k][1]) zg.splice(k, 1);
+		const own = zg.find(z => z[0] === id);
+		if (own) { own[1] = a; own[2] = b; own[3] = 0; own[4] = 1; } else zg.push([id, a, b, 0, 1, 1, 0, 0]);
+		zg.sort((p, q) => p[0] - q[0]);
+		if (name) try { const n = zoneNames(t); n[id] = name; localStorage.setItem('l4yZoneNames:' + i.key, JSON.stringify(n)); } catch (e) {}
+		targetListeners.forEach(f => f());
+		if (t.refresh) setTimeout(() => t.refresh(), 1800);
+		return { id, changed };
+	}
 	// panels: one zone (segment) per panel of a matrix made of several panels
 	// zone names are kept on this phone / computer (the lights use segment names for GIF files and text)
 	const zoneNames = t => { try { return JSON.parse(localStorage.getItem('l4yZoneNames:' + t.info().key) || '{}'); } catch (e) { return {}; } };
@@ -1655,7 +1687,11 @@
 		redrawTargets: () => targetListeners.forEach(f => f()),
 		// the zones of the lights with their names and LED counts (for the "See it" picture)
 		zoneList: t => { const i = t.info(), mx = i.mw && i.mh, area = mx ? i.mw * i.mh : 0;
-			return (i.zg || []).map((z, k) => ({ id: z[0], name: zoneLabel(t, z[0], k), n: mx && z[1] < area ? (z[2] - z[1]) * Math.max(1, z[4] - z[3]) : z[2] - z[1] })); },
+			return (i.zg || []).map((z, k) => { const strip = !mx || z[1] >= area;
+				return { id: z[0], name: zoneLabel(t, z[0], k), n: strip ? z[2] - z[1] : (z[2] - z[1]) * Math.max(1, z[4] - z[3]), strip, from: z[1] + 1, to: z[2] }; }).sort((p, q) => p.from - q.from); },
+		// LEDs where a strip zone can go: 1..leds, or (matrix with strips after it) the LEDs after the matrix
+		zoneRange: t => { const i = t.info(), mx = i.mw && i.mh, area = mx ? i.mw * i.mh : 0; return { min: area + 1, max: i.leds || 0 }; },
+		saveZone,
 		onTarget: f => targetListeners.add(f),
 		houseCards,
 		preview: PV.mini,
