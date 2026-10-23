@@ -1,3 +1,3 @@
-[{ "version": 64, "manifest": "manifest-v64.json", "notes": "Live preview of big matrices: smoother (blocks averaged)" },
- { "version": 63, "manifest": "manifest-v63.json", "notes": "My LEDs per zone: each zone can have its own design" },
- { "version": 62, "manifest": "manifest-v62.json", "notes": "New zones need much less memory (zones on big matrices); See it and Send to improvements in the Wi-Fi Studio" }]
+[{ "version": 65, "manifest": "manifest-v65.json", "notes": "Switch Bluetooth on or off without a restart (Studio, Info, app)" },
+ { "version": 64, "manifest": "manifest-v64.json", "notes": "Live preview of big matrices: smoother (blocks averaged)" },
+ { "version": 63, "manifest": "manifest-v63.json", "notes": "My LEDs per zone: each zone can have its own design" }]
