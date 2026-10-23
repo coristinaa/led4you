@@ -10,6 +10,7 @@
  *   opts.current   () -> Promise<{fx, col, pal, sx}>   what the lights show now (optional)
  *   opts.send      obj -> Promise   send a WLED state command to the connected lights (optional)
  *   opts.toast     text -> void
+ *   opts.zones     () -> [{ id, name, n }]   the zones (segments) of the connected lights (optional)
  */
 (function () {
 	const h = (tag, attrs, ...kids) => {
@@ -134,22 +135,37 @@
 		let sc = scenes[0], zones = [], bgCache = null, sel = 0, selT = -9999;   // the chosen zone stands out for a moment
 		const KEY = 'l4yLayout';
 		let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
-		const keep = () => { try { saved[sc.id] = zones.map(z => ({ fx: z.fx, col: z.col, pal: z.pal, sx: z.sx, n: z.n })); localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {} };
+		const keep = () => { try { saved[sc.id] = zones.map(z => ({ fx: z.fx, col: z.col, pal: z.pal, sx: z.sx, n: z.n, rz: z.rz })); localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {} };
 
 		const cv = h('canvas', { class: 'lay-cv', width: '1600', height: '1200', 'aria-label': 'Preview picture' });
 		const pick = h('div', { class: 'segs lay-scenes' });
 		const tabs = h('div', { class: 'segs lay-zones' });
 		const ed = h('div', { class: 'lay-ed' });
 
+		const realZones = () => { try { return opts.zones ? opts.zones() : []; } catch (e) { return []; } };
+		// a linked part shows as many LEDs as its real zone (within what the drawing can show)
+		const fitReal = z => { const r = realZones().find(q => q.id === z.rz); if (r) z.n = Math.max(z.def.min, Math.min(z.def.max, r.n)); };
+		const linkInOrder = () => {
+			const real = realZones();
+			if (real.length < 2) { opts.toast && opts.toast('Make zones in Setup › Zones first.'); return; }
+			zones.forEach((z, i) => { z.rz = i < real.length ? real[i].id : null; fitReal(z); mk(z); });
+			keep(); build(); opts.toast && opts.toast('Linked the parts to your zones in order.');
+		};
+		const sendAll = () => {
+			const real = realZones(), linked = zones.filter(z => z.rz != null && z.fx >= 0 && real.some(r => r.id === z.rz));
+			if (!linked.length) { opts.toast && opts.toast('Link the parts to zones of your lights first (above each effect).'); return; }
+			opts.send({ on: true, seg: linked.map(z => ({ id: z.rz, on: true, fx: z.fx, col: z.col, pal: z.pal, sx: z.sx })) })
+				.then(() => opts.toast && opts.toast('Sent ' + linked.length + ' part(s) to their zones.')).catch(() => opts.toast && opts.toast('Could not send it to the lights.'));
+		};
 		const build = () => {
 			const old = saved[sc.id] || [];
 			zones = sc.zones.map((z, i) => {
 				const s = old[i] || {}, f = (s.fx != null && opts.fx.find(x => x[0] === s.fx)) || byName(z.look.fx);
 				// an effect the list does not have (yet): imitate it by name, it cannot be sent
-				const zz = { def: z, fx: f ? f[0] : -1, nm: f ? f[1] : z.look.fx, col: s.col || z.look.col.concat([[0, 0, 0], [0, 0, 0]]).slice(0, 3), pal: s.pal ?? z.look.pal, sx: s.sx ?? z.look.sx, n: s.n || z.n };
+				const zz = { def: z, fx: f ? f[0] : -1, nm: f ? f[1] : z.look.fx, col: s.col || z.look.col.concat([[0, 0, 0], [0, 0, 0]]).slice(0, 3), pal: s.pal ?? z.look.pal, sx: s.sx ?? z.look.sx, n: s.n || z.n, rz: s.rz ?? null };
 				zz.pts = SH[z.shape](z.o, zz.n); return zz;
 			});
-			zones.forEach(mk);
+			zones.forEach(z => { if (z.rz != null) fitReal(z); mk(z); });
 			bgCache = null; sel = Math.min(sel, zones.length - 1);
 			pick.replaceChildren(...scenes.map(s => h('button', { type: 'button', class: 'seg' + (s === sc ? ' sel' : ''), onclick: () => { sc = s; sel = 0; build(); } }, s.name)));
 			tabs.replaceChildren(...zones.map((z, i) => h('button', { type: 'button', class: 'seg' + (i === sel ? ' sel' : ''), onclick: () => { sel = i; selT = performance.now(); build(); } }, z.def.name)));
@@ -183,13 +199,21 @@
 				try { const c = await opts.current(); z.fx = c.fx; z.pal = c.pal || 0; z.sx = c.sx ?? 128; if (c.col) z.col = c.col.concat([[0, 0, 0], [0, 0, 0]]).slice(0, 3); mk(z); keep(); editor(); opts.toast && opts.toast('Copied the look of your lights.'); }
 				catch (e) { opts.toast && opts.toast('Could not read the lights.'); }
 			};
-			const sendNow = () => z.fx < 0 ? opts.toast && opts.toast('Connect to lights with the newest LED4YOU to use this effect.') : opts.send({ on: true, seg: { fx: z.fx, col: z.col, pal: z.pal, sx: z.sx } }).then(() => opts.toast && opts.toast('Your lights now show the ' + z.def.name + ' look.')).catch(() => opts.toast && opts.toast('Could not send it to the lights.'));
+			// which zone of the real lights this part of the picture is: its LED count follows the real zone
+			const real = realZones(), rz = real.find(r => r.id === z.rz);
+			const link = h('select', { 'aria-label': 'Zone of my lights' }, h('option', { value: '' }, 'Not linked (all my lights)'),
+				real.map(r => h('option', { value: String(r.id), 'data-notr': '' }, r.name + ' (' + r.n + ' LEDs)')));
+			link.value = rz ? String(rz.id) : '';
+			link.onchange = () => { z.rz = link.value === '' ? null : +link.value; fitReal(z); mk(z); keep(); editor(); };
+			const sendNow = () => z.fx < 0 ? opts.toast && opts.toast('Connect to lights with the newest LED4YOU to use this effect.') : opts.send({ on: true, seg: Object.assign(z.rz != null && rz ? { id: z.rz } : {}, { fx: z.fx, col: z.col, pal: z.pal, sx: z.sx }) }).then(() => opts.toast && opts.toast('Your lights now show the ' + z.def.name + ' look.')).catch(() => opts.toast && opts.toast('Could not send it to the lights.'));
 			ed.replaceChildren(
+				...(opts.zones ? [h('label', { class: 'lab' }, 'On my lights, this part is'), link,
+					h('div', { class: 'note' }, rz ? 'Linked: "Show it on my lights" sends this part only to ' + rz.name + '.' : real.length > 1 ? 'Not linked: it goes to all your lights.' : 'Make zones in Setup › Zones to link each part to its own LEDs.')] : []),
 				h('label', { class: 'lab' }, 'Effect'), fxSel,
 				h('div', { class: 'lay-row' }, cols, h('span', { class: 'note' }, 'Colours')),
 				h('label', { class: 'lab' }, 'Palette'), palSel,
 				h('div', { class: 'lbl' }, h('span', {}, 'Speed')), spd,
-				...(z.def.min === z.def.max ? [] : [h('div', { class: 'lbl' }, h('span', {}, 'LEDs in this zone'), cntL), cnt]),
+				...(z.def.min === z.def.max || rz ? [] : [h('div', { class: 'lbl' }, h('span', {}, 'LEDs in this zone'), cntL), cnt]),
 				h('div', { class: 'row' },
 					opts.current ? h('button', { class: 'btn', type: 'button', onclick: useNow }, 'Use the look of my lights') : '',
 					opts.send ? h('button', { class: 'btn primary', type: 'button', onclick: sendNow }, 'Show it on my lights') : ''));
@@ -230,7 +254,10 @@
 				pick, h('div', { class: 'lay-wrap' }, cv)),
 			h('section', { class: 'card' },
 				h('div', { class: 'ct' }, 'Zones'),
-				tabs, ed));
+				tabs, ed,
+				opts.zones && opts.send ? h('div', { class: 'row lay-all' },
+					h('button', { class: 'btn', type: 'button', onclick: linkInOrder }, 'Link parts to my zones in order'),
+					h('button', { class: 'btn primary', type: 'button', onclick: sendAll }, 'Show everything on my lights')) : ''));
 		build();
 		requestAnimationFrame(draw);
 	}
@@ -239,6 +266,7 @@
 .lay-wrap { margin-top: 10px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
 .lay-cv { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; background: #060914; }
 .lay-scenes, .lay-zones { margin-top: 8px; }
+.lay-all { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .lay-ed { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
 .lay-ed select { width: 100%; }
 .lay-row { display: flex; gap: 8px; align-items: center; margin: 6px 0; }

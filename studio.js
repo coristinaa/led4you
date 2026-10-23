@@ -1653,6 +1653,9 @@
 		segOut,
 		target: () => TARGET,
 		redrawTargets: () => targetListeners.forEach(f => f()),
+		// the zones of the lights with their names and LED counts (for the "See it" picture)
+		zoneList: t => { const i = t.info(), mx = i.mw && i.mh, area = mx ? i.mw * i.mh : 0;
+			return (i.zg || []).map((z, k) => ({ id: z[0], name: zoneLabel(t, z[0], k), n: mx && z[1] < area ? (z[2] - z[1]) * Math.max(1, z[4] - z[3]) : z[2] - z[1] })); },
 		onTarget: f => targetListeners.add(f),
 		houseCards,
 		preview: PV.mini,
