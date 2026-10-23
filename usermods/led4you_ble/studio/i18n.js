@@ -134,6 +134,12 @@
 		['ESP32-C3: one panel at a time can show a GIF (not enough memory for more). Text, effects and seasons work on every panel.', 'ESP32-C3: só um painel de cada vez pode mostrar um GIF (não há memória para mais). Texto, efeitos e épocas funcionam em todos os painéis.', 'ESP32-C3: solo un panel a la vez puede mostrar un GIF (no hay memoria para más). Texto, efectos y temporadas funcionan en todos los paneles.', 'ESP32-C3 : un seul panneau à la fois peut afficher un GIF (pas assez de mémoire). Texte, effets et saisons marchent sur tous les panneaux.'],
 
 		['Zones', 'Zonas', 'Zonas', 'Zones'],
+		['The matrix outputs make one picture together. To show something different on each, use Zones › One zone per output.', 'As saídas de matriz formam uma só imagem. Para mostrar coisas diferentes em cada uma, usa Zonas › Uma zona por saída.', 'Las salidas de matriz forman una sola imagen. Para mostrar algo distinto en cada una, usa Zonas › Una zona por salida.', 'Les sorties matrice forment une seule image. Pour afficher autre chose sur chacune, utilisez Zones › Une zone par sortie.'],
+		['Layout of the matrix outputs (each colour = one output)', 'Disposição das saídas de matriz (cada cor = uma saída)', 'Disposición de las salidas de matriz (cada color = una salida)', 'Disposition des sorties matrice (chaque couleur = une sortie)'],
+		['LEDs (from the panels)', 'LEDs (dos painéis)', 'LEDs (de los paneles)', 'LED (des panneaux)'],
+		['Matrix of this output', 'Matriz desta saída', 'Matriz de esta salida', 'Matrice de cette sortie'],
+		['Side by side', 'Lado a lado', 'Lado a lado', 'Côte à côte'],
+		['On top', 'Em cima', 'Encima', 'Superposés'],
 		['Type', 'Tipo', 'Tipo', 'Type'],
 		['LEDs (whole matrix)', 'LEDs (matriz inteira)', 'LEDs (matriz entera)', 'LED (matrice entière)'],
 		['Matrix panels (for the outputs of type Matrix)', 'Painéis da matriz (para as saídas do tipo Matriz)', 'Paneles de la matriz (para las salidas de tipo Matriz)', 'Panneaux de la matrice (pour les sorties de type Matrice)'],
