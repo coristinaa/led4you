@@ -1141,6 +1141,10 @@
 			const g = inf().zg;
 			const names = zoneNames(t);
 			zl = (g && g.length ? g : [[0, 0, total(), 0, isMx() ? inf().mh : 1, 1, 0, 0]]).map(z => ({ id: z[0], a: z[1], b: z[2], ay: z[3], by: z[4], on: !!z[5], rev: !!z[6], mi: !!z[7], name: names[z[0]] || '', st: isMx() && z[1] >= area() }));
+			// a zone made while the lights were a strip (or by a preset from then) covers only row 1 of the matrix
+			const flat = isMx() && inf().mh > 1 ? zl.filter(z => !z.st && z.by - z.ay <= 1) : [];
+			flat.forEach(z => { z.ay = 0; z.by = inf().mh; });
+			msg.textContent = flat.length ? flat.length + ' zone(s) covered only row 1 of the matrix (made when the lights were a strip): now all rows. Tap "Save zones" to keep it.' : '';
 			draw();
 		};
 		const num = (v, min, max, f) => { const e = h('input', { type: 'number', min: String(min), max: String(max), value: String(v), class: 'znum' }); e.onchange = () => f(Math.max(min, Math.min(max, +e.value | 0))); return e; };

@@ -616,6 +616,7 @@
 	const P = [
 		[/^Panel (\d+)$/, 'Painel $1', 'Panel $1', 'Panneau $1'],
 		[/^Zone (\d+)$/, 'Zona $1', 'Zona $1', 'Zone $1'],
+		[/^(\d+) zone\(s\) covered only row 1 of the matrix \(made when the lights were a strip\): now all rows\. Tap "Save zones" to keep it\.$/, '$1 zona(s) só tinha(m) a linha 1 da matriz (feitas quando as luzes eram uma fita): agora têm todas as linhas. Toca em "Guardar zonas" para ficar assim.', '$1 zona(s) solo cubría(n) la fila 1 de la matriz (hechas cuando las luces eran una tira): ahora todas las filas. Toca "Guardar zonas" para mantenerlo.', '$1 zone(s) ne couvrai(en)t que la ligne 1 de la matrice (faites quand les lumières étaient une bande) : maintenant toutes les lignes. Touchez « Enregistrer les zones » pour garder.'],
 		[/^Choose LEDs from (\d+) to (\d+) \(the first number not bigger than the second\)\.$/, 'Escolhe LEDs de $1 a $2 (o primeiro número não pode ser maior que o segundo).', 'Elige LEDs de $1 a $2 (el primer número no puede ser mayor que el segundo).', 'Choisissez des LED de $1 à $2 (le premier nombre pas plus grand que le second).'],
 		[/^Zone (.+): LED (\d+) to (\d+)\.( Made shorter: (.+)\.)?$/, 'Zona $1: LED $2 a $3.$4', 'Zona $1: LED $2 a $3.$4', 'Zone $1 : LED $2 à $3.$4'],
 		[/^Linked: "Show it on my lights" sends this part only to (.+)\.$/, 'Ligada: "Mostrar nas minhas luzes" envia esta parte só para $1.', 'Vinculada: "Mostrar en mis luces" envía esta parte solo a $1.', 'Liée : « Afficher sur mes lumières » envoie cette partie seulement à $1.'],
