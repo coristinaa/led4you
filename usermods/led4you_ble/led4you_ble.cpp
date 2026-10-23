@@ -58,6 +58,10 @@ static const char MYLEDS_FILE[] = "/myleds.bin";
 static volatile uint16_t myLedsVersion = 1;   // bumped after every upload so the effect reloads the table
 static uint8_t myLedsFxId = 255;
 bool l4yBleActive = false;   // read by wled.cpp: Wi-Fi modem sleep only while Bluetooth runs
+// "switch Bluetooth on" restarts the board (starting Bluetooth again in a running board was not reliable on the
+// ESP32-C3): this value survives the software restart and keeps Bluetooth on for 5 minutes after it
+#define L4Y_BLE_GRACE_MAGIC 0x4C34B1E5u
+RTC_NOINIT_ATTR static uint32_t l4yBleGraceMagic;
 // sound from the phone (audioreactive usermod, LED4YOU builds). This empty stand-in is used when that usermod
 // or its LED4YOU part is not in the build (e.g. the WLED CI "usermods" build), so linking never fails.
 __attribute__((weak)) void l4yAudioInject(const uint8_t*, size_t) {}
@@ -778,6 +782,8 @@ class Led4youBle : public Usermod {
       queue = xQueueCreate(8, sizeof(L4yBleMsg));
       if (!queue || !cmdBuf) return;
       startBle();
+      // started by "switch Bluetooth on" (restart): stay on 5 minutes so the app has time to connect
+      if (l4yBleGraceMagic == L4Y_BLE_GRACE_MAGIC) { l4yBleGraceMagic = 0; bleGraceUntil = millis() + 5UL * 60 * 1000; }
     }
 
     void loop() override {
@@ -785,7 +791,7 @@ class Led4youBle : public Usermod {
       if (rebootAfterSave) { rebootAfterSave = false; configNeedsWrite = false; doReboot = true; }   // cfg.json already written
       if (rebootWhenSaved && !doInitBusses && !configNeedsWrite) { rebootWhenSaved = false; doReboot = true; }
       // Bluetooth switched on / off from the Wi-Fi page or the app ({"l4y":{"ble":..}}), applied here (not in the JSON handler)
-      if (bleWanted == 1) { bleWanted = -1; if (!running && enabled && queue && cmdBuf && ESP.getFreeHeap() > 60 * 1024) { startBle(); bleGraceUntil = millis() + 5UL * 60 * 1000; } }   // Bluetooth needs ~50 KB: not started when the LEDs leave less
+      if (bleWanted == 1) { bleWanted = -1; if (!running && enabled) { l4yBleGraceMagic = L4Y_BLE_GRACE_MAGIC; doReboot = true; } }   // restart with Bluetooth on (see l4yBleGraceMagic)
       else if (bleWanted == 0) { bleWanted = -1; if (running) { stopBle(); return; } }
       if (!running) return;
       L4yBleMsg m;
@@ -875,7 +881,7 @@ class Led4youBle : public Usermod {
       String b = F("<button class=\"btn btn-xs\" onclick=\"requestJson({l4y:{ble:");
       b += running ? '0' : '1';
       b += F("}});\">");
-      b += running ? F("on &#x2022; switch off") : F("off &#x2022; switch on");
+      b += running ? F("on &#x2022; switch off") : F("off &#x2022; switch on (restarts the lights)");
       b += F("</button>");
       a.add(b);
     }

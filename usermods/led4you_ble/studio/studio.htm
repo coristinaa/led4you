@@ -142,10 +142,10 @@ fetch('/json/si').then(r => r.json()).then(readInfo).catch(() => toast('Could no
 	if (INFO.ble !== undefined) {
 		const st = document.createElement('div'); st.className = 'note';
 		const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'btn';
-		const upd = () => { st.textContent = INFO.ble ? 'Bluetooth is on: the LED4YOU app can connect. It uses about 50 KB of memory and switches itself off 1 minute after the app disconnects.' : 'Bluetooth is off (it switches itself off while Wi-Fi works, to leave more memory for the LEDs).'; bt.textContent = INFO.ble ? 'Switch Bluetooth off' : 'Switch Bluetooth on (5 minutes to connect)'; };
-		bt.onclick = async () => { const on = !INFO.ble; try { await wifi.send({ l4y: { ble: on ? 1 : 0 } }); INFO.ble = on ? 1 : 0; upd(); toast(on ? 'Bluetooth is on: connect with the LED4YOU app within 5 minutes.' : 'Bluetooth is off.');
+		const upd = () => { st.textContent = INFO.ble ? 'Bluetooth is on: the LED4YOU app can connect. It uses about 50 KB of memory and switches itself off 1 minute after the app disconnects.' : 'Bluetooth is off (it switches itself off while Wi-Fi works, to leave more memory for the LEDs).'; bt.textContent = INFO.ble ? 'Switch Bluetooth off' : 'Switch Bluetooth on (the lights restart)'; };
+		bt.onclick = async () => { const on = !INFO.ble; try { await wifi.send({ l4y: { ble: on ? 1 : 0 } }); INFO.ble = on ? 1 : 0; upd(); toast(on ? 'The lights restart with Bluetooth on (a few seconds): then connect the LED4YOU app within 5 minutes.' : 'Bluetooth is off.');
 			// check: the lights do not start Bluetooth when the LEDs leave too little memory for it
-			if (on) setTimeout(() => fetch('/json/si').then(r => r.json()).then(j => { if (j.state.l4y && !j.state.l4y.ble) { INFO.ble = 0; upd(); toast('Not enough free memory to switch Bluetooth on. Use fewer LEDs, or restart the lights.'); } }).catch(() => {}), 2500); } catch (e) { toast('Could not reach the lights.'); } };
+			if (on) setTimeout(() => fetch('/json/si').then(r => r.json()).then(j => { INFO.ble = j.state.l4y && j.state.l4y.ble ? 1 : 0; upd(); }).catch(() => {}), 12000); } catch (e) { toast('Could not reach the lights.'); } };
 		const card = document.createElement('section'); card.className = 'card';
 		const ct = document.createElement('div'); ct.className = 'ct'; ct.textContent = 'Bluetooth';
 		card.append(ct, st, bt); upd();
