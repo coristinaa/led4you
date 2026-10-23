@@ -147,6 +147,8 @@ class Led4youBle : public Usermod {
     bool enabled = true;
     bool keepOnWifi = false;  // false (default): switch Bluetooth off once Wi-Fi is connected, frees ~50 KB RAM for the LEDs
     bool running = false;
+    int8_t   bleWanted = -1;      // {"l4y":{"ble":1|0}}: switch Bluetooth on / off without a restart (-1 = nothing asked)
+    uint32_t bleGraceUntil = 0;   // switched on by hand: stays on this long even with Wi-Fi up and no app yet
     QueueHandle_t queue = nullptr;
 
     NimBLEServer*         server   = nullptr;
@@ -782,6 +784,9 @@ class Led4youBle : public Usermod {
       // new LED settings are already in cfg.json (saveLedCfg): restart so WLED starts with them
       if (rebootAfterSave) { rebootAfterSave = false; configNeedsWrite = false; doReboot = true; }   // cfg.json already written
       if (rebootWhenSaved && !doInitBusses && !configNeedsWrite) { rebootWhenSaved = false; doReboot = true; }
+      // Bluetooth switched on / off from the Wi-Fi page or the app ({"l4y":{"ble":..}}), applied here (not in the JSON handler)
+      if (bleWanted == 1) { bleWanted = -1; if (!running && enabled && queue && cmdBuf && ESP.getFreeHeap() > 60 * 1024) { startBle(); bleGraceUntil = millis() + 5UL * 60 * 1000; } }   // Bluetooth needs ~50 KB: not started when the LEDs leave less
+      else if (bleWanted == 0) { bleWanted = -1; if (running) { stopBle(); return; } }
       if (!running) return;
       L4yBleMsg m;
       while (xQueueReceive(queue, &m, 0) == pdTRUE) {
@@ -807,7 +812,7 @@ class Led4youBle : public Usermod {
       hadClient = hasClient;
       // "stay on with Wi-Fi" off: release Bluetooth only once Wi-Fi is up AND no app has been connected for a while,
       // so an open Bluetooth session (or the switch from Bluetooth to Wi-Fi in the app) is never cut off
-      if (hasClient || keepOnWifi || !WLED_CONNECTED || improvState == ST_PROVISIONING) idleSince = millis();
+      if (hasClient || keepOnWifi || !WLED_CONNECTED || improvState == ST_PROVISIONING || (int32_t)(bleGraceUntil - millis()) > 0) idleSince = millis();
       else if (millis() - idleSince > L4Y_BLE_IDLE_OFF) { stopBle(); return; }
       if (hasClient) sendPeek();
       if (hasClient && millis() - lastStateCheck > 500) {
@@ -851,19 +856,28 @@ class Led4youBle : public Usermod {
     void readFromJsonState(JsonObject& root) override {
       JsonObject l = root[F("l4y")];
       if (!l.isNull() && (l[F("rl")] | 0)) myLedsVersion++;
+      if (!l.isNull() && l[F("ble")].is<int>()) bleWanted = l[F("ble")].as<int>() ? 1 : 0;
     }
     // lets the Studio page find the My LEDs effect number
     void addToJsonState(JsonObject& root) override {
       JsonObject l = root[F("l4y")];
       if (l.isNull()) l = root.createNestedObject(F("l4y"));
       l[F("mfx")] = myLedsFxId;
+      l[F("ble")] = running ? 1 : 0;   // Bluetooth on right now (it switches itself off with Wi-Fi up and no app)
     }
 
     void addToJsonInfo(JsonObject& root) override {
       JsonObject user = root["u"];
       if (user.isNull()) user = root.createNestedObject("u");
       JsonArray a = user.createNestedArray(F("Bluetooth"));
-      a.add(running ? F("on") : F("off"));
+      // a button in the Info panel switches Bluetooth on (it uses ~50 KB of RAM) or off again, without a restart
+      if (!enabled) { a.add(F("off")); return; }
+      String b = F("<button class=\"btn btn-xs\" onclick=\"requestJson({l4y:{ble:");
+      b += running ? '0' : '1';
+      b += F("}});\">");
+      b += running ? F("on &#x2022; switch off") : F("off &#x2022; switch on");
+      b += F("</button>");
+      a.add(b);
     }
 
     void addToConfig(JsonObject& root) override {

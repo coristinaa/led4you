@@ -75,7 +75,7 @@ let INFO = { leds: 30, mw: 0, mh: 0, mfx: 255, gs: 1, zones: [0] };
 // zones = active segments, gs = how many GIFs play at once (from /json/si)
 const readInfo = j => {
 	const m = j.info && j.info.leds && j.info.leds.matrix;
-	INFO = { key: location.host, leds: j.info.leds.count, mw: m ? m.w : 0, mh: m ? m.h : 0, mfx: j.state.l4y ? j.state.l4y.mfx : 255, gs: j.state.l4y ? j.state.l4y.gs : 1,
+	INFO = { ble: j.state.l4y ? j.state.l4y.ble : undefined, key: location.host, leds: j.info.leds.count, mw: m ? m.w : 0, mh: m ? m.h : 0, mfx: j.state.l4y ? j.state.l4y.mfx : 255, gs: j.state.l4y ? j.state.l4y.gs : 1,
 		pn: j.state.l4y && j.state.l4y.pn || [],
 		zones: (j.state.seg || []).filter(g => g.stop > g.start).map(g => g.id),
 		zg: (j.state.seg || []).filter(g => g.stop > g.start).map(g => [g.id, g.start, g.stop, g.startY | 0, g.stopY || 1, g.on ? 1 : 0, g.rev ? 1 : 0, g.mi ? 1 : 0]) };
@@ -138,6 +138,19 @@ fetch('/json/si').then(r => r.json()).then(readInfo).catch(() => toast('Could no
 	document.getElementById('paneText').append(L4YStudio.textCard(wifi, toast));
 	document.getElementById('paneLeds').append(...L4YStudio.myLedsCards(wifi, toast));
 	document.getElementById('paneMore').append(...L4YStudio.extrasCards(wifi, toast));
+	// Bluetooth: it switches itself off when Wi-Fi is up (frees ~50 KB of memory); switch it on again here when needed
+	if (INFO.ble !== undefined) {
+		const st = document.createElement('div'); st.className = 'note';
+		const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'btn';
+		const upd = () => { st.textContent = INFO.ble ? 'Bluetooth is on: the LED4YOU app can connect. It uses about 50 KB of memory and switches itself off 1 minute after the app disconnects.' : 'Bluetooth is off (it switches itself off while Wi-Fi works, to leave more memory for the LEDs).'; bt.textContent = INFO.ble ? 'Switch Bluetooth off' : 'Switch Bluetooth on (5 minutes to connect)'; };
+		bt.onclick = async () => { const on = !INFO.ble; try { await wifi.send({ l4y: { ble: on ? 1 : 0 } }); INFO.ble = on ? 1 : 0; upd(); toast(on ? 'Bluetooth is on: connect with the LED4YOU app within 5 minutes.' : 'Bluetooth is off.');
+			// check: the lights do not start Bluetooth when the LEDs leave too little memory for it
+			if (on) setTimeout(() => fetch('/json/si').then(r => r.json()).then(j => { if (j.state.l4y && !j.state.l4y.ble) { INFO.ble = 0; upd(); toast('Not enough free memory to switch Bluetooth on. Use fewer LEDs, or restart the lights.'); } }).catch(() => {}), 2500); } catch (e) { toast('Could not reach the lights.'); } };
+		const card = document.createElement('section'); card.className = 'card';
+		const ct = document.createElement('div'); ct.className = 'ct'; ct.textContent = 'Bluetooth';
+		card.append(ct, st, bt); upd();
+		document.getElementById('paneMore').append(card);
+	}
 	// the pack lives with the app on GitHub Pages (sent with CORS), so it needs internet on the phone or computer
 	document.getElementById('paneGifs').append(...L4YStudio.myImagesCards(wifi, toast), L4YStudio.gifPackCard(wifi, toast, 'https://coristinaa.github.io/led4you/gifs/'));
 	if (location.hash === '#gifs') show('Gifs');
