@@ -1,3 +1,3 @@
-[{ "version": 59, "manifest": "manifest-v59.json", "notes": "DMX output setup over Bluetooth (Setup tab)" },
- { "version": 58, "manifest": "manifest-v58.json", "notes": "Two LED outputs (ESP32-C3 too); schedule and power in Setup" },
- { "version": 57, "manifest": "manifest-v57.json", "notes": "Panels of different sizes in the Bluetooth LED setup; Zones moved to Setup" }]
+[{ "version": 60, "manifest": "manifest-v60.json", "notes": "One section per LED output (GPIO); zones per output; Send to on the Controls" },
+ { "version": 59, "manifest": "manifest-v59.json", "notes": "DMX output setup over Bluetooth (Setup tab)" },
+ { "version": 58, "manifest": "manifest-v58.json", "notes": "Two LED outputs (ESP32-C3 too); schedule and power in Setup" }]

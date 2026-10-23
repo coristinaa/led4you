@@ -6,8 +6,8 @@
 <title>LED4YOU</title>
 <meta name="theme-color" content="#0d0f14">
 <link rel="manifest" href="manifest.webmanifest">
-<script src="i18n.js?v=48"></script>
-<script src="studio.js?v=48"></script>
+<script src="i18n.js?v=49"></script>
+<script src="studio.js?v=49"></script>
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -185,6 +185,10 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 .pngrid input { width: 100%; min-width: 0; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise, #1a1a22); color: inherit; font: inherit; font-size: 14px; }
 .dxmap { grid-template-columns: repeat(3, 1fr); margin-top: 8px; }
 .dxmap select { width: 100%; padding: 6px; }
+.outgrid { grid-template-columns: 1fr 1fr; }
+.tgtcard:has(.tgtbar[hidden]), .tgtcard:empty { display: none; }
+.tgtcard .tgtbar { margin: 0; }
+.outgrid select { width: 100%; min-width: 0; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise, #1a1a22); color: inherit; font: inherit; font-size: 14px; }
 .pncv { width: 100%; height: auto; display: block; margin-top: 10px; border-radius: 12px; background: #0b0b10; }
 #toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 140%); transition: transform .3s; background: var(--raise); border: 1px solid var(--line); padding: 10px 16px; border-radius: 12px; font-size: 14px; max-width: calc(100% - 32px); z-index: 9; }
 #toast.show { transform: translate(-50%, 0); visibility: visible; }
@@ -327,27 +331,10 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 			<section class="card">
 				<div class="ct">LED setup</div>
 				<form id="setupForm" class="setup" autocomplete="off">
-					<label for="suPin">Data pin (GPIO)</label><input id="suPin" class="search" type="number" min="0" max="48" required>
-					<label class="chk"><input id="suTwo" type="checkbox"> Second LED output (another data pin)</label>
-					<div id="suTwoBox" hidden>
-						<label for="suPin2">Data pin of output 2 (GPIO)</label><input id="suPin2" class="search" type="number" min="0" max="48" value="4">
-						<div id="suFromBox" hidden><label for="suFrom">Output 2 starts at panel</label><select id="suFrom"></select></div>
-						<div id="suSplitBox" hidden><label for="suSplit">LEDs of the matrix on output 1 (the rest go to output 2)</label><input id="suSplit" class="search" type="number" min="1" max="1500" value="128"></div>
-						<div id="suLen2Box"><label for="suLen2">Number of LEDs on output 2</label><input id="suLen2" class="search" type="number" min="1" max="1500" value="50"></div>
-						<div class="note">Both outputs use the same LED chip and colour order. ESP32-C3: output 2 is a little less steady while Bluetooth is connected; put the bigger part on output 1.</div>
-					</div>
-					<label for="suType">LED chip</label>
-					<select id="suType">
-						<option value="22">WS2812B / WS2813 / SK6812 (RGB)</option>
-						<option value="30">SK6812 RGBW</option>
-						<option value="24">WS2811 (400 kHz)</option>
-						<option value="31">TM1814 (RGBW)</option>
-						<option value="26">UCS8903</option>
-						<option value="27">APA106</option>
-						<option value="32">WS2805 (RGB + 2 whites)</option>
-					</select>
-					<label for="suOrder">Color order</label>
-					<select id="suOrder"><option value="0">GRB (most strips)</option><option value="1">RGB</option><option value="2">BRG</option><option value="3">RBG</option><option value="4">BGR</option><option value="5">GBR</option></select>
+					<div class="lab">LED outputs: one data pin (GPIO) each. They all work at the same time, one after the other in the LED numbering.</div>
+					<div id="suOuts" class="pnlist"></div>
+					<div class="row"><button class="btn" id="suOutAdd" type="button">Add output</button><button class="btn" id="suOutPanels" type="button" hidden>One output per panel</button></div>
+					<div class="note" id="suOutNote"></div>
 					<label class="chk"><input id="suMx" type="checkbox"> LEDs form a matrix (panel)</label>
 					<div id="suMxBox" hidden>
 						<label for="suStart">First LED of each panel</label>
@@ -368,7 +355,6 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 							<div class="row"><button class="btn" id="suPnFill" type="button">Fill the list</button></div>
 						</details>
 					</div>
-					<div id="suLenBox"><label for="suLen" id="suLenLab">Number of LEDs</label><input id="suLen" class="search" type="number" min="1" max="1500"></div>
 					<label for="suMa">Power limit (mA, 0 = no limit)</label><input id="suMa" class="search" type="number" min="0" max="65000" step="50">
 					<div class="note">USB from a computer gives about 500 mA, a phone charger 1000 to 2000 mA.</div>
 					<div class="row"><button class="btn primary" id="suSave" type="submit">Save and restart</button></div>
@@ -417,6 +403,7 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 			<button class="btn primary" id="fwOpen" type="button" hidden>Open the Studio to update</button>
 			<div class="note" id="fwWifi" hidden>Connect the lights to Wi-Fi to update them.</div>
 		</section>
+		<div id="fxTarget" class="card tgtcard"></div>
 		<section class="card peekcard" id="peekCard" hidden>
 			<div class="ct">Live on your lights</div>
 			<canvas id="peek" height="40"></canvas>
@@ -441,7 +428,6 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 
 		<section class="card">
 			<div class="ct">Effect <span id="fxName" data-notr>Solid</span></div>
-			<div id="fxTarget"></div>
 			<div class="segs fxkind" id="fxKind"><button type="button" class="seg sel" data-k="strip">Strip</button><button type="button" class="seg" data-k="matrix">Matrix</button></div>
 			<input class="search" id="fxSearch" type="search" placeholder="Search effects" aria-label="Search effects">
 			<div id="fxBigWrap" class="fxbig" hidden><div class="note">How the chosen effect looks on your matrix (an imitation: the real lights may differ a little).</div></div>
@@ -481,7 +467,7 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 	</div>
 	</section>
 </main>
-<div class="appver" id="appVer"><span data-notr>LED4YOU app v48</span></div>
+<div class="appver" id="appVer"><span data-notr>LED4YOU app v49</span></div>
 <div id="toast" role="alert"></div>
 <script>
 const FX=[[0,"Solid",0],[1,"Blink",0],[2,"Breathe",0],[3,"Wipe",0],[4,"Wipe Random",0],[5,"Random Colors",0],[6,"Sweep",0],[7,"Dynamic",0],[8,"Colorloop",0],[9,"Rainbow",0],[10,"Scan",0],[11,"Scan Dual",0],[12,"Fade",0],[13,"Theater",0],[14,"Theater Rainbow",0],[15,"Running",0],[16,"Saw",0],[17,"Twinkle",0],[18,"Dissolve",0],[19,"Dissolve Rnd",0],[20,"Sparkle",0],[21,"Sparkle Dark",0],[22,"Sparkle+",0],[23,"Strobe",0],[24,"Strobe Rainbow",0],[25,"Strobe Mega",0],[26,"Blink Rainbow",0],[27,"Android",0],[28,"Chase",0],[29,"Chase Random",0],[30,"Chase Rainbow",0],[31,"Chase Flash",0],[32,"Chase Flash Rnd",0],[33,"Rainbow Runner",0],[34,"Colorful",0],[35,"Traffic Light",0],[36,"Sweep Random",0],[37,"Chase 2",0],[38,"Aurora",0],[39,"Stream",0],[40,"Scanner",0],[41,"Lighthouse",0],[42,"Fireworks",0],[43,"Rain",0],[44,"Tetrix",0],[45,"Fire Flicker",0],[46,"Gradient",0],[47,"Loading",0],[48,"Rolling Balls",0],[49,"Fairy",0],[50,"Two Dots",0],[51,"Fairytwinkle",0],[52,"Running Dual",0],[53,"Image",0],[54,"Chase 3",0],[55,"Tri Wipe",0],[56,"Tri Fade",0],[57,"Lightning",0],[58,"ICU",0],[59,"Multi Comet",0],[60,"Scanner Dual",0],[61,"Stream 2",0],[62,"Oscillate",0],[63,"Pride 2015",0],[64,"Juggle",0],[65,"Palette",0],[66,"Fire 2012",0],[67,"Colorwaves",0],[68,"Bpm",0],[69,"Fill Noise",0],[70,"Noise 1",0],[71,"Noise 2",0],[72,"Noise 3",0],[73,"Noise 4",0],[74,"Colortwinkles",0],[75,"Lake",0],[76,"Meteor",0],[77,"Copy Segment",0],[78,"Railway",0],[79,"Ripple",0],[80,"Twinklefox",0],[81,"Twinklecat",0],[82,"Halloween Eyes",0],[83,"Solid Pattern",0],[84,"Solid Pattern Tri",0],[85,"Spots",0],[86,"Spots Fade",0],[87,"Glitter",0],[88,"Candle",0],[89,"Fireworks Starburst",0],[90,"Fireworks 1D",0],[91,"Bouncing Balls",0],[92,"Sinelon",0],[93,"Sinelon Dual",0],[94,"Sinelon Rainbow",0],[95,"Popcorn",0],[96,"Drip",0],[97,"Plasma",0],[98,"Percent",0],[99,"Ripple Rainbow",0],[100,"Heartbeat",0],[101,"Pacifica",0],[102,"Candle Multi",0],[103,"Solid Glitter",0],[104,"Sunrise",0],[105,"Phased",0],[106,"Twinkleup",0],[107,"Noise Pal",0],[108,"Sine",0],[109,"Phased Noise",0],[110,"Flow",0],[111,"Chunchun",0],[112,"Dancing Shadows",0],[113,"Washing Machine",0],[114,"Rotozoomer",1],[115,"Blends",0],[116,"TV Simulator",0],[117,"Dynamic Smooth",0],[118,"Spaceships",1],[119,"Crazy Bees",1],[120,"Ghost Rider",1],[121,"Blobs",1],[122,"Scrolling Text",1],[123,"Drift Rose",1],[124,"Distortion Waves",1],[125,"Soap",1],[126,"Octopus",1],[127,"Waving Cell",1],[128,"Pixels",0],[129,"Pixelwave",0],[130,"Juggles",0],[131,"Matripix",0],[132,"Gravimeter",0],[133,"Plasmoid",0],[134,"Puddles",0],[135,"Midnoise",0],[136,"Noisemeter",0],[137,"Freqwave",0],[138,"Freqmatrix",0],[139,"GEQ",1],[140,"Waterfall",0],[141,"Freqpixels",0],[143,"Noisefire",0],[144,"Puddlepeak",0],[145,"Noisemove",0],[146,"Noise2D",1],[147,"Perlin Move",0],[148,"Ripple Peak",0],[149,"Firenoise",1],[150,"Squared Swirl",1],[151,"PacMan",0],[152,"DNA",1],[153,"Matrix",1],[154,"Metaballs",1],[155,"Freqmap",0],[156,"Gravcenter",0],[157,"Gravcentric",0],[158,"Gravfreq",0],[159,"DJ Light",0],[160,"Funky Plank",1],[161,"Shimmer",0],[162,"Pulser",1],[163,"Blurz",0],[164,"Drift",1],[165,"Waverly",1],[166,"Sun Radiation",1],[167,"Colored Bursts",1],[168,"Julia",1],[172,"Game Of Life",1],[173,"Tartan",1],[174,"Polar Lights",1],[175,"Swirl",1],[176,"Lissajous",1],[177,"Frizzles",1],[178,"Plasma Ball",1],[179,"Flow Stripe",0],[180,"Hiphotic",1],[181,"Sindots",1],[182,"DNA Spiral",1],[183,"Black Hole",1],[184,"Wavesins",0],[185,"Rocktaves",0],[186,"Akemi",1],[187,"PS Volcano",1],[188,"PS Fire",1],[189,"PS Fireworks",1],[190,"PS Vortex",1],[191,"PS Fuzzy Noise",1],[192,"PS Ballpit",1],[193,"PS Box",1],[194,"PS Attractor",1],[195,"PS Impact",1],[196,"PS Waterfall",1],[197,"PS Spray",1],[198,"PS GEQ 2D",1],[199,"PS GEQ Nova",1],[200,"PS Ghost Rider",1],[201,"PS Blobs",1],[202,"PS DripDrop",0],[203,"PS Pinball",0],[204,"PS Dancing Shadows",0],[205,"PS Fireworks 1D",0],[206,"PS Sparkler",0],[207,"PS Hourglass",0],[208,"PS Spray 1D",0],[209,"PS 1D Balance",0],[210,"PS Chase",0],[211,"PS Starburst",0],[212,"PS GEQ 1D",0],[213,"PS Fire 1D",0],[214,"PS Sonic Stream",0],[215,"PS Sonic Boom",0],[216,"PS Springy",0],[217,"PS Galaxy",1],[218,"Color Clouds",0],[219,"Slow Transition",0]];
@@ -502,7 +488,9 @@ const IMP_RPC = '00467768-6228-2272-4663-277478268003', IMP_RES = '00467768-6228
 let impRpc = null, impRes = null, impOk = false, changing = false;
 const $ = id => document.getElementById(id);
 const enc = new TextEncoder(), dec = new TextDecoder();
-let lastList = { g: [], p: [], x: {} };   // last LIST read from the lights (GIFs, presets, zones...)
+let lastList = { g: [], p: [], x: {} };
+function tgtZone() { const tg = window.L4YStudio && L4YStudio.target ? L4YStudio.target() : null; return tg === null ? null : (lastList.z || []).find(z => z[0] === tg) || [tg, 0, 0, 0, 0, 1]; }
+const ZBRI = {};   // brightness set per zone in this session (the lights do not report it)   // last LIST read from the lights (GIFs, presets, zones...)
 let dev = null, cmdChar = null, staChar = null, state = { on: true, bri: 128, fx: 0, pal: 0, sx: 128, ix: 128, ps: -1, col: [255, 46, 147] };
 
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 3200); }
@@ -554,9 +542,11 @@ function renderWifi() {
 }
 let fxBig = null, fxBigKey = '';
 function render() {
-	$('power').classList.toggle('lit', !!state.on);
-	if (document.activeElement !== $('bri')) $('bri').value = state.bri;
-	$('briVal').textContent = Math.round(state.bri / 2.55) + '%';
+	const tz = tgtZone();
+	$('power').classList.toggle('lit', tz ? !!(state.on && tz[5]) : !!state.on);
+	if (document.activeElement !== $('bri')) $('bri').value = tz ? (ZBRI[tz[0]] ?? 255) : state.bri;
+	if (state.zs !== render.zs) { render.zs = state.zs; if (window.L4YStudio && L4YStudio.redrawTargets) L4YStudio.redrawTargets(); }
+	$('briVal').textContent = Math.round(+$('bri').value / 2.55) + '%';
 	if (document.activeElement !== $('sx')) $('sx').value = state.sx;
 	if (document.activeElement !== $('ix')) $('ix').value = state.ix;
 	$('sxVal').textContent = state.sx; $('ixVal').textContent = state.ix;
@@ -699,9 +689,14 @@ $('psSave').onclick = () => setPsSaving(!psSaving);
 // ---- UI -> device ----
 function throttle(fn, ms) { let t = 0, h; return (...a) => { const now = Date.now(); clearTimeout(h); if (now - t > ms) { t = now; fn(...a); } else h = setTimeout(() => { t = Date.now(); fn(...a); }, ms); }; }
 function setColor(c) { const n = parseInt(c.slice(1), 16); state.col = [n >> 16, (n >> 8) & 255, n & 255]; send({ on: true, seg: { col: [state.col] } }); }
-$('power').onclick = () => { state.on = !state.on; render(); send({ on: state.on }); };
-const sendBri = throttle(v => send({ bri: v }), 120), sendSx = throttle(v => send({ seg: { sx: v } }), 120), sendIx = throttle(v => send({ seg: { ix: v } }), 120);
-$('bri').oninput = e => { state.bri = +e.target.value; render(); sendBri(state.bri); };
+// power and brightness: the whole lights, or only the zone chosen under "Send to"
+$('power').onclick = () => {
+	const z = tgtZone();
+	if (z) { z[5] = z[5] ? 0 : 1; render(); send(z[5] ? { on: true, seg: { on: true } } : { seg: { on: false } }); if (z[5]) state.on = true; return; }
+	state.on = !state.on; render(); send({ on: state.on });
+};
+const sendBri = throttle(v => { const z = tgtZone(); if (z) { ZBRI[z[0]] = v; send({ seg: { bri: v } }); } else send({ bri: v }); }, 120), sendSx = throttle(v => send({ seg: { sx: v } }), 120), sendIx = throttle(v => send({ seg: { ix: v } }), 120);
+$('bri').oninput = e => { const v = +e.target.value, z = tgtZone(); if (z) ZBRI[z[0]] = v; else state.bri = v; render(); sendBri(v); };
 $('sx').oninput = e => { state.sx = +e.target.value; render(); sendSx(state.sx); };
 $('ix').oninput = e => { state.ix = +e.target.value; render(); sendIx(state.ix); };
 $('col').oninput = throttle(e => setColor(e.target.value), 150);
@@ -867,7 +862,7 @@ async function bleDelete(name) {
 // ---- Text and My LEDs (shared LED4YOU Studio module) ----
 const bleStudio = {
 	info: () => ({ leds: state.leds || 30, mw: state.mw || 0, mh: state.mh || 0, mfx: state.mfx ?? 255, key: dev ? dev.name : 'x', gs: state.gs,
-		zones: Array.from({ length: 32 }, (_, i) => i).filter(i => (state.zs >>> i) & 1), zg: lastList.z || [], pn: lastList.pn || [] }),
+		zones: Array.from({ length: 32 }, (_, i) => i).filter(i => (state.zs >>> i) & 1), zg: lastList.z || [], pn: lastList.pn || [], outs: lastList.o || [] }),
 	zonesElsewhere: true,   // the Zones card is in Setup in this app
 	refresh: () => new Promise(r => setTimeout(r, 1700)).then(() => readList()).then(() => {}, () => {}),
 	// a short recording of the lights (live preview frames), used as the picture of a saved scene
@@ -880,6 +875,7 @@ const bleStudio = {
 	cfg: obj => sendNow({ l4ycfg: obj })
 };
 $('fxTarget').append(L4YStudio.targetBar(bleStudio));   // effects, colours and sliders go to the chosen panel
+L4YStudio.onTarget(() => render());   // power and brightness follow the chosen zone
 let moreMounted = false;
 // "See it": the effects drawn on a tree, a house, a garden or a window (layouts.js)
 function mountLayout() {
@@ -1031,7 +1027,7 @@ async function readListPages(tries) {
 async function readList() {
 	if (!listChar) return lastList;
 	let v; try { v = JSON.parse(await readListText()); } catch (e) { return lastList; }
-	lastList = Array.isArray(v) ? { g: v, p: [], x: {} } : { g: v.g || [], p: v.p || [], x: v.x || {}, f: v.f | 0, m: v.m | 0, d: v.d || null, z: v.z || [], pn: v.pn || [], dx: v.dx || null };
+	lastList = Array.isArray(v) ? { g: v, p: [], x: {} } : { g: v.g || [], p: v.p || [], x: v.x || {}, f: v.f | 0, m: v.m | 0, d: v.d || null, z: v.z || [], pn: v.pn || [], dx: v.dx || null, o: v.o || null, mo: v.mo || 0 };
 	renderDiag(lastList.d);
 	renderGifs(lastList.g);
 	// LED4YOU's own effects get their numbers at start-up: add them to the effect list
@@ -1085,14 +1081,13 @@ function renderDiag(d) {
 // ---- LED setup: sent as {"l4ycfg": <same format as /json/cfg>}, the lights save and restart ----
 function fillSetup() {
 	const hw = state.hw || {};
-	$('suPin').value = hw.pin >= 0 ? hw.pin : 2;
-	$('suType').value = [22, 30, 24, 31, 26, 27, 32].includes(hw.type) ? hw.type : 22;
-	$('suOrder').value = hw.co != null ? hw.co : 0;
-	$('suLen').value = hw.len || state.leds || 30;
-	$('suTwo').checked = hw.p2 >= 0 && hw.l2 > 0;
-	if (hw.p2 >= 0) $('suPin2').value = hw.p2;
-	if (hw.l2 > 0) $('suLen2').value = hw.l2;
-	SU_LEN1 = hw.p2 >= 0 && hw.l2 > 0 ? hw.len : 0; delete $('suSplit').dataset.set;
+	// outputs: the full list (firmware v60+), else output 1 (+ output 2 from v58)
+	const typ = t => [22, 30, 24, 31, 26, 27, 32].includes(t) ? t : 22;
+	if (lastList.o && lastList.o.length) OUTS = lastList.o.map(o => ({ pin: o[0] >= 0 ? o[0] : 2, len: o[1] || 1, type: typ(o[2]), co: o[3] | 0 }));
+	else {
+		OUTS = [{ pin: hw.pin >= 0 ? hw.pin : 2, len: hw.len || state.leds || 30, type: typ(hw.type), co: hw.co | 0 }];
+		if (hw.p2 >= 0 && hw.l2 > 0) OUTS.push({ pin: hw.p2, len: hw.l2, type: OUTS[0].type, co: OUTS[0].co });
+	}
 	$('suMa').value = hw.ma != null ? hw.ma : 850;
 	$('suMx').checked = !!(state.mw && state.mh);
 	// panels: what the lights report (firmware v57+), else what this phone saved, else one panel as big as the matrix
@@ -1113,8 +1108,8 @@ function fillSetup() {
 	}
 	if (PANELS.length) { $('suW').value = PANELS[0].w; $('suH').value = PANELS[0].h; }
 	drawPanels();
-	$('suMxBox').hidden = !$('suMx').checked; $('suLenBox').hidden = $('suMx').checked;
-	suMxNote();
+	$('suMxBox').hidden = !$('suMx').checked;
+	suMxNote(); drawOuts();
 }
 let PANELS = [{ x: 0, y: 0, w: 16, h: 16 }];
 const pnBox = () => { let W = 0, H = 0; PANELS.forEach(p => { W = Math.max(W, p.x + p.w); H = Math.max(H, p.y + p.h); }); return [W, H]; };
@@ -1139,33 +1134,70 @@ function drawPanels() {
 }
 // a reason the settings were not saved: shown under the button and as a pop-up, so it is not missed
 function suErr(m) { $('suMsg').textContent = m; toast(m); const b = $('suSave'); b.dataset.c = ''; b.textContent = 'Save and restart'; }
-let SU_LEN1 = 0;   // LEDs on output 1 the lights reported (to pick the panel where output 2 starts)
-function suTwoUpd() {
-	const two = $('suTwo').checked, mx = $('suMx').checked;
-	$('suTwoBox').hidden = !two;
-	const onePanel = PANELS.length < 2;
-	$('suFromBox').hidden = !mx || onePanel; $('suSplitBox').hidden = !mx || !onePanel; $('suLen2Box').hidden = mx;
-	if (mx && onePanel) {   // one panel: split it by LED count (e.g. a big panel wired as two strings)
-		const tot = PANELS[0] ? PANELS[0].w * PANELS[0].h : 0;
-		$('suSplit').max = String(Math.max(1, tot - 1));
-		if (!$('suSplit').dataset.set) { $('suSplit').value = SU_LEN1 && SU_LEN1 < tot ? SU_LEN1 : Math.max(1, Math.floor(tot / 2)); $('suSplit').dataset.set = '1'; }
-	}
-	$('suLenLab').textContent = two ? 'Number of LEDs on output 1' : 'Number of LEDs';
-	if (mx) {   // output 2 starts at a panel: list panels 2..N, keep the choice
-		const keep = $('suFrom').value;
-		let acc = 0, pick = '';
-		$('suFrom').replaceChildren(...PANELS.slice(1).map((p, i) => {
-			acc += PANELS[i].w * PANELS[i].h;
-			const o = document.createElement('option'); o.value = String(i + 1); o.textContent = 'Panel ' + (i + 2);
-			if (SU_LEN1 && acc === SU_LEN1) pick = o.value;
-			return o;
-		}));
-		if (keep && +keep < PANELS.length) $('suFrom').value = keep; else if (pick) $('suFrom').value = pick;
-	}
+// ---- LED outputs: each with its own pin, chip, colour order and LED count; output 2 starts where output 1 ends ----
+let OUTS = [{ pin: 2, len: 30, type: 22, co: 0 }];
+const SU_TYPES = [[22, 'WS2812B / WS2813 / SK6812 (RGB)'], [30, 'SK6812 RGBW'], [24, 'WS2811 (400 kHz)'], [31, 'TM1814 (RGBW)'], [26, 'UCS8903'], [27, 'APA106'], [32, 'WS2805 (RGB + 2 whites)']];
+const SU_ORDERS = [[0, 'GRB (most strips)'], [1, 'RGB'], [2, 'BRG'], [3, 'RBG'], [4, 'BGR'], [5, 'GBR']];
+const suMaxOuts = () => Math.max(1, lastList.mo || 2);
+const pnTotal = () => PANELS.reduce((a, p) => a + p.w * p.h, 0);
+// matrix: the LED counts must add up to the matrix, so the last output takes what is left
+function outsFit() {
+	if (!$('suMx').checked) return;
+	if (OUTS.length === 1) { OUTS[0].len = pnTotal(); return; }
+	const rest = pnTotal() - OUTS.slice(0, -1).reduce((a, o) => a + o.len, 0);
+	OUTS[OUTS.length - 1].len = Math.max(0, rest);
 }
-$('suTwo').onchange = suTwoUpd;
+function drawOuts() {
+	outsFit();
+	const mx = $('suMx').checked;
+	const mk = (tag, attrs) => { const e = document.createElement(tag); Object.assign(e, attrs); return e; };
+	const sel = (opts, v, f) => { const e = mk('select', {}); opts.forEach(([k, t]) => e.append(mk('option', { value: String(k), textContent: t }))); e.value = String(v); e.onchange = () => f(+e.value); return e; };
+	let start = 0;
+	$('suOuts').replaceChildren(...OUTS.map((o, k) => {
+		const row = mk('div', { className: 'pnrow' });
+		const head = mk('div', { className: 'pnh' });
+		const first = start + 1, last = start + o.len; start += o.len;
+		head.append(mk('span', { textContent: 'Output ' + (k + 1) }), mk('span', { className: 'note', textContent: o.len > 0 ? 'LEDs ' + first + '–' + last : '' }));
+		if (k > 0) { const del = mk('button', { type: 'button', className: 'btn small', textContent: 'Remove' }); del.onclick = () => { OUTS.splice(k, 1); drawOuts(); }; head.append(del); }
+		const g = mk('div', { className: 'pngrid outgrid' });
+		const pin = mk('input', { type: 'number', min: '0', max: '48', value: String(o.pin) }); pin.oninput = () => { o.pin = +pin.value | 0; outNote(); };
+		const autoLen = mx && k === OUTS.length - 1;   // matrix: the last output gets the rest
+		const len = mk('input', { type: 'number', min: '1', max: '1500', value: String(o.len), readOnly: autoLen }); len.oninput = () => { o.len = Math.max(0, +len.value | 0); drawOutsSoon(); };
+		const lab = (t, e) => { const c = mk('label', {}); c.append(document.createTextNode(t), e); return c; };
+		g.append(lab('GPIO', pin), lab(autoLen && OUTS.length > 1 ? 'LEDs (the rest)' : 'LEDs', len),
+			lab('LED chip', sel(SU_TYPES, o.type, v => o.type = v)), lab('Color order', sel(SU_ORDERS, o.co, v => o.co = v)));
+		row.append(head, g); return row;
+	}));
+	$('suOutAdd').hidden = OUTS.length >= suMaxOuts();
+	$('suOutPanels').hidden = !mx || PANELS.length < 2 || PANELS.length > suMaxOuts();
+	outNote();
+}
+let outT = 0;
+function drawOutsSoon() { clearTimeout(outT); outT = setTimeout(() => { const a = document.activeElement, i = [...$('suOuts').querySelectorAll('input')].indexOf(a); drawOuts(); if (i >= 0) { const b = $('suOuts').querySelectorAll('input')[i]; if (b) { b.focus(); try { b.setSelectionRange(b.value.length, b.value.length); } catch (e) {} } } }, 600); }
+function outNote() {
+	const n = OUTS.reduce((a, o) => a + o.len, 0), pins = OUTS.map(o => o.pin);
+	const msgs = [];
+	if (new Set(pins).size < pins.length) msgs.push('Two outputs have the same pin: each output needs its own GPIO.');
+	if ($('suMx').checked && OUTS.length > 1 && OUTS[OUTS.length - 1].len < 1) msgs.push('The outputs before the last one already have all the matrix LEDs.');
+	msgs.push('Total: ' + n + ' LEDs on ' + OUTS.length + ' output(s).');
+	if (OUTS.length > 1 && (lastList.mo || 2) <= 2) msgs.push('ESP32-C3: output 2 is a little less steady while Bluetooth is connected; put the bigger part on output 1.');
+	$('suOutNote').replaceChildren(...msgs.map(m => { const d = document.createElement('div'); d.textContent = m; return d; }));
+}
+$('suOutAdd').onclick = () => {
+	if (OUTS.length >= suMaxOuts()) return;
+	const l = OUTS[OUTS.length - 1], used = OUTS.map(o => o.pin);
+	let pin = [3, 4, 2, 5, 18, 19, 21, 22, 23].find(p => !used.includes(p)); if (pin === undefined) pin = l.pin + 1;
+	if ($('suMx').checked) { const half = Math.floor(l.len / 2); l.len -= half; OUTS.push({ pin, len: half, type: l.type, co: l.co }); }
+	else OUTS.push({ pin, len: 50, type: l.type, co: l.co });
+	drawOuts();
+};
+$('suOutPanels').onclick = () => {
+	OUTS = PANELS.map((p, k) => Object.assign({}, OUTS[k] || OUTS[OUTS.length - 1], { len: p.w * p.h }));
+	OUTS.forEach((o, k) => { if (OUTS.slice(0, k).some(q => q.pin === o.pin)) o.pin = [3, 4, 2, 5, 18, 19, 21].find(p => !OUTS.some(q => q.pin === p)) ?? o.pin; });
+	drawOuts();
+};
 function suMxNote() {
-	suTwoUpd();
+	if ($('suMx').checked && $('suOuts').childElementCount) drawOuts();
 	const [W, H] = pnBox(), n = PANELS.reduce((a, p) => a + p.w * p.h, 0);
 	const warn = document.createElement('b'); warn.textContent = 'Two panels are on top of each other: check X and Y.';
 	const info = document.createElement('span'); info.textContent = PANELS.length > 1 ? 'Whole matrix: ' + W + ' × ' + H + ', ' + n + ' LEDs in ' + PANELS.length + ' panels. X and Y = where the top left corner of each panel is, in LEDs.' : 'Whole matrix: ' + n + ' LEDs.';
@@ -1254,7 +1286,7 @@ $('dxForm').addEventListener('submit', async e => {
 	const btn = $('dxSave');
 	const on = $('dxOn').checked, pin = +$('dxPin').value;
 	const hw = state.hw || {};
-	if (on && (pin === hw.pin || pin === hw.p2)) { $('dxMsg').textContent = 'This pin is used by the LEDs: choose another one.'; return; }
+	if (on && (pin === hw.pin || pin === hw.p2 || (lastList.o || []).some(o => o[0] === pin))) { $('dxMsg').textContent = 'This pin is used by the LEDs: choose another one.'; return; }
 	if (btn.dataset.c !== '1') { btn.dataset.c = '1'; btn.textContent = 'Tap again to save and restart'; setTimeout(() => { btn.dataset.c = ''; btn.textContent = 'Save and restart'; }, 4000); return; }
 	const map = $('dxType').value === 'custom' ? dxMap.slice() : $('dxType').value.split(',').map(Number);
 	const fix = map.concat(Array(15).fill(0)).slice(0, 15);
@@ -1277,7 +1309,7 @@ function mountExtras() {
 	$('paneMore').replaceChildren(...cards.filter(c => !setup.includes(c)));
 	$('suExtra').replaceChildren(...setup);
 }
-$('suMx').onchange = () => { $('suMxBox').hidden = !$('suMx').checked; $('suLenBox').hidden = $('suMx').checked; suTwoUpd(); };
+$('suMx').onchange = () => { $('suMxBox').hidden = !$('suMx').checked; drawOuts(); };
 $('setupForm').addEventListener('submit', async e => {
 	e.preventDefault();
 	const btn = $('suSave');
@@ -1286,17 +1318,13 @@ $('setupForm').addEventListener('submit', async e => {
 	if (mx && PANELS.length > 18) { suErr('Up to 18 panels.'); return; }
 	if (mx && pnOverlap()) { suErr('Two panels are on top of each other: check X and Y.'); return; }
 	if (mx && PANELS.some(p => p.w < 1 || p.h < 1)) { suErr('Every panel needs a width and a height.'); return; }
-	const len = mx ? PANELS.reduce((a, p) => a + p.w * p.h, 0) : +$('suLen').value;
-	const two = $('suTwo').checked;
-	if (two && +$('suPin2').value === +$('suPin').value) { suErr('The two outputs need different data pins.'); return; }
-	// output 1 / output 2 LED counts: strip = the two numbers; matrix = panels before / from the chosen panel,
-	// or (one panel) the number of LEDs on output 1
-	const k2 = mx ? Math.max(1, +$('suFrom').value | 0) : 0;
-	const len1 = mx ? (two ? (PANELS.length < 2 ? Math.max(1, +$('suSplit').value | 0) : PANELS.slice(0, k2).reduce((a, p) => a + p.w * p.h, 0)) : len) : len;
-	if (two && mx && len1 >= len) { suErr('Output 1 has all the LEDs: lower the number so some are left for output 2.'); return; }
-	const len2 = two ? (mx ? len - len1 : Math.max(1, +$('suLen2').value | 0)) : 0;
-	const out = (pin, n, start) => ({ pin: [pin], len: n, start, type: +$('suType').value, order: +$('suOrder').value, ledma: 55 });
-	const led = { total: len1 + len2, maxpwr: +$('suMa').value, ins: [out(+$('suPin').value, len1, 0)].concat(two ? [out(+$('suPin2').value, len2, len1)] : []) };
+	if (mx) outsFit();
+	const pins = OUTS.map(o => o.pin);
+	if (new Set(pins).size < pins.length) { suErr('Two outputs have the same pin: each output needs its own GPIO.'); return; }
+	if (OUTS.some(o => o.len < 1)) { suErr('Every output needs at least 1 LED.'); return; }
+	let at = 0;
+	const ins = OUTS.map(o => { const r = { pin: [o.pin], len: o.len, start: at, type: o.type, order: o.co, ledma: 55 }; at += o.len; return r; });
+	const led = { total: at, maxpwr: +$('suMa').value, ins };
 	if (mx) {
 		// panels in wiring order, x / y = where each panel sits in the whole matrix (in LEDs)
 		const panels = PANELS.map(p => ({ b: st >= 2, r: st % 2 === 1, v: false, s: $('suSerp').checked, x: p.x, y: p.y, w: p.w, h: p.h }));
