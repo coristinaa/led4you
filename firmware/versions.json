@@ -1,3 +1,3 @@
-[{ "version": 61, "manifest": "manifest-v61.json", "notes": "Each LED output can be a matrix or a strip; one zone per output after a restart" },
- { "version": 60, "manifest": "manifest-v60.json", "notes": "One section per LED output (GPIO); zones per output; Send to on the Controls" },
- { "version": 59, "manifest": "manifest-v59.json", "notes": "DMX output setup over Bluetooth (Setup tab)" }]
+[{ "version": 62, "manifest": "manifest-v62.json", "notes": "New zones need much less memory (zones on big matrices); See it and Send to improvements in the Wi-Fi Studio" },
+ { "version": 61, "manifest": "manifest-v61.json", "notes": "Each LED output can be a matrix or a strip; one zone per output after a restart" },
+ { "version": 60, "manifest": "manifest-v60.json", "notes": "One section per LED output (GPIO); zones per output; Send to on the Controls" }]

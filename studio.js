@@ -1275,7 +1275,16 @@
 			try { const n = {}; zl.forEach(z => { if (z.name) n[z.id] = z.name; }); localStorage.setItem('l4yZoneNames:' + inf().key, JSON.stringify(n)); } catch (e) {}
 			try { localStorage.removeItem(zoneSnapKey(t)); } catch (e) {}   // new zones: forget the zones kept by "All as one picture"
 			t.send({ on: true, seg: segs.concat(clearFrom(zl.map(z => z.id))) })
-				.then(() => { setTarget(null); toast(zl.length + ' zone(s) saved: pick one under "Send to".'); msg.textContent = ''; t.refresh && setTimeout(() => t.refresh().then(load), 900); })
+				.then(() => {
+					setTarget(null); toast(zl.length + ' zone(s) saved: pick one under "Send to".'); msg.textContent = '';
+					// the lights drop a zone they have no memory for: say so instead of silently showing fewer zones
+					const sent = zl.length;
+					t.refresh && setTimeout(() => t.refresh().then(() => {
+						load();
+						const got = (inf().zg || []).length;
+						if (got && got < sent) { const m = 'The lights made only ' + got + ' of the ' + sent + ' zones: not enough memory on this board. Use fewer zones (for example one per output) or fewer LEDs.'; msg.textContent = m; toast(m); }
+					}), 1500);
+				})
 				.catch(() => toast('Could not send.'));
 		};
 		const join = () => { zl = [{ id: 0, a: 0, b: total(), ay: 0, by: isMx() ? inf().mh : 1, on: true, rev: false, mi: false, name: '' }].concat(trailZones(1)); draw(); save(); };
