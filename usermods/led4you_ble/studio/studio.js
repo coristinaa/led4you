@@ -1102,10 +1102,13 @@
 		let zl = null;   // zones being edited: { id, a, b, ay, by, on, rev, mi, name }
 		const inf = () => t.info(), isMx = () => !!(inf().mw && inf().mh);
 		const total = () => isMx() ? inf().mw : (inf().leds || 30);
+		// a matrix can have strips after it (LEDs past the matrix area): zones there are 1D ("strip zones")
+		const area = () => isMx() ? inf().mw * inf().mh : 0;
+		const trail = () => isMx() ? Math.max(0, (inf().leds || 0) - area()) : 0;
 		const load = () => {
 			const g = inf().zg;
 			const names = zoneNames(t);
-			zl = (g && g.length ? g : [[0, 0, total(), 0, isMx() ? inf().mh : 1, 1, 0, 0]]).map(z => ({ id: z[0], a: z[1], b: z[2], ay: z[3], by: z[4], on: !!z[5], rev: !!z[6], mi: !!z[7], name: names[z[0]] || '' }));
+			zl = (g && g.length ? g : [[0, 0, total(), 0, isMx() ? inf().mh : 1, 1, 0, 0]]).map(z => ({ id: z[0], a: z[1], b: z[2], ay: z[3], by: z[4], on: !!z[5], rev: !!z[6], mi: !!z[7], name: names[z[0]] || '', st: isMx() && z[1] >= area() }));
 			draw();
 		};
 		const num = (v, min, max, f) => { const e = h('input', { type: 'number', min: String(min), max: String(max), value: String(v), class: 'znum' }); e.onchange = () => f(Math.max(min, Math.min(max, +e.value | 0))); return e; };
@@ -1118,7 +1121,8 @@
 				const del = h('button', { type: 'button', class: 'btn small' }, 'Remove');
 				del.onclick = () => { if (zl.length < 2) { toast('Keep at least one zone.'); return; } zl.splice(k, 1); draw(); };
 				return h('div', { class: 'zrow' }, h('div', { class: 'zhead' }, h('b', {}, String(k + 1)), name, del),
-					mx ? h('div', { class: 'zgrid' },
+					z.st ? h('div', { class: 'zgrid' }, h('span', {}, 'Strip LEDs'), num(z.a + 1, area() + 1, inf().leds, v => z.a = v - 1), h('span', {}, 'to'), num(z.b, area() + 1, inf().leds, v => z.b = v))
+					: mx ? h('div', { class: 'zgrid' },
 						h('span', {}, 'Columns'), num(z.a + 1, 1, W, v => z.a = v - 1), h('span', {}, 'to'), num(z.b, 1, W, v => z.b = v),
 						h('span', {}, 'Rows'), num(z.ay + 1, 1, H, v => z.ay = v - 1), h('span', {}, 'to'), num(z.by, 1, H, v => z.by = v))
 						: h('div', { class: 'zgrid' }, h('span', {}, 'LEDs'), num(z.a + 1, 1, W, v => z.a = v - 1), h('span', {}, 'to'), num(z.b, 1, W, v => z.b = v)),
@@ -1132,6 +1136,18 @@
 			zl.push(mx ? { id, a: 0, b: inf().mw, ay: 0, by: inf().mh, on: true, rev: false, mi: false, name: '' }
 				: { id, a: last ? Math.min(last.b, total() - 1) : 0, b: total(), ay: 0, by: 1, on: true, rev: false, mi: false, name: '' });
 			draw();
+		};
+		// zones for the strips after a matrix: one per strip output, or one over all of them
+		const trailZones = first => {
+			if (!trail()) return [];
+			const so = (inf().outs || []).filter(o => o[1] > 0 && o[4] >= area());
+			const r = so.length ? so.map(o => [o[4], o[4] + o[1], 'GPIO ' + o[0]]) : [[area(), inf().leds, '']];
+			return r.map((q, k) => ({ id: first + k, a: q[0], b: q[1], ay: 0, by: 1, on: true, rev: false, mi: false, name: q[2], st: true }));
+		};
+		const addStrip = () => {
+			if (zl.length >= 12) { toast('Up to 12 zones.'); return; }
+			const ids = zl.map(z => z.id); let id = 0; while (ids.includes(id)) id++;
+			zl.push({ id, a: area(), b: inf().leds, ay: 0, by: 1, on: true, rev: false, mi: false, name: '', st: true }); draw();
 		};
 		const parts = h('input', { type: 'number', min: '2', max: '12', value: '2', class: 'znum' });
 		const across = h('input', { type: 'number', min: '1', max: '8', value: '2', class: 'znum' }), down = h('input', { type: 'number', min: '1', max: '4', value: '1', class: 'znum' });
@@ -1147,6 +1163,7 @@
 			const rp = realPanels();
 			if (rp.length > 1) {   // the lights told us their panels (any sizes): one zone on each
 				zl = rp.slice(0, 12).map((q, k) => ({ id: k, a: q[0], b: q[0] + q[2], ay: q[1], by: q[1] + q[3], on: true, rev: false, mi: false, name: (zl[k] || {}).name || '' }));
+				zl = zl.concat(trailZones(zl.length)).slice(0, 12);
 				draw(); msg.textContent = zl.length + ' zones, one per panel. Tap "Save zones" to send them.'; return;
 			}
 			const a = Math.max(1, +across.value | 0), d = Math.max(1, +down.value | 0), pw = Math.floor(inf().mw / a), ph = Math.floor(inf().mh / d);
@@ -1154,11 +1171,16 @@
 			try { localStorage.setItem('l4yPanels', JSON.stringify([a, d])); } catch (e) {}
 			zl = [];
 			for (let r = 0; r < d; r++) for (let c = 0; c < a; c++) zl.push({ id: zl.length, a: c * pw, b: (c + 1) * pw, ay: r * ph, by: (r + 1) * ph, on: true, rev: false, mi: false, name: '' });
+			zl = zl.concat(trailZones(zl.length)).slice(0, 12);
 			draw(); msg.textContent = zl.length + ' zones, one per panel. Tap "Save zones" to send them.';
 		};
 		// one zone per LED output (GPIO): zone k = the LEDs of output k
 		const outs = () => (inf().outs || []).filter(o => o[1] > 0);
 		const perOutput = () => {
+			if (isMx()) {   // matrix + strips: the matrix as one zone, then one zone per strip output
+				zl = [{ id: 0, a: 0, b: inf().mw, ay: 0, by: inf().mh, on: true, rev: false, mi: false, name: (zl[0] || {}).name || '' }].concat(trailZones(1)).slice(0, 12);
+				draw(); msg.textContent = zl.length + ' zones, one per output. Tap "Save zones" to send them.'; return;
+			}
 			const os = outs();
 			zl = os.slice(0, 12).map((o, k) => ({ id: k, a: o[4], b: o[4] + o[1], ay: 0, by: 1, on: true, rev: false, mi: false, name: (zl[k] || {}).name || ('GPIO ' + o[0]) }));
 			draw(); msg.textContent = zl.length + ' zones, one per output. Tap "Save zones" to send them.';
@@ -1166,21 +1188,23 @@
 		const clearFrom = ids => Array.from({ length: 16 }, (_, i) => i).filter(i => !ids.includes(i)).map(id => ({ id, stop: 0 }));
 		const save = () => {
 			const mx = isMx();
-			for (const z of zl) if (z.b <= z.a || (mx && z.by <= z.ay)) { toast('A zone ends before it starts. Check the numbers.'); return; }
+			for (const z of zl) if (z.b <= z.a || (mx && !z.st && z.by <= z.ay)) { toast('A zone ends before it starts. Check the numbers.'); return; }
 			const segs = zl.map(z => Object.assign({ id: z.id, start: z.a, stop: z.b, on: z.on, rev: z.rev, mi: z.mi, sel: true, grp: 1, spc: 0, of: 0 },
-				mx ? { startY: z.ay, stopY: z.by, tp: false, m12: 0 } : {}));
+				z.st ? { startY: 0, stopY: 1 } : mx ? { startY: z.ay, stopY: z.by, tp: false, m12: 0 } : {}));
 			try { const n = {}; zl.forEach(z => { if (z.name) n[z.id] = z.name; }); localStorage.setItem('l4yZoneNames:' + inf().key, JSON.stringify(n)); } catch (e) {}
 			t.send({ on: true, seg: segs.concat(clearFrom(zl.map(z => z.id))) })
 				.then(() => { setTarget(null); toast(zl.length + ' zone(s) saved: pick one under "Send to".'); msg.textContent = ''; t.refresh && setTimeout(() => t.refresh().then(load), 900); })
 				.catch(() => toast('Could not send.'));
 		};
-		const join = () => { zl = [{ id: 0, a: 0, b: total(), ay: 0, by: isMx() ? inf().mh : 1, on: true, rev: false, mi: false, name: '' }]; draw(); save(); };
+		const join = () => { zl = [{ id: 0, a: 0, b: total(), ay: 0, by: isMx() ? inf().mh : 1, on: true, rev: false, mi: false, name: '' }].concat(trailZones(1)); draw(); save(); };
 		load(); setTimeout(() => { if (!zl || zl.length <= 1) load(); }, 1600);
 		const mxNow = isMx();
 		return h('section', { class: 'card' },
 			h('div', { class: 'ct' }, 'Zones'),
 			h('div', { class: 'note' }, mxNow ? 'Split the matrix into zones (for example one per panel) that each show something else: text on one, a GIF on another, an effect on a third. Then pick the zone under "Send to".'
 				: 'Split the strip into zones (for example roof, window, door) that each show something else. Then pick the zone under "Send to".'),
+			mxNow && trail() ? h('div', { class: 'note' }, 'After the matrix there are ' + trail() + ' strip LEDs (LED ' + (area() + 1) + ' to ' + inf().leds + '): use "Add strip zone" for them.') : '',
+			mxNow && trail() ? h('div', { class: 'zquick' }, h('button', { type: 'button', class: 'btn small', onclick: perOutput }, 'One zone per output'), h('button', { type: 'button', class: 'btn small', onclick: addStrip }, 'Add strip zone')) : '',
 			mxNow ? (realPanels().length > 1 ? h('div', { class: 'zquick' }, h('span', {}, realPanels().length + ' panels'), h('button', { type: 'button', class: 'btn small', onclick: perPanel }, 'One zone per panel'))
 				: h('div', { class: 'zquick' }, h('span', {}, 'Panels side by side'), across, h('span', {}, 'on top of each other'), down,
 					h('button', { type: 'button', class: 'btn small', onclick: perPanel }, 'One zone per panel')))

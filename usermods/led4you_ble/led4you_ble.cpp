@@ -326,7 +326,8 @@ class Led4youBle : public Usermod {
       JsonObject nled = cmd[F("hw")][F("led")];
       JsonObject ndmx = cmd[F("dmx")];
       JsonObject nl4d = cmd[F("l4ydmx")];
-      if (nled.isNull() && ndmx.isNull() && nl4d.isNull()) return false;
+      JsonObject nlight = cmd[F("light")];   // only "aseg": one zone per LED output after a restart
+      if (nled.isNull() && ndmx.isNull() && nl4d.isNull() && nlight.isNull()) return false;
       const bool noMatrix = cmd[F("l4ymx")].is<bool>() && !cmd[F("l4ymx")].as<bool>();
       DynamicJsonDocument d(12288);
       {
@@ -341,6 +342,11 @@ class Led4youBle : public Usermod {
         if (led.isNull()) led = d.createNestedObject(F("hw")).createNestedObject(F("led"));
         for (JsonPair kv : nled) led[String(kv.key().c_str())] = kv.value();   // String key: copied into this document   // ins, total, maxpwr, matrix... replace the old ones
         if (noMatrix) led.remove(F("matrix"));
+      }
+      if (!nlight.isNull() && nlight[F("aseg")].is<bool>()) {
+        JsonObject li = d[F("light")];
+        if (li.isNull()) li = d.createNestedObject(F("light"));
+        li[F("aseg")] = nlight[F("aseg")].as<bool>();
       }
       if (!ndmx.isNull()) {   // chan, gap, start, start-led, fixmap
         JsonObject dm = d[F("dmx")];
