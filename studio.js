@@ -1177,8 +1177,16 @@
 		// one zone per LED output (GPIO): zone k = the LEDs of output k
 		const outs = () => (inf().outs || []).filter(o => o[1] > 0);
 		const perOutput = () => {
-			if (isMx()) {   // matrix + strips: the matrix as one zone, then one zone per strip output
-				zl = [{ id: 0, a: 0, b: inf().mw, ay: 0, by: inf().mh, on: true, rev: false, mi: false, name: (zl[0] || {}).name || '' }].concat(trailZones(1)).slice(0, 12);
+			if (isMx()) {   // matrix outputs: one zone around the panels of each one, then one zone per strip output
+				const pn = realPanels().length ? realPanels() : [[0, 0, inf().mw, inf().mh]];
+				const mo = (inf().outs || []).filter(o => o[1] > 0 && o[4] < area());
+				let k = 0; const mz = [];
+				(mo.length ? mo : [[-1, area(), 0, 0, 0]]).forEach((o, m, arr) => {
+					let n = 0, x0 = 1e9, y0 = 1e9, x1 = 0, y1 = 0;
+					while (k < pn.length && (m === arr.length - 1 || n < o[1])) { const q = pn[k++]; n += q[2] * q[3]; x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0] + q[2]); y1 = Math.max(y1, q[1] + q[3]); }
+					if (x1 > x0) mz.push({ id: mz.length, a: x0, b: x1, ay: y0, by: y1, on: true, rev: false, mi: false, name: o[0] >= 0 && mo.length > 1 ? 'GPIO ' + o[0] : (zl[mz.length] || {}).name || '', st: false });
+				});
+				zl = mz.concat(trailZones(mz.length)).slice(0, 12);
 				draw(); msg.textContent = zl.length + ' zones, one per output. Tap "Save zones" to send them.'; return;
 			}
 			const os = outs();
@@ -1204,7 +1212,7 @@
 			h('div', { class: 'note' }, mxNow ? 'Split the matrix into zones (for example one per panel) that each show something else: text on one, a GIF on another, an effect on a third. Then pick the zone under "Send to".'
 				: 'Split the strip into zones (for example roof, window, door) that each show something else. Then pick the zone under "Send to".'),
 			mxNow && trail() ? h('div', { class: 'note' }, 'After the matrix there are ' + trail() + ' strip LEDs (LED ' + (area() + 1) + ' to ' + inf().leds + '): use "Add strip zone" for them.') : '',
-			mxNow && trail() ? h('div', { class: 'zquick' }, h('button', { type: 'button', class: 'btn small', onclick: perOutput }, 'One zone per output'), h('button', { type: 'button', class: 'btn small', onclick: addStrip }, 'Add strip zone')) : '',
+			mxNow && (trail() || outs().length > 1) ? h('div', { class: 'zquick' }, outs().length > 1 ? h('button', { type: 'button', class: 'btn small', onclick: perOutput }, 'One zone per output') : '', trail() ? h('button', { type: 'button', class: 'btn small', onclick: addStrip }, 'Add strip zone') : '') : '',
 			mxNow ? (realPanels().length > 1 ? h('div', { class: 'zquick' }, h('span', {}, realPanels().length + ' panels'), h('button', { type: 'button', class: 'btn small', onclick: perPanel }, 'One zone per panel'))
 				: h('div', { class: 'zquick' }, h('span', {}, 'Panels side by side'), across, h('span', {}, 'on top of each other'), down,
 					h('button', { type: 'button', class: 'btn small', onclick: perPanel }, 'One zone per panel')))

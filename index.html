@@ -6,8 +6,8 @@
 <title>LED4YOU</title>
 <meta name="theme-color" content="#0d0f14">
 <link rel="manifest" href="manifest.webmanifest">
-<script src="i18n.js?v=50"></script>
-<script src="studio.js?v=50"></script>
+<script src="i18n.js?v=51"></script>
+<script src="studio.js?v=51"></script>
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -186,6 +186,13 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 .dxmap { grid-template-columns: repeat(3, 1fr); margin-top: 8px; }
 .dxmap select { width: 100%; padding: 6px; }
 .outgrid { grid-template-columns: 1fr 1fr; }
+.outmx { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 6px; }
+.outmx > label:not(.chk) { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.outmx select { width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise, #1a1a22); color: inherit; font: inherit; font-size: 14px; }
+.outmx .chk { margin: 2px 0; }
+.pnsub { border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; }
+.pnsub .pnh { margin-bottom: 4px; font-size: 13px; }
+.outmx details .pngrid { margin: 8px 0; }
 .tgtcard:has(.tgtbar[hidden]), .tgtcard:empty { display: none; }
 .tgtcard .tgtbar { margin: 0; }
 .outgrid select { width: 100%; min-width: 0; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise, #1a1a22); color: inherit; font: inherit; font-size: 14px; }
@@ -333,28 +340,13 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 				<form id="setupForm" class="setup" autocomplete="off">
 					<div class="lab">LED outputs: one data pin (GPIO) each. They all work at the same time, one after the other in the LED numbering.</div>
 					<div id="suOuts" class="pnlist"></div>
-					<div class="row"><button class="btn" id="suOutAdd" type="button">Add output</button><button class="btn" id="suOutPanels" type="button" hidden>One output per panel</button></div>
+					<div class="row"><button class="btn" id="suOutAdd" type="button">Add output</button></div>
 					<div class="note" id="suOutNote"></div>
 					<input id="suMx" type="checkbox" hidden>
 					<div id="suMxBox" hidden>
-						<div class="lab">Matrix panels (for the outputs of type Matrix)</div>
-						<label for="suStart">First LED of each panel</label>
-						<select id="suStart"><option value="0">Top left</option><option value="1">Top right</option><option value="2">Bottom left</option><option value="3">Bottom right</option></select>
-						<label class="chk"><input id="suSerp" type="checkbox" checked> Zigzag wiring (serpentine)</label>
-						<div class="lab">Panels, in the order the data wire goes through them</div>
-						<div id="suPanels" class="pnlist"></div>
-						<div class="row"><button class="btn" id="suPnAdd" type="button">Add panel</button></div>
+						<div class="lab">Layout of the matrix outputs (each colour = one output)</div>
 						<canvas id="suPnCv" class="pncv" width="600" height="300"></canvas>
 						<div class="note" id="suMxNote"></div>
-						<details class="more"><summary>Quick fill: panels of the same size</summary>
-							<div class="two"><div><label for="suW">Panel width (LEDs)</label><input id="suW" class="search" type="number" min="1" max="128" value="16"></div>
-							<div><label for="suH">Panel height (LEDs)</label><input id="suH" class="search" type="number" min="1" max="128" value="16"></div></div>
-							<div class="two"><div><label for="suPa">Panels side by side</label><input id="suPa" class="search" type="number" min="1" max="8" value="1"></div>
-							<div><label for="suPd">Panels on top of each other</label><input id="suPd" class="search" type="number" min="1" max="8" value="1"></div></div>
-							<label for="suChain">How the panels are connected</label>
-							<select id="suChain"><option value="0">Each row left to right</option><option value="1">Zigzag (second row right to left)</option></select>
-							<div class="row"><button class="btn" id="suPnFill" type="button">Fill the list</button></div>
-						</details>
 					</div>
 					<label for="suMa">Power limit (mA, 0 = no limit)</label><input id="suMa" class="search" type="number" min="0" max="65000" step="50">
 					<div class="note">USB from a computer gives about 500 mA, a phone charger 1000 to 2000 mA.</div>
@@ -468,7 +460,7 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 	</div>
 	</section>
 </main>
-<div class="appver" id="appVer"><span data-notr>LED4YOU app v50</span></div>
+<div class="appver" id="appVer"><span data-notr>LED4YOU app v51</span></div>
 <div id="toast" role="alert"></div>
 <script>
 const FX=[[0,"Solid",0],[1,"Blink",0],[2,"Breathe",0],[3,"Wipe",0],[4,"Wipe Random",0],[5,"Random Colors",0],[6,"Sweep",0],[7,"Dynamic",0],[8,"Colorloop",0],[9,"Rainbow",0],[10,"Scan",0],[11,"Scan Dual",0],[12,"Fade",0],[13,"Theater",0],[14,"Theater Rainbow",0],[15,"Running",0],[16,"Saw",0],[17,"Twinkle",0],[18,"Dissolve",0],[19,"Dissolve Rnd",0],[20,"Sparkle",0],[21,"Sparkle Dark",0],[22,"Sparkle+",0],[23,"Strobe",0],[24,"Strobe Rainbow",0],[25,"Strobe Mega",0],[26,"Blink Rainbow",0],[27,"Android",0],[28,"Chase",0],[29,"Chase Random",0],[30,"Chase Rainbow",0],[31,"Chase Flash",0],[32,"Chase Flash Rnd",0],[33,"Rainbow Runner",0],[34,"Colorful",0],[35,"Traffic Light",0],[36,"Sweep Random",0],[37,"Chase 2",0],[38,"Aurora",0],[39,"Stream",0],[40,"Scanner",0],[41,"Lighthouse",0],[42,"Fireworks",0],[43,"Rain",0],[44,"Tetrix",0],[45,"Fire Flicker",0],[46,"Gradient",0],[47,"Loading",0],[48,"Rolling Balls",0],[49,"Fairy",0],[50,"Two Dots",0],[51,"Fairytwinkle",0],[52,"Running Dual",0],[53,"Image",0],[54,"Chase 3",0],[55,"Tri Wipe",0],[56,"Tri Fade",0],[57,"Lightning",0],[58,"ICU",0],[59,"Multi Comet",0],[60,"Scanner Dual",0],[61,"Stream 2",0],[62,"Oscillate",0],[63,"Pride 2015",0],[64,"Juggle",0],[65,"Palette",0],[66,"Fire 2012",0],[67,"Colorwaves",0],[68,"Bpm",0],[69,"Fill Noise",0],[70,"Noise 1",0],[71,"Noise 2",0],[72,"Noise 3",0],[73,"Noise 4",0],[74,"Colortwinkles",0],[75,"Lake",0],[76,"Meteor",0],[77,"Copy Segment",0],[78,"Railway",0],[79,"Ripple",0],[80,"Twinklefox",0],[81,"Twinklecat",0],[82,"Halloween Eyes",0],[83,"Solid Pattern",0],[84,"Solid Pattern Tri",0],[85,"Spots",0],[86,"Spots Fade",0],[87,"Glitter",0],[88,"Candle",0],[89,"Fireworks Starburst",0],[90,"Fireworks 1D",0],[91,"Bouncing Balls",0],[92,"Sinelon",0],[93,"Sinelon Dual",0],[94,"Sinelon Rainbow",0],[95,"Popcorn",0],[96,"Drip",0],[97,"Plasma",0],[98,"Percent",0],[99,"Ripple Rainbow",0],[100,"Heartbeat",0],[101,"Pacifica",0],[102,"Candle Multi",0],[103,"Solid Glitter",0],[104,"Sunrise",0],[105,"Phased",0],[106,"Twinkleup",0],[107,"Noise Pal",0],[108,"Sine",0],[109,"Phased Noise",0],[110,"Flow",0],[111,"Chunchun",0],[112,"Dancing Shadows",0],[113,"Washing Machine",0],[114,"Rotozoomer",1],[115,"Blends",0],[116,"TV Simulator",0],[117,"Dynamic Smooth",0],[118,"Spaceships",1],[119,"Crazy Bees",1],[120,"Ghost Rider",1],[121,"Blobs",1],[122,"Scrolling Text",1],[123,"Drift Rose",1],[124,"Distortion Waves",1],[125,"Soap",1],[126,"Octopus",1],[127,"Waving Cell",1],[128,"Pixels",0],[129,"Pixelwave",0],[130,"Juggles",0],[131,"Matripix",0],[132,"Gravimeter",0],[133,"Plasmoid",0],[134,"Puddles",0],[135,"Midnoise",0],[136,"Noisemeter",0],[137,"Freqwave",0],[138,"Freqmatrix",0],[139,"GEQ",1],[140,"Waterfall",0],[141,"Freqpixels",0],[143,"Noisefire",0],[144,"Puddlepeak",0],[145,"Noisemove",0],[146,"Noise2D",1],[147,"Perlin Move",0],[148,"Ripple Peak",0],[149,"Firenoise",1],[150,"Squared Swirl",1],[151,"PacMan",0],[152,"DNA",1],[153,"Matrix",1],[154,"Metaballs",1],[155,"Freqmap",0],[156,"Gravcenter",0],[157,"Gravcentric",0],[158,"Gravfreq",0],[159,"DJ Light",0],[160,"Funky Plank",1],[161,"Shimmer",0],[162,"Pulser",1],[163,"Blurz",0],[164,"Drift",1],[165,"Waverly",1],[166,"Sun Radiation",1],[167,"Colored Bursts",1],[168,"Julia",1],[172,"Game Of Life",1],[173,"Tartan",1],[174,"Polar Lights",1],[175,"Swirl",1],[176,"Lissajous",1],[177,"Frizzles",1],[178,"Plasma Ball",1],[179,"Flow Stripe",0],[180,"Hiphotic",1],[181,"Sindots",1],[182,"DNA Spiral",1],[183,"Black Hole",1],[184,"Wavesins",0],[185,"Rocktaves",0],[186,"Akemi",1],[187,"PS Volcano",1],[188,"PS Fire",1],[189,"PS Fireworks",1],[190,"PS Vortex",1],[191,"PS Fuzzy Noise",1],[192,"PS Ballpit",1],[193,"PS Box",1],[194,"PS Attractor",1],[195,"PS Impact",1],[196,"PS Waterfall",1],[197,"PS Spray",1],[198,"PS GEQ 2D",1],[199,"PS GEQ Nova",1],[200,"PS Ghost Rider",1],[201,"PS Blobs",1],[202,"PS DripDrop",0],[203,"PS Pinball",0],[204,"PS Dancing Shadows",0],[205,"PS Fireworks 1D",0],[206,"PS Sparkler",0],[207,"PS Hourglass",0],[208,"PS Spray 1D",0],[209,"PS 1D Balance",0],[210,"PS Chase",0],[211,"PS Starburst",0],[212,"PS GEQ 1D",0],[213,"PS Fire 1D",0],[214,"PS Sonic Stream",0],[215,"PS Sonic Boom",0],[216,"PS Springy",0],[217,"PS Galaxy",1],[218,"Color Clouds",0],[219,"Slow Transition",0]];
@@ -1080,77 +1072,26 @@ function renderDiag(d) {
 }
 
 // ---- LED setup: sent as {"l4ycfg": <same format as /json/cfg>}, the lights save and restart ----
-function fillSetup() {
-	const hw = state.hw || {};
-	// outputs: the full list (firmware v60+), else output 1 (+ output 2 from v58)
-	const typ = t => [22, 30, 24, 31, 26, 27, 32].includes(t) ? t : 22;
-	// an output is part of the matrix when its LEDs start inside the matrix area; the rest are strips after it
-	const area = state.mw && state.mh ? state.mw * state.mh : 0;
-	if (lastList.o && lastList.o.length) OUTS = lastList.o.map(o => ({ pin: o[0] >= 0 ? o[0] : 2, len: o[1] || 1, type: typ(o[2]), co: o[3] | 0, mx: area > 0 && (o[4] | 0) < area }));
-	else {
-		OUTS = [{ pin: hw.pin >= 0 ? hw.pin : 2, len: hw.len || state.leds || 30, type: typ(hw.type), co: hw.co | 0, mx: area > 0 }];
-		if (hw.p2 >= 0 && hw.l2 > 0) OUTS.push({ pin: hw.p2, len: hw.l2, type: OUTS[0].type, co: OUTS[0].co, mx: area > 0 && (hw.len | 0) < area });
-	}
-	$('suMa').value = hw.ma != null ? hw.ma : 850;
-	// panels: what the lights report (firmware v57+), else what this phone saved, else one panel as big as the matrix
-	const pn = (lastList.pn || []).filter(q => q[2] > 0 && q[3] > 0);
-	let saved = null; try { saved = JSON.parse(localStorage.getItem('l4yPanelList:' + (dev ? dev.name : 'x')) || 'null'); } catch (e) {}
-	if (pn.length) {
-		PANELS = pn.map(q => ({ x: q[0], y: q[1], w: q[2], h: q[3] }));
-		const o = pn[0][4] | 0; $('suStart').value = (o & 1 ? 2 : 0) + (o & 2 ? 1 : 0); $('suSerp').checked = !!(o & 8);
-	} else if (saved && saved.length) PANELS = saved;
-	else {
-		// layout from app v44-v45 ("panels side by side / on top"), when the matrix size still matches
-		let old = null; try { old = JSON.parse(localStorage.getItem('l4yPanels') || 'null'); } catch (e) {}
-		const a = old && old[0] > 0 ? old[0] : 1, d = old && old[1] > 0 ? old[1] : 1;
-		if (state.mw && (a > 1 || d > 1) && state.mw % a === 0 && state.mh % d === 0) {
-			const w = state.mw / a, hh = state.mh / d; PANELS = [];
-			for (let r = 0; r < d; r++) for (let k = 0; k < a; k++) { const c = old[2] && r % 2 === 1 ? a - 1 - k : k; PANELS.push({ x: c * w, y: r * hh, w, h: hh }); }
-		} else PANELS = [{ x: 0, y: 0, w: state.mw || 16, h: state.mh || 16 }];
-	}
-	if (PANELS.length) { $('suW').value = PANELS[0].w; $('suH').value = PANELS[0].h; }
-	drawPanels();
-	suSyncMx();
-	suMxNote(); drawOuts();
-}
-let PANELS = [{ x: 0, y: 0, w: 16, h: 16 }];
-const pnBox = () => { let W = 0, H = 0; PANELS.forEach(p => { W = Math.max(W, p.x + p.w); H = Math.max(H, p.y + p.h); }); return [W, H]; };
-const pnOverlap = () => PANELS.some((a, i) => PANELS.some((b, j) => j > i && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h));
-// list of panels (width, height, X, Y) in wiring order
-function drawPanels() {
-	const num = (v, max, f) => { const e = document.createElement('input'); e.type = 'number'; e.min = '0'; e.max = String(max); e.value = String(v); e.oninput = () => { f(Math.max(0, Math.min(max, +e.value | 0))); suMxNote(); }; return e; };
-	$('suPanels').replaceChildren(...PANELS.map((p, k) => {
-		const row = document.createElement('div'); row.className = 'pnrow';
-		const head = document.createElement('div'); head.className = 'pnh';
-		const t = document.createElement('span'); t.textContent = 'Panel ' + (k + 1);
-		const del = document.createElement('button'); del.type = 'button'; del.className = 'btn small'; del.textContent = 'Remove';
-		del.onclick = () => { if (PANELS.length < 2) return; PANELS.splice(k, 1); drawPanels(); };
-		head.append(t, del);
-		const g = document.createElement('div'); g.className = 'pngrid';
-		[['Width', 'w', 128], ['Height', 'h', 128], ['X', 'x', 1024], ['Y', 'y', 1024]].forEach(([l, key, max]) => {
-			const c = document.createElement('label'); c.append(document.createTextNode(l), num(p[key], max, v => p[key] = v)); g.append(c);
-		});
-		row.append(head, g); return row;
-	}));
-	suMxNote();
-}
-// a reason the settings were not saved: shown under the button and as a pop-up, so it is not missed
-function suErr(m) { $('suMsg').textContent = m; toast(m); const b = $('suSave'); b.dataset.c = ''; b.textContent = 'Save and restart'; }
-// ---- LED outputs: each with its own pin, chip, colour order and LED count; output 2 starts where output 1 ends ----
-let OUTS = [{ pin: 2, len: 30, type: 22, co: 0, mx: false }];
+// ---- LED setup: a list of outputs (one data pin each). Each output is a strip or a matrix; a matrix output has
+// its own panels (size, position in the whole picture, first LED, zigzag). WLED gets one matrix made of all the
+// panels of the matrix outputs (in wiring order), and the strips follow the matrix in the LED numbers.
+let OUTS = [{ pin: 2, len: 30, type: 22, co: 0, mx: false, panels: [], corner: 0, serp: true }];
+let PANELS = [];   // all panels of the matrix outputs, in wiring order: { x, y, w, h, o: output }
 const SU_TYPES = [[22, 'WS2812B / WS2813 / SK6812 (RGB)'], [30, 'SK6812 RGBW'], [24, 'WS2811 (400 kHz)'], [31, 'TM1814 (RGBW)'], [26, 'UCS8903'], [27, 'APA106'], [32, 'WS2805 (RGB + 2 whites)']];
 const SU_ORDERS = [[0, 'GRB (most strips)'], [1, 'RGB'], [2, 'BRG'], [3, 'RBG'], [4, 'BGR'], [5, 'GBR']];
+const SU_CORNERS = [[0, 'Top left'], [1, 'Top right'], [2, 'Bottom left'], [3, 'Bottom right']];
+const OUT_COLS = ['#ff2e93', '#22d3ee', '#a3e635', '#fbbf24'];
 const suMaxOuts = () => Math.max(1, lastList.mo || 2);
-const pnTotal = () => PANELS.reduce((a, p) => a + p.w * p.h, 0);
 const anyMx = () => OUTS.some(o => o.mx);
-function suSyncMx() { $('suMx').checked = anyMx(); $('suMxBox').hidden = !anyMx(); }
-// the matrix outputs must add up to the matrix, so the last matrix output takes what is left
-function outsFit() {
-	const m = OUTS.filter(o => o.mx);
-	if (!m.length) return;
-	if (m.length === 1) { m[0].len = pnTotal(); return; }
-	m[m.length - 1].len = Math.max(0, pnTotal() - m.slice(0, -1).reduce((a, o) => a + o.len, 0));
+function syncPanels() {
+	OUTS.forEach(o => { if (o.mx) o.len = o.panels.reduce((a, p) => a + p.w * p.h, 0); });
+	PANELS = [];
+	OUTS.filter(o => o.mx).forEach(o => o.panels.forEach(p => PANELS.push(Object.assign({ o }, p))));
 }
+const pnBox = (list = PANELS) => { let W = 0, H = 0; list.forEach(p => { W = Math.max(W, p.x + p.w); H = Math.max(H, p.y + p.h); }); return [W, H]; };
+const pnOverlap = () => PANELS.some((a, i) => PANELS.some((b, j) => j > i && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h));
+const pnTotal = () => PANELS.reduce((a, p) => a + p.w * p.h, 0);
+function suSyncMx() { $('suMx').checked = anyMx(); $('suMxBox').hidden = !anyMx(); }
 // LED numbers: the matrix outputs first (LED 1 = first LED of the matrix), then the strips, in the order of the list
 function outRanges() {
 	let at = 0; const r = new Map();
@@ -1159,41 +1100,146 @@ function outRanges() {
 	OUTS.filter(o => !o.mx).forEach(o => { r.set(o, at); at += o.len; });
 	return r;
 }
-function drawOuts() {
-	outsFit(); suSyncMx();
-	const mk = (tag, attrs) => { const e = document.createElement(tag); Object.assign(e, attrs); return e; };
-	const sel = (opts, v, f) => { const e = mk('select', {}); opts.forEach(([k, t]) => e.append(mk('option', { value: String(k), textContent: t }))); e.value = String(v); e.onchange = () => f(+e.value); return e; };
-	const rg = outRanges();
+// a panel for a new matrix output: to the right of the panels already there
+function newPanel(w = 16, h = 16) { const [W] = pnBox(); return { x: W, y: 0, w, h }; }
+
+function fillSetup() {
+	const hw = state.hw || {};
+	const typ = t => [22, 30, 24, 31, 26, 27, 32].includes(t) ? t : 22;
+	// an output is part of the matrix when its LEDs start inside the matrix area; the rest are strips after it
+	const area = state.mw && state.mh ? state.mw * state.mh : 0;
+	const base = o => Object.assign({ panels: [], corner: 0, serp: true }, o);
+	if (lastList.o && lastList.o.length) OUTS = lastList.o.map(o => base({ pin: o[0] >= 0 ? o[0] : 2, len: o[1] || 1, type: typ(o[2]), co: o[3] | 0, mx: area > 0 && (o[4] | 0) < area }));
+	else {
+		OUTS = [base({ pin: hw.pin >= 0 ? hw.pin : 2, len: hw.len || state.leds || 30, type: typ(hw.type), co: hw.co | 0, mx: area > 0 })];
+		if (hw.p2 >= 0 && hw.l2 > 0) OUTS.push(base({ pin: hw.p2, len: hw.l2, type: OUTS[0].type, co: OUTS[0].co, mx: area > 0 && (hw.len | 0) < area }));
+	}
+	$('suMa').value = hw.ma != null ? hw.ma : 850;
 	const mxs = OUTS.filter(o => o.mx);
+	if (mxs.length) {
+		// panels: what the lights report (firmware v57+), shared out over the matrix outputs by their LED counts;
+		// else what this phone saved; else one panel as big as the matrix
+		const pn = (lastList.pn || []).filter(q => q[2] > 0 && q[3] > 0);
+		let saved = null, oldList = null;
+		try { saved = JSON.parse(localStorage.getItem('l4yOutPanels:' + (dev ? dev.name : 'x')) || 'null'); } catch (e) {}
+		try { oldList = JSON.parse(localStorage.getItem('l4yPanelList:' + (dev ? dev.name : 'x')) || 'null'); } catch (e) {}
+		const opts = (o, q) => { const f = q[4] | 0; o.corner = (f & 1 ? 2 : 0) + (f & 2 ? 1 : 0); o.serp = !!(f & 8); };
+		if (pn.length) {
+			let k = 0;
+			mxs.forEach((o, m) => {
+				let n = 0; o.panels = [];
+				while (k < pn.length && (m === mxs.length - 1 || n < o.len)) { const q = pn[k++]; o.panels.push({ x: q[0], y: q[1], w: q[2], h: q[3] }); n += q[2] * q[3]; if (o.panels.length === 1) opts(o, q); }
+			});
+		} else if (saved && saved.length === OUTS.length && saved.every((v, i) => !!v === OUTS[i].mx)) {
+			OUTS.forEach((o, i) => { if (saved[i]) Object.assign(o, saved[i]); });
+		} else if (oldList && oldList.length) {
+			mxs[0].panels = oldList.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }));
+		} else {
+			// layout from app v44-v45 ("panels side by side / on top"), when the matrix size still matches
+			let old = null; try { old = JSON.parse(localStorage.getItem('l4yPanels') || 'null'); } catch (e) {}
+			const a = old && old[0] > 0 ? old[0] : 1, d = old && old[1] > 0 ? old[1] : 1;
+			if ((a > 1 || d > 1) && state.mw % a === 0 && state.mh % d === 0) {
+				const w = state.mw / a, hh = state.mh / d; mxs[0].panels = [];
+				for (let r = 0; r < d; r++) for (let k = 0; k < a; k++) { const c = old[2] && r % 2 === 1 ? a - 1 - k : k; mxs[0].panels.push({ x: c * w, y: r * hh, w, h: hh }); }
+			} else mxs[0].panels = [{ x: 0, y: 0, w: state.mw || 16, h: state.mh || 16 }];
+		}
+		mxs.forEach(o => { if (!o.panels.length) { syncPanels(); o.panels = [newPanel()]; } });
+	}
+	drawOuts();
+}
+
+function drawOuts() {
+	syncPanels(); suSyncMx();
+	const mk = (tag, attrs) => { const e = document.createElement(tag); Object.assign(e, attrs || {}); return e; };
+	const sel = (opts, v, f) => { const e = mk('select'); opts.forEach(([k, t]) => e.append(mk('option', { value: String(k), textContent: t }))); e.value = String(v); e.onchange = () => f(+e.value); return e; };
+	const lab = (t, e) => { const c = mk('label'); c.append(document.createTextNode(t), e); return c; };
+	const num = (v, min, max, f) => { const e = mk('input', { type: 'number', min: String(min), max: String(max), value: String(v) }); e.oninput = () => { f(Math.max(min, Math.min(max, +e.value | 0))); drawOutsSoon(); }; return e; };
+	const rg = outRanges();
+	let pnNo = 0;
 	$('suOuts').replaceChildren(...OUTS.map((o, k) => {
 		const row = mk('div', { className: 'pnrow' });
+		if (o.mx) row.style.borderColor = OUT_COLS[k % OUT_COLS.length];
 		const head = mk('div', { className: 'pnh' });
-		const first = rg.get(o) + 1, last = rg.get(o) + o.len;
-		head.append(mk('span', { textContent: 'Output ' + (k + 1) }), mk('span', { className: 'note', textContent: o.len > 0 ? 'LEDs ' + first + '–' + last : '' }));
+		head.append(mk('span', { textContent: 'Output ' + (k + 1) }), mk('span', { className: 'note', textContent: o.len > 0 ? 'LEDs ' + (rg.get(o) + 1) + '–' + (rg.get(o) + o.len) : '' }));
 		if (k > 0) { const del = mk('button', { type: 'button', className: 'btn small', textContent: 'Remove' }); del.onclick = () => { OUTS.splice(k, 1); drawOuts(); }; head.append(del); }
 		const g = mk('div', { className: 'pngrid outgrid' });
-		const pin = mk('input', { type: 'number', min: '0', max: '48', value: String(o.pin) }); pin.oninput = () => { o.pin = +pin.value | 0; outNote(); };
-		const autoLen = o.mx && o === mxs[mxs.length - 1];   // the last matrix output gets the rest of the matrix
-		const len = mk('input', { type: 'number', min: '1', max: '1500', value: String(o.len), readOnly: autoLen }); len.oninput = () => { o.len = Math.max(0, +len.value | 0); drawOutsSoon(); };
-		const lab = (t, e) => { const c = mk('label', {}); c.append(document.createTextNode(t), e); return c; };
-		const kind = sel([[0, 'Strip'], [1, 'Matrix']], o.mx ? 1 : 0, v => { o.mx = !!v; if (!o.mx && o.len < 1) o.len = 50; OUTS = OUTS.filter(q => q.mx).concat(OUTS.filter(q => !q.mx)); drawOuts(); drawPanels(); });
-		g.append(lab('Type', kind), lab('GPIO', pin), lab(autoLen && mxs.length > 1 ? 'LEDs (the rest)' : autoLen ? 'LEDs (whole matrix)' : 'LEDs', len),
+		const kind = sel([[0, 'Strip'], [1, 'Matrix']], o.mx ? 1 : 0, v => {
+			o.mx = !!v;
+			if (o.mx && !o.panels.length) { syncPanels(); o.panels = [newPanel()]; }
+			if (!o.mx && o.len < 1) o.len = 50;
+			OUTS = OUTS.filter(q => q.mx).concat(OUTS.filter(q => !q.mx));   // matrix outputs first (LED numbering)
+			drawOuts();
+		});
+		const pin = num(o.pin, 0, 48, v => o.pin = v);
+		const len = o.mx ? mk('input', { type: 'number', value: String(o.len), readOnly: true }) : num(o.len, 1, 1500, v => o.len = v);
+		g.append(lab('Type', kind), lab('GPIO', pin), lab(o.mx ? 'LEDs (from the panels)' : 'LEDs', len), mk('span'),
 			lab('LED chip', sel(SU_TYPES, o.type, v => o.type = v)), lab('Color order', sel(SU_ORDERS, o.co, v => o.co = v)));
-		row.append(head, g); return row;
+		row.append(head, g);
+		if (o.mx) {
+			// this output's matrix: wiring of its panels and the list of panels
+			const mxb = mk('div', { className: 'outmx' });
+			const serp = mk('input', { type: 'checkbox', checked: !!o.serp }); serp.onchange = () => { o.serp = serp.checked; };
+			const sl = mk('label', { className: 'chk' }); sl.append(serp, document.createTextNode(' Zigzag wiring (serpentine)'));
+			mxb.append(mk('div', { className: 'lab', textContent: 'Matrix of this output' }),
+				lab('First LED of each panel', sel(SU_CORNERS, o.corner, v => o.corner = v)), sl);
+			o.panels.forEach((p, i) => {
+				pnNo++;
+				const pr = mk('div', { className: 'pnsub' });
+				const ph = mk('div', { className: 'pnh' });
+				ph.append(mk('span', { textContent: 'Panel ' + pnNo }));
+				if (o.panels.length > 1) { const d = mk('button', { type: 'button', className: 'btn small', textContent: 'Remove' }); d.onclick = () => { o.panels.splice(i, 1); drawOuts(); }; ph.append(d); }
+				const pg = mk('div', { className: 'pngrid' });
+				pg.append(lab('Width', num(p.w, 1, 128, v => p.w = v)), lab('Height', num(p.h, 1, 128, v => p.h = v)), lab('X', num(p.x, 0, 1024, v => p.x = v)), lab('Y', num(p.y, 0, 1024, v => p.y = v)));
+				pr.append(ph, pg); mxb.append(pr);
+			});
+			const add = mk('button', { type: 'button', className: 'btn', textContent: 'Add panel' });
+			add.onclick = () => { syncPanels(); if (PANELS.length >= 18) { suErr('Up to 18 panels.'); return; } const l = o.panels[o.panels.length - 1]; o.panels.push(l ? { x: l.x + l.w, y: l.y, w: l.w, h: l.h } : newPanel()); drawOuts(); };
+			// quick fill: panels of the same size, side by side / on top of each other, starting where the first panel is
+			const qf = mk('details', { className: 'more' }); qf.append(mk('summary', { textContent: 'Quick fill: panels of the same size' }));
+			const f0 = o.panels[0] || newPanel();
+			const qw = num(f0.w, 1, 128, () => {}), qh = num(f0.h, 1, 128, () => {}), qa = num(1, 1, 8, () => {}), qd = num(1, 1, 8, () => {});
+			[qw, qh, qa, qd].forEach(e => e.oninput = null);
+			const qc = sel([[0, 'Each row left to right'], [1, 'Zigzag (second row right to left)']], 0, () => {});
+			const qb = mk('button', { type: 'button', className: 'btn', textContent: 'Fill the list' });
+			qb.onclick = () => {
+				const w = Math.max(1, +qw.value | 0), hh = Math.max(1, +qh.value | 0), a = Math.max(1, +qa.value | 0), d = Math.max(1, +qd.value | 0), zz = qc.value === '1';
+				syncPanels(); if (PANELS.length - o.panels.length + a * d > 18) { suErr('Up to 18 panels.'); return; }
+				const x0 = f0.x, y0 = f0.y; o.panels = [];
+				for (let r = 0; r < d; r++) for (let c0 = 0; c0 < a; c0++) { const c = zz && r % 2 === 1 ? a - 1 - c0 : c0; o.panels.push({ x: x0 + c * w, y: y0 + r * hh, w, h: hh }); }
+				drawOuts();
+			};
+			const qg = mk('div', { className: 'pngrid' });
+			qg.append(lab('Width', qw), lab('Height', qh), lab('Side by side', qa), lab('On top', qd));
+			qf.append(qg, lab('How the panels are connected', qc), qb);
+			const ar = mk('div', { className: 'row' }); ar.append(add);
+			mxb.append(ar, qf);
+			row.append(mxb);
+		}
+		return row;
 	}));
 	$('suOutAdd').hidden = OUTS.length >= suMaxOuts();
-	$('suOutPanels').hidden = !anyMx() || PANELS.length < 2 || PANELS.length + OUTS.filter(o => !o.mx).length > suMaxOuts();
-	outNote();
+	outNote(); drawLayout();
 }
 let outT = 0;
-function drawOutsSoon() { clearTimeout(outT); outT = setTimeout(() => { const a = document.activeElement, i = [...$('suOuts').querySelectorAll('input')].indexOf(a); drawOuts(); if (i >= 0) { const b = $('suOuts').querySelectorAll('input')[i]; if (b) { b.focus(); try { b.setSelectionRange(b.value.length, b.value.length); } catch (e) {} } } }, 600); }
+function drawOutsSoon() {
+	syncPanels(); outNote(); drawLayout();
+	clearTimeout(outT);
+	outT = setTimeout(() => {
+		const a = document.activeElement, all = () => [...$('suOuts').querySelectorAll('input')], i = all().indexOf(a);
+		drawOuts();
+		if (i >= 0) { const b = all()[i]; if (b) { b.focus(); try { b.setSelectionRange(b.value.length, b.value.length); } catch (e) {} } }
+	}, 700);
+}
 // a reason the outputs cannot be saved as they are, or ''
 function outProblem() {
-	const pins = OUTS.map(o => o.pin), mxs = OUTS.filter(o => o.mx);
+	syncPanels();
+	const pins = OUTS.map(o => o.pin);
 	if (new Set(pins).size < pins.length) return 'Two outputs have the same pin: each output needs its own GPIO.';
-	if (mxs.length > 1 && mxs[mxs.length - 1].len < 1) return 'The outputs before the last one already have all the matrix LEDs.';
 	if (OUTS.some(o => o.len < 1)) return 'Every output needs at least 1 LED.';
-	if (mxs.length && OUTS.length > mxs.length) { const [W, H] = pnBox(); if (W * H !== pnTotal()) return 'A strip after the matrix needs a matrix with no gaps: the panels must fill the whole rectangle.'; }
+	if (PANELS.length > 18) return 'Up to 18 panels.';
+	if (PANELS.some(p => p.w < 1 || p.h < 1)) return 'Every panel needs a width and a height.';
+	if (pnOverlap()) return 'Two panels are on top of each other: check X and Y.';
+	if (anyMx() && OUTS.some(o => !o.mx)) { const [W, H] = pnBox(); if (W * H !== pnTotal()) return 'A strip after the matrix needs a matrix with no gaps: the panels must fill the whole rectangle.'; }
 	return '';
 }
 function outNote() {
@@ -1201,63 +1247,45 @@ function outNote() {
 	if (pr) msgs.push(pr);
 	msgs.push('Total: ' + n + ' LEDs on ' + OUTS.length + ' output(s).');
 	if (anyMx() && OUTS.some(o => !o.mx)) msgs.push('The matrix comes first in the LED numbers, the strips after it. Each output gets its own zone after the restart.');
+	else if (OUTS.filter(o => o.mx).length > 1) msgs.push('The matrix outputs make one picture together. To show something different on each, use Zones › One zone per output.');
 	else if (OUTS.length > 1) msgs.push('Each output gets its own zone after the restart.');
 	if (OUTS.length > 1 && (lastList.mo || 2) <= 2) msgs.push('ESP32-C3: output 2 is a little less steady while Bluetooth is connected; put the bigger part on output 1.');
 	$('suOutNote').replaceChildren(...msgs.map((m, i) => { const d = document.createElement(i === 0 && pr ? 'b' : 'div'); d.textContent = m; if (i === 0 && pr) d.style.display = 'block'; return d; }));
+}
+// picture of all matrix outputs: each panel in its output's colour, with its number, size and the data wire
+function drawLayout() {
+	if (!anyMx()) return;
+	const [W, H] = pnBox(), n = pnTotal();
+	$('suMxNote').textContent = 'Whole matrix: ' + W + ' × ' + H + ', ' + n + ' LEDs in ' + PANELS.length + ' panels. X and Y = where the top left corner of each panel is, in LEDs.';
+	const cv = $('suPnCv'), cx = cv.getContext('2d'), pad = 14, s = Math.min((cv.width - 2 * pad) / Math.max(W, 1), (cv.height - 2 * pad) / Math.max(H, 1));
+	cx.clearRect(0, 0, cv.width, cv.height);
+	cx.strokeStyle = 'rgba(255,255,255,.25)'; cx.lineWidth = 1; cx.setLineDash([4, 4]); cx.strokeRect(pad, pad, W * s, H * s); cx.setLineDash([]);
+	PANELS.forEach((p, k) => {
+		const x = pad + p.x * s, y = pad + p.y * s, w = p.w * s, h = p.h * s, c = OUT_COLS[OUTS.indexOf(p.o) % OUT_COLS.length];
+		cx.fillStyle = c + '33'; cx.fillRect(x, y, w, h);
+		cx.strokeStyle = c; cx.lineWidth = 2; cx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+		cx.fillStyle = '#fff'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+		cx.font = 'bold ' + Math.max(12, Math.min(40, h / 3)) + 'px system-ui'; cx.fillText(String(k + 1), x + w / 2, y + h / 2);
+		cx.font = '12px system-ui'; cx.fillText(p.w + '×' + p.h + '  GPIO ' + p.o.pin, x + w / 2, y + h / 2 + Math.max(14, Math.min(30, h / 4)));
+	});
+	cx.strokeStyle = '#fff'; cx.lineWidth = 1.5; cx.setLineDash([2, 3]);
+	for (let k = 1; k < PANELS.length; k++) {
+		const a = PANELS[k - 1], b = PANELS[k];
+		if (a.o !== b.o) continue;   // a new output starts a new data wire
+		cx.beginPath(); cx.moveTo(pad + (a.x + a.w / 2) * s, pad + (a.y + a.h / 2) * s + 22); cx.lineTo(pad + (b.x + b.w / 2) * s, pad + (b.y + b.h / 2) * s + 22); cx.stroke();
+	}
+	cx.setLineDash([]);
 }
 $('suOutAdd').onclick = () => {
 	if (OUTS.length >= suMaxOuts()) return;
 	const l = OUTS[OUTS.length - 1], used = OUTS.map(o => o.pin);
 	let pin = [3, 4, 2, 5, 18, 19, 21, 22, 23].find(p => !used.includes(p)); if (pin === undefined) pin = l.pin + 1;
-	OUTS.push({ pin, len: 50, type: l.type, co: l.co, mx: false });
+	OUTS.push({ pin, len: 50, type: l.type, co: l.co, mx: false, panels: [], corner: l.corner || 0, serp: l.serp !== false });
 	drawOuts();
 };
-$('suOutPanels').onclick = () => {
-	const strips = OUTS.filter(o => !o.mx), mxs = OUTS.filter(o => o.mx);
-	const proto = mxs[0] || OUTS[0];
-	const newMx = PANELS.map((p, k) => Object.assign({}, mxs[k] || proto, { len: p.w * p.h, mx: true }));
-	OUTS = newMx.concat(strips);
-	OUTS.forEach((o, k) => { if (OUTS.slice(0, k).some(q => q.pin === o.pin)) o.pin = [3, 4, 2, 5, 18, 19, 21].find(p => !OUTS.some(q => q.pin === p)) ?? o.pin; });
-	drawOuts();
-};
-function suMxNote() {
-	if (anyMx() && $('suOuts').childElementCount) drawOuts();
-	const [W, H] = pnBox(), n = PANELS.reduce((a, p) => a + p.w * p.h, 0);
-	const warn = document.createElement('b'); warn.textContent = 'Two panels are on top of each other: check X and Y.';
-	const info = document.createElement('span'); info.textContent = PANELS.length > 1 ? 'Whole matrix: ' + W + ' × ' + H + ', ' + n + ' LEDs in ' + PANELS.length + ' panels. X and Y = where the top left corner of each panel is, in LEDs.' : 'Whole matrix: ' + n + ' LEDs.';
-	$('suMxNote').replaceChildren(...(pnOverlap() ? [warn, document.createElement('br')] : []), info);
-	// picture: the whole matrix, each panel with its number and size, and the data wire from panel to panel
-	const cv = $('suPnCv'), cx = cv.getContext('2d'), pad = 14, s = Math.min((cv.width - 2 * pad) / Math.max(W, 1), (cv.height - 2 * pad) / Math.max(H, 1));
-	cx.clearRect(0, 0, cv.width, cv.height);
-	cx.strokeStyle = 'rgba(255,255,255,.25)'; cx.lineWidth = 1; cx.setLineDash([4, 4]); cx.strokeRect(pad, pad, W * s, H * s); cx.setLineDash([]);
-	const cols = ['#ff2e93', '#22d3ee', '#a3e635', '#fbbf24', '#a78bfa', '#fb7185'];
-	PANELS.forEach((p, k) => {
-		const x = pad + p.x * s, y = pad + p.y * s, w = p.w * s, h = p.h * s, c = cols[k % cols.length];
-		cx.fillStyle = c + '33'; cx.fillRect(x, y, w, h);
-		cx.strokeStyle = c; cx.lineWidth = 2; cx.strokeRect(x + 1, y + 1, w - 2, h - 2);
-		cx.fillStyle = '#fff'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
-		cx.font = 'bold ' + Math.max(12, Math.min(40, h / 3)) + 'px system-ui'; cx.fillText(String(k + 1), x + w / 2, y + h / 2);
-		cx.font = '12px system-ui'; cx.fillText(p.w + '×' + p.h, x + w / 2, y + h / 2 + Math.max(14, Math.min(30, h / 4)));
-	});
-	cx.strokeStyle = '#fff'; cx.lineWidth = 1.5; cx.setLineDash([2, 3]);
-	for (let k = 1; k < PANELS.length; k++) {
-		const a = PANELS[k - 1], b = PANELS[k];
-		cx.beginPath(); cx.moveTo(pad + (a.x + a.w / 2) * s, pad + (a.y + a.h / 2) * s + 22); cx.lineTo(pad + (b.x + b.w / 2) * s, pad + (b.y + b.h / 2) * s + 22); cx.stroke();
-	}
-	cx.setLineDash([]);
-}
-$('suPnAdd').onclick = () => {
-	if (PANELS.length >= 18) { suErr('Up to 18 panels.'); return; }
-	const l = PANELS[PANELS.length - 1] || { x: 0, y: 0, w: 16, h: 16 };
-	PANELS.push({ x: l.x + l.w, y: l.y, w: l.w, h: l.h }); drawPanels();
-};
-$('suPnFill').onclick = () => {
-	const w = Math.max(1, +$('suW').value | 0), hh = Math.max(1, +$('suH').value | 0), pa = Math.max(1, +$('suPa').value | 0), pd = Math.max(1, +$('suPd').value | 0), zz = $('suChain').value === '1';
-	if (pa * pd > 18) { suErr('Up to 18 panels.'); return; }
-	PANELS = [];
-	for (let r = 0; r < pd; r++) for (let k = 0; k < pa; k++) { const c = zz && r % 2 === 1 ? pa - 1 - k : k; PANELS.push({ x: c * w, y: r * hh, w, h: hh }); }
-	drawPanels();
-};
+// a reason the settings were not saved: shown under the button and as a pop-up, so it is not missed
+function suErr(m) { $('suMsg').textContent = m; toast(m); const b = $('suSave'); b.dataset.c = ''; b.textContent = 'Save and restart'; }
+
 // ---- DMX output (Setup) ----
 const DX_CH = ['Off (0)', 'Red', 'Green', 'Blue', 'White', 'Dimmer', 'Full (255)'];
 let dxMap = [1, 2, 3];
@@ -1337,21 +1365,18 @@ $('setupForm').addEventListener('submit', async e => {
 	e.preventDefault();
 	const btn = $('suSave');
 	if (btn.dataset.c !== '1') { btn.dataset.c = '1'; btn.textContent = 'Tap again to save and restart'; setTimeout(() => { btn.dataset.c = ''; btn.textContent = 'Save and restart'; }, 4000); return; }
-	outsFit();
-	const mx = anyMx(), st = +$('suStart').value;
-	if (mx && PANELS.length > 18) { suErr('Up to 18 panels.'); return; }
-	if (mx && pnOverlap()) { suErr('Two panels are on top of each other: check X and Y.'); return; }
-	if (mx && PANELS.some(p => p.w < 1 || p.h < 1)) { suErr('Every panel needs a width and a height.'); return; }
+	syncPanels();
+	const mx = anyMx();
 	const pr = outProblem(); if (pr) { suErr(pr); return; }
 	// the matrix outputs go first (on the ESP32-C3 output 1 is the steadiest one), then the strips
 	const rg = outRanges(), order = OUTS.filter(o => o.mx).concat(OUTS.filter(o => !o.mx));
 	const ins = order.map(o => ({ pin: [o.pin], len: o.len, start: rg.get(o), type: o.type, order: o.co, ledma: 55 }));
 	const led = { total: Math.max(...order.map(o => rg.get(o) + o.len)), maxpwr: +$('suMa').value, ins };
 	if (mx) {
-		// panels in wiring order, x / y = where each panel sits in the whole matrix (in LEDs)
-		const panels = PANELS.map(p => ({ b: st >= 2, r: st % 2 === 1, v: false, s: $('suSerp').checked, x: p.x, y: p.y, w: p.w, h: p.h }));
+		// panels in wiring order (output by output), x / y = where each panel sits in the whole matrix (in LEDs)
+		const panels = PANELS.map(p => ({ b: p.o.corner >= 2, r: p.o.corner % 2 === 1, v: false, s: !!p.o.serp, x: p.x, y: p.y, w: p.w, h: p.h }));
 		led.matrix = { mpc: panels.length, panels };
-		try { localStorage.setItem('l4yPanelList:' + (dev ? dev.name : 'x'), JSON.stringify(PANELS)); } catch (e) {}
+		try { localStorage.setItem('l4yOutPanels:' + (dev ? dev.name : 'x'), JSON.stringify(OUTS.map(o => o.mx ? { panels: o.panels, corner: o.corner, serp: o.serp } : null))); } catch (e) {}
 	}
 	try {
 		await sendNow({ l4ycfg: { hw: { led }, l4ymx: mx, light: { aseg: OUTS.length > 1 } } });
