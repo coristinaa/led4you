@@ -1036,10 +1036,13 @@
 		// give the lights this phone's time once, so timers and the countdown work without internet
 		t.send({ time: Math.floor(Date.now() / 1000), l4y: { tz: -new Date().getTimezoneOffset() * 60 } }).catch(() => {}).finally(() => setTimeout(refresh, 500));
 		const timer = setInterval(() => {
-			if (!document.body.contains(cPower)) { clearInterval(timer); return; }
-			if (!document.hidden && cPower.offsetParent !== null) refresh();   // only while the "More" cards are on screen
+			// the cards can be split over two screens (Bluetooth app: schedule and power in Setup)
+			const live = [cSleep, cSched, cPower];
+			if (!live.some(c => document.body.contains(c))) { clearInterval(timer); return; }
+			if (!document.hidden && live.some(c => c.offsetParent !== null)) refresh();   // only while these cards are on screen
 		}, 4000);
 		updDays(); updSch();
+		cSched.dataset.card = 'sched'; cPower.dataset.card = 'power';
 		return [cSleep, cSeasons, ...(t.zonesElsewhere ? [] : [zonesCard(t, toast)]), cHouse, cSched, cCount, cLoop, cSound, cPir, cGroup, cPower];
 	}
 

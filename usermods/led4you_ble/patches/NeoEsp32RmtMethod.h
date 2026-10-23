@@ -608,9 +608,9 @@ public:
 #endif
         // wait until the last send finishes before destructing everything
         // arbitrary time out of 10 seconds
-        ESP_ERROR_CHECK_WITHOUT_ABORT(rmt_wait_tx_done(_channel.RmtChannelNumber, 10000 / portTICK_PERIOD_MS));
+        ESP_ERROR_CHECK_WITHOUT_ABORT(rmt_wait_tx_done(_rmtCh, 10000 / portTICK_PERIOD_MS));
 
-        ESP_ERROR_CHECK(rmt_driver_uninstall(_channel.RmtChannelNumber));
+        ESP_ERROR_CHECK(rmt_driver_uninstall(_rmtCh));
 
         gpio_matrix_out(_pin, SIG_GPIO_OUT_IDX, false, false);
         pinMode(_pin, INPUT);
@@ -624,7 +624,7 @@ public:
 #ifdef L4Y_SPI_LEDS
         if (_spiDev) return spiWait(0);
 #endif
-        return (ESP_OK == ESP_ERROR_CHECK_WITHOUT_ABORT_SILENT_TIMEOUT(rmt_wait_tx_done(_channel.RmtChannelNumber, 0)));
+        return rmt_wait_tx_done(_rmtCh, 0) == ESP_OK;   // LED4YOU (patch): no logging of the normal "still sending" timeout
     }
 
     void Initialize()
@@ -635,12 +635,17 @@ public:
         rmt_config_t config = {};
 
         config.rmt_mode = RMT_MODE_TX;
-        config.channel = _channel.RmtChannelNumber;
+#if defined(CONFIG_IDF_TARGET_ESP32C3) && defined(LED4YOU_BLE)
+        // LED4YOU (patch): the first output went to SPI, so RMT channel 0 is free: the second output (channel 1)
+        // takes channel 0 and both RMT memory blocks
+        if (_rmtCh == RMT_CHANNEL_1 && l4ySpiLedsBusy()) _rmtCh = RMT_CHANNEL_0;
+#endif
+        config.channel = _rmtCh;
         config.gpio_num = static_cast<gpio_num_t>(_pin);
 #if defined(CONFIG_IDF_TARGET_ESP32C3) && defined(LED4YOU_BLE)
         // LED4YOU (patch): one output on the C3 uses both RMT memory blocks, so the refill interrupt comes half as
         // often and Bluetooth/Wi-Fi interrupts no longer starve it (wrong colours on some LEDs)
-        config.mem_block_num = (_channel.RmtChannelNumber == RMT_CHANNEL_0) ? 2 : 1;
+        config.mem_block_num = (_rmtCh == RMT_CHANNEL_0) ? 2 : 1;
 #else
         config.mem_block_num = 1;
 #endif
@@ -655,8 +660,8 @@ public:
         config.clk_div = T_SPEED::RmtClockDivider;
 
         ESP_ERROR_CHECK(rmt_config(&config));
-        ESP_ERROR_CHECK(rmt_driver_install(_channel.RmtChannelNumber, 0, NEOPIXELBUS_RMT_INT_FLAGS));
-        ESP_ERROR_CHECK(rmt_translator_init(_channel.RmtChannelNumber, T_SPEED::Translate));
+        ESP_ERROR_CHECK(rmt_driver_install(_rmtCh, 0, NEOPIXELBUS_RMT_INT_FLAGS));
+        ESP_ERROR_CHECK(rmt_translator_init(_rmtCh, T_SPEED::Translate));
     }
 
     void Update(bool maintainBufferConsistency)
@@ -678,10 +683,10 @@ public:
         // wait for not actively sending data
         // this will time out at 10 seconds, an arbitrarily long period of time
         // and do nothing if this happens
-        if (ESP_OK == ESP_ERROR_CHECK_WITHOUT_ABORT(rmt_wait_tx_done(_channel.RmtChannelNumber, 10000 / portTICK_PERIOD_MS)))
+        if (ESP_OK == ESP_ERROR_CHECK_WITHOUT_ABORT(rmt_wait_tx_done(_rmtCh, 10000 / portTICK_PERIOD_MS)))
         {
             // now start the RMT transmit with the editing buffer before we swap
-            ESP_ERROR_CHECK_WITHOUT_ABORT(rmt_write_sample(_channel.RmtChannelNumber, _dataEditing, _sizeData, false));
+            ESP_ERROR_CHECK_WITHOUT_ABORT(rmt_write_sample(_rmtCh, _dataEditing, _sizeData, false));
 
             if (maintainBufferConsistency)
             {
@@ -726,6 +731,7 @@ private:
     const size_t  _sizeData;      // Size of '_data*' buffers 
     const uint8_t _pin;            // output pin number
     const T_CHANNEL _channel; // holds instance for multi channel support
+    rmt_channel_t _rmtCh;     // LED4YOU (patch): RMT channel really used (the C3's 2nd output moves to channel 0, see Initialize)
 
     // Holds data stream which include LED color values and other settings as needed
     uint8_t*  _dataEditing;   // exposed for get and set
@@ -809,6 +815,7 @@ private:
 
     void construct()
     {
+        _rmtCh = static_cast<rmt_channel_t>(_channel.RmtChannelNumber);
         _dataEditing = static_cast<uint8_t*>(malloc(_sizeData));
         // data cleared later in Begin()
 

@@ -606,15 +606,19 @@ class Led4youBle : public Usermod {
       int pin = -1, blen = 0, btype = 0, bco = 0;
       Bus* b = BusManager::getBus(0);
       if (b) { uint8_t p[5] = {255,255,255,255,255}; b->getPins(p); pin = p[0] == 255 ? -1 : p[0]; blen = b->getLength(); btype = b->getType() & 0x7F; bco = b->getColorOrder() & 0x0F; }
-      char buf[448];
+      // second LED output (if any)
+      int pin2 = -1, blen2 = 0;
+      Bus* b2 = BusManager::getBus(1);
+      if (b2 && b2->isDigital()) { uint8_t p[5] = {255,255,255,255,255}; b2->getPins(p); pin2 = p[0] == 255 ? -1 : p[0]; blen2 = b2->getLength(); }
+      char buf[480];
       snprintf_P(buf, sizeof(buf),
         PSTR("{\"on\":%s,\"bri\":%u,\"fx\":%u,\"pal\":%u,\"sx\":%u,\"ix\":%u,\"c1\":%u,\"c2\":%u,\"c3\":%u,\"ps\":%d,\"col\":[%u,%u,%u],"
              "\"ip\":\"%s\",\"leds\":%u,\"mw\":%u,\"mh\":%u,\"mfx\":%u,\"fsf\":%u,"
-             "\"hw\":{\"pin\":%d,\"len\":%d,\"type\":%d,\"co\":%d,\"ma\":%u},\"psl\":%u,\"gs\":%d,\"nz\":%u,\"zs\":%u}"),
+             "\"hw\":{\"pin\":%d,\"len\":%d,\"type\":%d,\"co\":%d,\"ma\":%u,\"p2\":%d,\"l2\":%d},\"psl\":%u,\"gs\":%d,\"nz\":%u,\"zs\":%u}"),
         bri ? "true" : "false", bri ? bri : briLast, s.mode, s.palette, s.speed, s.intensity, s.custom1, s.custom2, s.custom3, (int)currentPreset,
         R(s.colors[0]), G(s.colors[0]), B(s.colors[0]),
         ip.c_str(), strip.getLengthTotal(), mw, mh, myLedsFxId, (unsigned)((fsBytesTotal - fsBytesUsed) / 1024),
-        pin, blen, btype, bco, BusManager::ablMilliampsMax(), (unsigned)psMask, l4yGifSlotCount(), (unsigned)strip.getActiveSegmentsNum(), (unsigned)zoneMask());
+        pin, blen, btype, bco, BusManager::ablMilliampsMax(), pin2, blen2, (unsigned)psMask, l4yGifSlotCount(), (unsigned)strip.getActiveSegmentsNum(), (unsigned)zoneMask());
       return String(buf);
     }
 
