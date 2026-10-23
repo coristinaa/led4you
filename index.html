@@ -6,8 +6,8 @@
 <title>LED4YOU</title>
 <meta name="theme-color" content="#0d0f14">
 <link rel="manifest" href="manifest.webmanifest">
-<script src="i18n.js?v=45"></script>
-<script src="studio.js?v=45"></script>
+<script src="i18n.js?v=46"></script>
+<script src="studio.js?v=46"></script>
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -326,6 +326,13 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 				<div class="ct">LED setup</div>
 				<form id="setupForm" class="setup" autocomplete="off">
 					<label for="suPin">Data pin (GPIO)</label><input id="suPin" class="search" type="number" min="0" max="48" required>
+					<label class="chk"><input id="suTwo" type="checkbox"> Second LED output (another data pin)</label>
+					<div id="suTwoBox" hidden>
+						<label for="suPin2">Data pin of output 2 (GPIO)</label><input id="suPin2" class="search" type="number" min="0" max="48" value="4">
+						<div id="suFromBox" hidden><label for="suFrom">Output 2 starts at panel</label><select id="suFrom"></select></div>
+						<div id="suLen2Box"><label for="suLen2">Number of LEDs on output 2</label><input id="suLen2" class="search" type="number" min="1" max="1500" value="50"></div>
+						<div class="note">Both outputs use the same LED chip and colour order. ESP32-C3: output 2 is a little less steady while Bluetooth is connected; put the bigger part on output 1.</div>
+					</div>
 					<label for="suType">LED chip</label>
 					<select id="suType">
 						<option value="22">WS2812B / WS2813 / SK6812 (RGB)</option>
@@ -358,7 +365,7 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 							<div class="row"><button class="btn" id="suPnFill" type="button">Fill the list</button></div>
 						</details>
 					</div>
-					<div id="suLenBox"><label for="suLen">Number of LEDs</label><input id="suLen" class="search" type="number" min="1" max="1500"></div>
+					<div id="suLenBox"><label for="suLen" id="suLenLab">Number of LEDs</label><input id="suLen" class="search" type="number" min="1" max="1500"></div>
 					<label for="suMa">Power limit (mA, 0 = no limit)</label><input id="suMa" class="search" type="number" min="0" max="65000" step="50">
 					<div class="note">USB from a computer gives about 500 mA, a phone charger 1000 to 2000 mA.</div>
 					<div class="row"><button class="btn primary" id="suSave" type="submit">Save and restart</button></div>
@@ -367,6 +374,7 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 				</form>
 			</section>
 			<div id="suZones"></div>
+			<div id="suExtra"></div>
 		</div>
 		<div id="controls" class="pane">
 		<section class="card fwnote" id="fwNote" hidden>
@@ -439,7 +447,7 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 	</div>
 	</section>
 </main>
-<div class="appver" id="appVer"><span data-notr>LED4YOU app v45</span></div>
+<div class="appver" id="appVer"><span data-notr>LED4YOU app v46</span></div>
 <div id="toast" role="alert"></div>
 <script>
 const FX=[[0,"Solid",0],[1,"Blink",0],[2,"Breathe",0],[3,"Wipe",0],[4,"Wipe Random",0],[5,"Random Colors",0],[6,"Sweep",0],[7,"Dynamic",0],[8,"Colorloop",0],[9,"Rainbow",0],[10,"Scan",0],[11,"Scan Dual",0],[12,"Fade",0],[13,"Theater",0],[14,"Theater Rainbow",0],[15,"Running",0],[16,"Saw",0],[17,"Twinkle",0],[18,"Dissolve",0],[19,"Dissolve Rnd",0],[20,"Sparkle",0],[21,"Sparkle Dark",0],[22,"Sparkle+",0],[23,"Strobe",0],[24,"Strobe Rainbow",0],[25,"Strobe Mega",0],[26,"Blink Rainbow",0],[27,"Android",0],[28,"Chase",0],[29,"Chase Random",0],[30,"Chase Rainbow",0],[31,"Chase Flash",0],[32,"Chase Flash Rnd",0],[33,"Rainbow Runner",0],[34,"Colorful",0],[35,"Traffic Light",0],[36,"Sweep Random",0],[37,"Chase 2",0],[38,"Aurora",0],[39,"Stream",0],[40,"Scanner",0],[41,"Lighthouse",0],[42,"Fireworks",0],[43,"Rain",0],[44,"Tetrix",0],[45,"Fire Flicker",0],[46,"Gradient",0],[47,"Loading",0],[48,"Rolling Balls",0],[49,"Fairy",0],[50,"Two Dots",0],[51,"Fairytwinkle",0],[52,"Running Dual",0],[53,"Image",0],[54,"Chase 3",0],[55,"Tri Wipe",0],[56,"Tri Fade",0],[57,"Lightning",0],[58,"ICU",0],[59,"Multi Comet",0],[60,"Scanner Dual",0],[61,"Stream 2",0],[62,"Oscillate",0],[63,"Pride 2015",0],[64,"Juggle",0],[65,"Palette",0],[66,"Fire 2012",0],[67,"Colorwaves",0],[68,"Bpm",0],[69,"Fill Noise",0],[70,"Noise 1",0],[71,"Noise 2",0],[72,"Noise 3",0],[73,"Noise 4",0],[74,"Colortwinkles",0],[75,"Lake",0],[76,"Meteor",0],[77,"Copy Segment",0],[78,"Railway",0],[79,"Ripple",0],[80,"Twinklefox",0],[81,"Twinklecat",0],[82,"Halloween Eyes",0],[83,"Solid Pattern",0],[84,"Solid Pattern Tri",0],[85,"Spots",0],[86,"Spots Fade",0],[87,"Glitter",0],[88,"Candle",0],[89,"Fireworks Starburst",0],[90,"Fireworks 1D",0],[91,"Bouncing Balls",0],[92,"Sinelon",0],[93,"Sinelon Dual",0],[94,"Sinelon Rainbow",0],[95,"Popcorn",0],[96,"Drip",0],[97,"Plasma",0],[98,"Percent",0],[99,"Ripple Rainbow",0],[100,"Heartbeat",0],[101,"Pacifica",0],[102,"Candle Multi",0],[103,"Solid Glitter",0],[104,"Sunrise",0],[105,"Phased",0],[106,"Twinkleup",0],[107,"Noise Pal",0],[108,"Sine",0],[109,"Phased Noise",0],[110,"Flow",0],[111,"Chunchun",0],[112,"Dancing Shadows",0],[113,"Washing Machine",0],[114,"Rotozoomer",1],[115,"Blends",0],[116,"TV Simulator",0],[117,"Dynamic Smooth",0],[118,"Spaceships",1],[119,"Crazy Bees",1],[120,"Ghost Rider",1],[121,"Blobs",1],[122,"Scrolling Text",1],[123,"Drift Rose",1],[124,"Distortion Waves",1],[125,"Soap",1],[126,"Octopus",1],[127,"Waving Cell",1],[128,"Pixels",0],[129,"Pixelwave",0],[130,"Juggles",0],[131,"Matripix",0],[132,"Gravimeter",0],[133,"Plasmoid",0],[134,"Puddles",0],[135,"Midnoise",0],[136,"Noisemeter",0],[137,"Freqwave",0],[138,"Freqmatrix",0],[139,"GEQ",1],[140,"Waterfall",0],[141,"Freqpixels",0],[143,"Noisefire",0],[144,"Puddlepeak",0],[145,"Noisemove",0],[146,"Noise2D",1],[147,"Perlin Move",0],[148,"Ripple Peak",0],[149,"Firenoise",1],[150,"Squared Swirl",1],[151,"PacMan",0],[152,"DNA",1],[153,"Matrix",1],[154,"Metaballs",1],[155,"Freqmap",0],[156,"Gravcenter",0],[157,"Gravcentric",0],[158,"Gravfreq",0],[159,"DJ Light",0],[160,"Funky Plank",1],[161,"Shimmer",0],[162,"Pulser",1],[163,"Blurz",0],[164,"Drift",1],[165,"Waverly",1],[166,"Sun Radiation",1],[167,"Colored Bursts",1],[168,"Julia",1],[172,"Game Of Life",1],[173,"Tartan",1],[174,"Polar Lights",1],[175,"Swirl",1],[176,"Lissajous",1],[177,"Frizzles",1],[178,"Plasma Ball",1],[179,"Flow Stripe",0],[180,"Hiphotic",1],[181,"Sindots",1],[182,"DNA Spiral",1],[183,"Black Hole",1],[184,"Wavesins",0],[185,"Rocktaves",0],[186,"Akemi",1],[187,"PS Volcano",1],[188,"PS Fire",1],[189,"PS Fireworks",1],[190,"PS Vortex",1],[191,"PS Fuzzy Noise",1],[192,"PS Ballpit",1],[193,"PS Box",1],[194,"PS Attractor",1],[195,"PS Impact",1],[196,"PS Waterfall",1],[197,"PS Spray",1],[198,"PS GEQ 2D",1],[199,"PS GEQ Nova",1],[200,"PS Ghost Rider",1],[201,"PS Blobs",1],[202,"PS DripDrop",0],[203,"PS Pinball",0],[204,"PS Dancing Shadows",0],[205,"PS Fireworks 1D",0],[206,"PS Sparkler",0],[207,"PS Hourglass",0],[208,"PS Spray 1D",0],[209,"PS 1D Balance",0],[210,"PS Chase",0],[211,"PS Starburst",0],[212,"PS GEQ 1D",0],[213,"PS Fire 1D",0],[214,"PS Sonic Stream",0],[215,"PS Sonic Boom",0],[216,"PS Springy",0],[217,"PS Galaxy",1],[218,"Color Clouds",0],[219,"Slow Transition",0]];
@@ -874,7 +882,7 @@ document.querySelectorAll('#bleTabs button').forEach(b => b.onclick = () => {
 	document.querySelectorAll('#sBle .pane').forEach(p => p.hidden = p.id !== (b.dataset.pane === 'paneCtl' ? 'controls' : b.dataset.pane));
 	if (b.dataset.pane === 'paneText' || b.dataset.pane === 'paneLeds') mountStudio();
 	if (b.dataset.pane === 'paneLay' && !$('paneLay').firstChild) mountLayout();
-	if (b.dataset.pane === 'paneMore' && !moreMounted) { moreMounted = true; $('paneMore').replaceChildren(...L4YStudio.extrasCards(bleStudio, toast)); }
+	if (b.dataset.pane === 'paneMore' || b.dataset.pane === 'paneSetup') mountExtras();
 	if (b.dataset.pane === 'paneImg' && !$('gifPack').firstChild) $('gifPack').append(L4YStudio.gifPackCard(bleStudio, toast, 'gifs/'));
 	if (b.dataset.pane === 'paneImg') { $('paSize').textContent = paW() + '×' + paH(); $('fsFree').textContent = state.fsf != null ? state.fsf + ' KB free' : ''; }
 	if (b.dataset.pane === 'paneSetup') { fillSetup(); $('suZones').replaceChildren(L4YStudio.zonesCard(bleStudio, toast)); }
@@ -1047,6 +1055,10 @@ function fillSetup() {
 	$('suType').value = [22, 30, 24, 31, 26, 27, 32].includes(hw.type) ? hw.type : 22;
 	$('suOrder').value = hw.co != null ? hw.co : 0;
 	$('suLen').value = hw.len || state.leds || 30;
+	$('suTwo').checked = hw.p2 >= 0 && hw.l2 > 0;
+	if (hw.p2 >= 0) $('suPin2').value = hw.p2;
+	if (hw.l2 > 0) $('suLen2').value = hw.l2;
+	SU_LEN1 = hw.p2 >= 0 && hw.l2 > 0 ? hw.len : 0;
 	$('suMa').value = hw.ma != null ? hw.ma : 850;
 	$('suMx').checked = !!(state.mw && state.mh);
 	// panels: what the lights report (firmware v57+), else what this phone saved, else one panel as big as the matrix
@@ -1083,7 +1095,27 @@ function drawPanels() {
 	}));
 	suMxNote();
 }
+let SU_LEN1 = 0;   // LEDs on output 1 the lights reported (to pick the panel where output 2 starts)
+function suTwoUpd() {
+	const two = $('suTwo').checked, mx = $('suMx').checked;
+	$('suTwoBox').hidden = !two;
+	$('suFromBox').hidden = !mx; $('suLen2Box').hidden = mx;
+	$('suLenLab').textContent = two ? 'Number of LEDs on output 1' : 'Number of LEDs';
+	if (mx) {   // output 2 starts at a panel: list panels 2..N, keep the choice
+		const keep = $('suFrom').value;
+		let acc = 0, pick = '';
+		$('suFrom').replaceChildren(...PANELS.slice(1).map((p, i) => {
+			acc += PANELS[i].w * PANELS[i].h;
+			const o = document.createElement('option'); o.value = String(i + 1); o.textContent = 'Panel ' + (i + 2);
+			if (SU_LEN1 && acc === SU_LEN1) pick = o.value;
+			return o;
+		}));
+		if (keep && +keep < PANELS.length) $('suFrom').value = keep; else if (pick) $('suFrom').value = pick;
+	}
+}
+$('suTwo').onchange = suTwoUpd;
 function suMxNote() {
+	suTwoUpd();
 	const [W, H] = pnBox(), n = PANELS.reduce((a, p) => a + p.w * p.h, 0);
 	const warn = document.createElement('b'); warn.textContent = 'Two panels are on top of each other: check X and Y.';
 	const info = document.createElement('span'); info.textContent = PANELS.length > 1 ? 'Whole matrix: ' + W + ' × ' + H + ', ' + n + ' LEDs in ' + PANELS.length + ' panels. X and Y = where the top left corner of each panel is, in LEDs.' : 'Whole matrix: ' + n + ' LEDs.';
@@ -1120,7 +1152,16 @@ $('suPnFill').onclick = () => {
 	for (let r = 0; r < pd; r++) for (let k = 0; k < pa; k++) { const c = zz && r % 2 === 1 ? pa - 1 - k : k; PANELS.push({ x: c * w, y: r * hh, w, h: hh }); }
 	drawPanels();
 };
-$('suMx').onchange = () => { $('suMxBox').hidden = !$('suMx').checked; $('suLenBox').hidden = $('suMx').checked; };
+// "More" cards; schedule and power go to Setup
+function mountExtras() {
+	if (moreMounted) return;
+	moreMounted = true;
+	const cards = L4YStudio.extrasCards(bleStudio, toast);
+	const setup = ['sched', 'power'].map(k => cards.find(c => c.dataset.card === k)).filter(Boolean);
+	$('paneMore').replaceChildren(...cards.filter(c => !setup.includes(c)));
+	$('suExtra').replaceChildren(...setup);
+}
+$('suMx').onchange = () => { $('suMxBox').hidden = !$('suMx').checked; $('suLenBox').hidden = $('suMx').checked; suTwoUpd(); };
 $('setupForm').addEventListener('submit', async e => {
 	e.preventDefault();
 	const btn = $('suSave');
@@ -1130,7 +1171,15 @@ $('setupForm').addEventListener('submit', async e => {
 	if (mx && pnOverlap()) { $('suMsg').textContent = 'Two panels are on top of each other: check X and Y.'; return; }
 	if (mx && PANELS.some(p => p.w < 1 || p.h < 1)) { $('suMsg').textContent = 'Every panel needs a width and a height.'; return; }
 	const len = mx ? PANELS.reduce((a, p) => a + p.w * p.h, 0) : +$('suLen').value;
-	const led = { total: len, maxpwr: +$('suMa').value, ins: [{ pin: [+$('suPin').value], len, start: 0, type: +$('suType').value, order: +$('suOrder').value, ledma: 55 }] };
+	const two = $('suTwo').checked;
+	if (two && +$('suPin2').value === +$('suPin').value) { $('suMsg').textContent = 'The two outputs need different data pins.'; return; }
+	if (two && mx && PANELS.length < 2) { $('suMsg').textContent = 'With a matrix, output 2 needs at least 2 panels.'; return; }
+	// output 1 / output 2 LED counts: strip = the two numbers; matrix = panels before / from the chosen panel
+	const k2 = mx ? Math.max(1, +$('suFrom').value | 0) : 0;
+	const len1 = mx ? (two ? PANELS.slice(0, k2).reduce((a, p) => a + p.w * p.h, 0) : len) : len;
+	const len2 = two ? (mx ? len - len1 : Math.max(1, +$('suLen2').value | 0)) : 0;
+	const out = (pin, n, start) => ({ pin: [pin], len: n, start, type: +$('suType').value, order: +$('suOrder').value, ledma: 55 });
+	const led = { total: len1 + len2, maxpwr: +$('suMa').value, ins: [out(+$('suPin').value, len1, 0)].concat(two ? [out(+$('suPin2').value, len2, len1)] : []) };
 	if (mx) {
 		// panels in wiring order, x / y = where each panel sits in the whole matrix (in LEDs)
 		const panels = PANELS.map(p => ({ b: st >= 2, r: st % 2 === 1, v: false, s: $('suSerp').checked, x: p.x, y: p.y, w: p.w, h: p.h }));
