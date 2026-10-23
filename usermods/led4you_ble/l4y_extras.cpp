@@ -13,7 +13,7 @@
 #include "wled.h"
 #include <WiFiUdp.h>
 
-#define L4Y_FW_VERSION 58      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
+#define L4Y_FW_VERSION 59      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
 #define L4Y_HOUSE_PORT 21329   // UDP port for house scenes ("L4YS" packets)
 extern const int l4yFwVersion = L4Y_FW_VERSION;   // shown by Improv (installer, Wi-Fi setup) as "v.."
 
@@ -129,6 +129,7 @@ bool l4yDmxInOn = true;      // read by wled.cpp: DMX input starts at boot only 
 #ifdef WLED_ENABLE_DMX
 extern bool l4yDmxOutOn;     // dmx_output.cpp: DMX output on/off and its data pin (applied at boot)
 extern int8_t l4yDmxOutPin;
+extern uint16_t l4yDmxOutFixtures;
 #endif
 
 // ---------------- status for the Bluetooth usermod ----------------
@@ -508,6 +509,7 @@ class Led4youExtras : public Usermod {
       #ifdef WLED_ENABLE_DMX
       top[F("DMX output")] = l4yDmxOutOn;
       top[F("DMX output GPIO")] = l4yDmxOutPin;
+      top[F("DMX fixtures")] = l4yDmxOutFixtures;
       #endif
       #ifdef WLED_ENABLE_DMX_INPUT
       top[F("DMX input")] = l4yDmxInOn;
@@ -537,6 +539,7 @@ class Led4youExtras : public Usermod {
       #ifdef WLED_ENABLE_DMX
       l4yDmxOutOn = top[F("DMX output")] | l4yDmxOutOn;
       l4yDmxOutPin = top[F("DMX output GPIO")] | l4yDmxOutPin;
+      l4yDmxOutFixtures = top[F("DMX fixtures")] | l4yDmxOutFixtures;
       #endif
       #ifdef WLED_ENABLE_DMX_INPUT
       l4yDmxInOn = top[F("DMX input")] | l4yDmxInOn;

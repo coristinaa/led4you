@@ -6,8 +6,8 @@
 <title>LED4YOU</title>
 <meta name="theme-color" content="#0d0f14">
 <link rel="manifest" href="manifest.webmanifest">
-<script src="i18n.js?v=46"></script>
-<script src="studio.js?v=46"></script>
+<script src="i18n.js?v=47"></script>
+<script src="studio.js?v=47"></script>
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -183,6 +183,8 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 .pnrow .pnh { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; }
 .pngrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: 12px; color: var(--muted); }
 .pngrid input { width: 100%; min-width: 0; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise, #1a1a22); color: inherit; font: inherit; font-size: 14px; }
+.dxmap { grid-template-columns: repeat(3, 1fr); margin-top: 8px; }
+.dxmap select { width: 100%; padding: 6px; }
 .pncv { width: 100%; height: auto; display: block; margin-top: 10px; border-radius: 12px; background: #0b0b10; }
 #toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 140%); transition: transform .3s; background: var(--raise); border: 1px solid var(--line); padding: 10px 16px; border-radius: 12px; font-size: 14px; max-width: calc(100% - 32px); z-index: 9; }
 #toast.show { transform: translate(-50%, 0); visibility: visible; }
@@ -374,6 +376,37 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 				</form>
 			</section>
 			<div id="suZones"></div>
+			<section class="card" id="dxCard">
+				<div class="ct">DMX output</div>
+				<div class="note">Sends the colours to DMX lights (spotlights, LED bars, PAR cans…) through an RS-485 module (for example a MAX485, or the DMX terminal of the LED4YOU base board). Each DMX light follows one LED: light 1 the colour of the first LED you choose, light 2 the next one, and so on.</div>
+				<form id="dxForm" class="setup" autocomplete="off">
+					<label class="chk"><input id="dxOn" type="checkbox"> Send DMX</label>
+					<div id="dxBox">
+						<label for="dxPin">DMX data pin (GPIO, to DI of the RS-485 module)</label><input id="dxPin" class="search" type="number" min="0" max="48" value="10">
+						<label for="dxType">Channels of each DMX light</label>
+						<select id="dxType">
+							<option value="1,2,3">3 channels: red, green, blue</option>
+							<option value="1,2,3,4">4 channels: red, green, blue, white</option>
+							<option value="5,1,2,3">4 channels: dimmer, red, green, blue</option>
+							<option value="1,2,3,5">4 channels: red, green, blue, dimmer</option>
+							<option value="5,1,2,3,4">5 channels: dimmer, red, green, blue, white</option>
+							<option value="5,1,2,3,0,0,0">7 channels: dimmer, red, green, blue, 3 channels at 0 (strobe, mode, speed)</option>
+							<option value="custom">Other (choose each channel)</option>
+						</select>
+						<div id="dxCustom" hidden>
+							<label for="dxChan">Number of channels</label><input id="dxChan" class="search" type="number" min="1" max="15" value="4">
+							<div id="dxMap" class="pngrid dxmap"></div>
+						</div>
+						<div class="two"><div><label for="dxStart">Address of light 1</label><input id="dxStart" class="search" type="number" min="1" max="512" value="1"></div>
+						<div><label for="dxGap">Address step</label><input id="dxGap" class="search" type="number" min="1" max="512" value="3"></div></div>
+						<div class="two"><div><label for="dxLed">Light 1 follows LED</label><input id="dxLed" class="search" type="number" min="1" max="1500" value="1"></div>
+						<div><label for="dxN">How many lights</label><input id="dxN" class="search" type="number" min="1" max="170" value="1"></div></div>
+						<div class="note" id="dxNote"></div>
+					</div>
+					<div class="row"><button class="btn primary" id="dxSave" type="submit">Save and restart</button></div>
+					<div class="note" id="dxMsg"></div>
+				</form>
+			</section>
 			<div id="suExtra"></div>
 		</div>
 		<div id="controls" class="pane">
@@ -447,7 +480,7 @@ select { width: 100%; padding: 11px 14px; border-radius: var(--rad-s); border: 1
 	</div>
 	</section>
 </main>
-<div class="appver" id="appVer"><span data-notr>LED4YOU app v46</span></div>
+<div class="appver" id="appVer"><span data-notr>LED4YOU app v47</span></div>
 <div id="toast" role="alert"></div>
 <script>
 const FX=[[0,"Solid",0],[1,"Blink",0],[2,"Breathe",0],[3,"Wipe",0],[4,"Wipe Random",0],[5,"Random Colors",0],[6,"Sweep",0],[7,"Dynamic",0],[8,"Colorloop",0],[9,"Rainbow",0],[10,"Scan",0],[11,"Scan Dual",0],[12,"Fade",0],[13,"Theater",0],[14,"Theater Rainbow",0],[15,"Running",0],[16,"Saw",0],[17,"Twinkle",0],[18,"Dissolve",0],[19,"Dissolve Rnd",0],[20,"Sparkle",0],[21,"Sparkle Dark",0],[22,"Sparkle+",0],[23,"Strobe",0],[24,"Strobe Rainbow",0],[25,"Strobe Mega",0],[26,"Blink Rainbow",0],[27,"Android",0],[28,"Chase",0],[29,"Chase Random",0],[30,"Chase Rainbow",0],[31,"Chase Flash",0],[32,"Chase Flash Rnd",0],[33,"Rainbow Runner",0],[34,"Colorful",0],[35,"Traffic Light",0],[36,"Sweep Random",0],[37,"Chase 2",0],[38,"Aurora",0],[39,"Stream",0],[40,"Scanner",0],[41,"Lighthouse",0],[42,"Fireworks",0],[43,"Rain",0],[44,"Tetrix",0],[45,"Fire Flicker",0],[46,"Gradient",0],[47,"Loading",0],[48,"Rolling Balls",0],[49,"Fairy",0],[50,"Two Dots",0],[51,"Fairytwinkle",0],[52,"Running Dual",0],[53,"Image",0],[54,"Chase 3",0],[55,"Tri Wipe",0],[56,"Tri Fade",0],[57,"Lightning",0],[58,"ICU",0],[59,"Multi Comet",0],[60,"Scanner Dual",0],[61,"Stream 2",0],[62,"Oscillate",0],[63,"Pride 2015",0],[64,"Juggle",0],[65,"Palette",0],[66,"Fire 2012",0],[67,"Colorwaves",0],[68,"Bpm",0],[69,"Fill Noise",0],[70,"Noise 1",0],[71,"Noise 2",0],[72,"Noise 3",0],[73,"Noise 4",0],[74,"Colortwinkles",0],[75,"Lake",0],[76,"Meteor",0],[77,"Copy Segment",0],[78,"Railway",0],[79,"Ripple",0],[80,"Twinklefox",0],[81,"Twinklecat",0],[82,"Halloween Eyes",0],[83,"Solid Pattern",0],[84,"Solid Pattern Tri",0],[85,"Spots",0],[86,"Spots Fade",0],[87,"Glitter",0],[88,"Candle",0],[89,"Fireworks Starburst",0],[90,"Fireworks 1D",0],[91,"Bouncing Balls",0],[92,"Sinelon",0],[93,"Sinelon Dual",0],[94,"Sinelon Rainbow",0],[95,"Popcorn",0],[96,"Drip",0],[97,"Plasma",0],[98,"Percent",0],[99,"Ripple Rainbow",0],[100,"Heartbeat",0],[101,"Pacifica",0],[102,"Candle Multi",0],[103,"Solid Glitter",0],[104,"Sunrise",0],[105,"Phased",0],[106,"Twinkleup",0],[107,"Noise Pal",0],[108,"Sine",0],[109,"Phased Noise",0],[110,"Flow",0],[111,"Chunchun",0],[112,"Dancing Shadows",0],[113,"Washing Machine",0],[114,"Rotozoomer",1],[115,"Blends",0],[116,"TV Simulator",0],[117,"Dynamic Smooth",0],[118,"Spaceships",1],[119,"Crazy Bees",1],[120,"Ghost Rider",1],[121,"Blobs",1],[122,"Scrolling Text",1],[123,"Drift Rose",1],[124,"Distortion Waves",1],[125,"Soap",1],[126,"Octopus",1],[127,"Waving Cell",1],[128,"Pixels",0],[129,"Pixelwave",0],[130,"Juggles",0],[131,"Matripix",0],[132,"Gravimeter",0],[133,"Plasmoid",0],[134,"Puddles",0],[135,"Midnoise",0],[136,"Noisemeter",0],[137,"Freqwave",0],[138,"Freqmatrix",0],[139,"GEQ",1],[140,"Waterfall",0],[141,"Freqpixels",0],[143,"Noisefire",0],[144,"Puddlepeak",0],[145,"Noisemove",0],[146,"Noise2D",1],[147,"Perlin Move",0],[148,"Ripple Peak",0],[149,"Firenoise",1],[150,"Squared Swirl",1],[151,"PacMan",0],[152,"DNA",1],[153,"Matrix",1],[154,"Metaballs",1],[155,"Freqmap",0],[156,"Gravcenter",0],[157,"Gravcentric",0],[158,"Gravfreq",0],[159,"DJ Light",0],[160,"Funky Plank",1],[161,"Shimmer",0],[162,"Pulser",1],[163,"Blurz",0],[164,"Drift",1],[165,"Waverly",1],[166,"Sun Radiation",1],[167,"Colored Bursts",1],[168,"Julia",1],[172,"Game Of Life",1],[173,"Tartan",1],[174,"Polar Lights",1],[175,"Swirl",1],[176,"Lissajous",1],[177,"Frizzles",1],[178,"Plasma Ball",1],[179,"Flow Stripe",0],[180,"Hiphotic",1],[181,"Sindots",1],[182,"DNA Spiral",1],[183,"Black Hole",1],[184,"Wavesins",0],[185,"Rocktaves",0],[186,"Akemi",1],[187,"PS Volcano",1],[188,"PS Fire",1],[189,"PS Fireworks",1],[190,"PS Vortex",1],[191,"PS Fuzzy Noise",1],[192,"PS Ballpit",1],[193,"PS Box",1],[194,"PS Attractor",1],[195,"PS Impact",1],[196,"PS Waterfall",1],[197,"PS Spray",1],[198,"PS GEQ 2D",1],[199,"PS GEQ Nova",1],[200,"PS Ghost Rider",1],[201,"PS Blobs",1],[202,"PS DripDrop",0],[203,"PS Pinball",0],[204,"PS Dancing Shadows",0],[205,"PS Fireworks 1D",0],[206,"PS Sparkler",0],[207,"PS Hourglass",0],[208,"PS Spray 1D",0],[209,"PS 1D Balance",0],[210,"PS Chase",0],[211,"PS Starburst",0],[212,"PS GEQ 1D",0],[213,"PS Fire 1D",0],[214,"PS Sonic Stream",0],[215,"PS Sonic Boom",0],[216,"PS Springy",0],[217,"PS Galaxy",1],[218,"Color Clouds",0],[219,"Slow Transition",0]];
@@ -885,7 +918,7 @@ document.querySelectorAll('#bleTabs button').forEach(b => b.onclick = () => {
 	if (b.dataset.pane === 'paneMore' || b.dataset.pane === 'paneSetup') mountExtras();
 	if (b.dataset.pane === 'paneImg' && !$('gifPack').firstChild) $('gifPack').append(L4YStudio.gifPackCard(bleStudio, toast, 'gifs/'));
 	if (b.dataset.pane === 'paneImg') { $('paSize').textContent = paW() + '×' + paH(); $('fsFree').textContent = state.fsf != null ? state.fsf + ' KB free' : ''; }
-	if (b.dataset.pane === 'paneSetup') { fillSetup(); $('suZones').replaceChildren(L4YStudio.zonesCard(bleStudio, toast)); }
+	if (b.dataset.pane === 'paneSetup') { fillDmx(); fillSetup(); $('suZones').replaceChildren(L4YStudio.zonesCard(bleStudio, toast)); }
 });
 
 // ---- pixel art: image -> one colour per LED -> {"seg":{"i":[start,"RRGGBB",...]}} ----
@@ -997,7 +1030,7 @@ async function readListPages(tries) {
 async function readList() {
 	if (!listChar) return lastList;
 	let v; try { v = JSON.parse(await readListText()); } catch (e) { return lastList; }
-	lastList = Array.isArray(v) ? { g: v, p: [], x: {} } : { g: v.g || [], p: v.p || [], x: v.x || {}, f: v.f | 0, m: v.m | 0, d: v.d || null, z: v.z || [], pn: v.pn || [] };
+	lastList = Array.isArray(v) ? { g: v, p: [], x: {} } : { g: v.g || [], p: v.p || [], x: v.x || {}, f: v.f | 0, m: v.m | 0, d: v.d || null, z: v.z || [], pn: v.pn || [], dx: v.dx || null };
 	renderDiag(lastList.d);
 	renderGifs(lastList.g);
 	// LED4YOU's own effects get their numbers at start-up: add them to the effect list
@@ -1152,6 +1185,72 @@ $('suPnFill').onclick = () => {
 	for (let r = 0; r < pd; r++) for (let k = 0; k < pa; k++) { const c = zz && r % 2 === 1 ? pa - 1 - k : k; PANELS.push({ x: c * w, y: r * hh, w, h: hh }); }
 	drawPanels();
 };
+// ---- DMX output (Setup) ----
+const DX_CH = ['Off (0)', 'Red', 'Green', 'Blue', 'White', 'Dimmer', 'Full (255)'];
+let dxMap = [1, 2, 3];
+function dxDrawMap() {
+	const n = Math.max(1, Math.min(15, +$('dxChan').value | 0));
+	while (dxMap.length < n) dxMap.push(0);
+	dxMap.length = n;
+	$('dxMap').replaceChildren(...dxMap.map((v, i) => {
+		const c = document.createElement('label'); c.textContent = 'Ch ' + (i + 1);
+		const sel = document.createElement('select');
+		DX_CH.forEach((t, k) => { const o = document.createElement('option'); o.value = String(k); o.textContent = t; sel.append(o); });
+		sel.value = String(v); sel.onchange = () => { dxMap[i] = +sel.value; };
+		c.append(sel); return c;
+	}));
+}
+function dxUpd() {
+	$('dxBox').hidden = !$('dxOn').checked;
+	const custom = $('dxType').value === 'custom';
+	$('dxCustom').hidden = !custom;
+	const ch = custom ? Math.max(1, +$('dxChan').value | 0) : $('dxType').value.split(',').length;
+	const start = Math.max(1, +$('dxStart').value | 0), gap = Math.max(1, +$('dxGap').value | 0), n = Math.max(1, +$('dxN').value | 0);
+	const last = start + gap * (n - 1) + ch - 1, fit = Math.max(1, Math.floor((512 - start - ch + 1) / gap) + 1);
+	$('dxNote').textContent = 'Light ' + n + ' uses channels ' + (start + gap * (n - 1)) + ' to ' + last + '. ' + (last > 512 ? 'That is past channel 512: only ' + fit + ' lights fit.' : 'Set each DMX light to its address (light 1 = ' + start + ', light 2 = ' + (start + gap) + '…).');
+}
+let dxLastPreset = '1,2,3';
+['dxOn', 'dxType', 'dxStart', 'dxGap', 'dxN', 'dxChan'].forEach(id => $(id).addEventListener('input', () => {
+	if (id === 'dxType') {
+		if ($('dxType').value === 'custom') { dxMap = dxLastPreset.split(',').map(Number); $('dxChan').value = dxMap.length; dxDrawMap(); }
+		else { dxLastPreset = $('dxType').value; $('dxGap').value = dxLastPreset.split(',').length; }
+	}
+	if (id === 'dxChan') { dxDrawMap(); if (+$('dxGap').value < dxMap.length) $('dxGap').value = dxMap.length; }
+	dxUpd();
+}));
+function fillDmx() {
+	const d = lastList.dx;
+	$('dxCard').hidden = !d;   // firmware before v59 or without DMX
+	if (!d) { dxUpd(); return; }
+	$('dxOn').checked = !!d[0];
+	if (d[1] >= 0) $('dxPin').value = d[1];
+	const ch = Math.max(1, Math.min(15, d[2] || 3)), map = (d[7] || []).slice(0, ch).join(',');
+	const opt = [...$('dxType').options].find(o => o.value === map);
+	$('dxType').value = opt ? map : 'custom'; if (opt) dxLastPreset = map;
+	dxMap = (d[7] || [1, 2, 3]).slice(0, ch); $('dxChan').value = ch; dxDrawMap();
+	$('dxGap').value = d[3] || ch; $('dxStart').value = d[4] || 1; $('dxLed').value = (d[5] | 0) + 1;
+	$('dxN').value = d[6] || 1;
+	dxUpd();
+}
+$('dxForm').addEventListener('submit', async e => {
+	e.preventDefault();
+	const btn = $('dxSave');
+	const on = $('dxOn').checked, pin = +$('dxPin').value;
+	const hw = state.hw || {};
+	if (on && (pin === hw.pin || pin === hw.p2)) { $('dxMsg').textContent = 'This pin is used by the LEDs: choose another one.'; return; }
+	if (btn.dataset.c !== '1') { btn.dataset.c = '1'; btn.textContent = 'Tap again to save and restart'; setTimeout(() => { btn.dataset.c = ''; btn.textContent = 'Save and restart'; }, 4000); return; }
+	const map = $('dxType').value === 'custom' ? dxMap.slice() : $('dxType').value.split(',').map(Number);
+	const fix = map.concat(Array(15).fill(0)).slice(0, 15);
+	const cfg = { l4ydmx: { on, pin, n: Math.max(1, +$('dxN').value | 0) } };
+	if (on) cfg.dmx = { chan: map.length, gap: Math.max(1, +$('dxGap').value | 0), start: Math.max(1, +$('dxStart').value | 0), 'start-led': Math.max(0, (+$('dxLed').value | 0) - 1), fixmap: fix };
+	try {
+		await sendNow({ l4ycfg: cfg });
+		$('dxMsg').textContent = 'Saved. The lights are restarting. Tap Reconnect in a few seconds.';
+	} catch (err) { $('dxMsg').textContent = 'Could not send the settings. Move closer and try again.'; }
+	btn.dataset.c = ''; btn.textContent = 'Save and restart';
+});
+dxDrawMap(); dxUpd();
+
 // "More" cards; schedule and power go to Setup
 function mountExtras() {
 	if (moreMounted) return;

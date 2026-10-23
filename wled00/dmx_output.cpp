@@ -15,6 +15,7 @@
 // LED4YOU: DMX output is switched on and its pin chosen in Config > Usermods > LED4YOU Extras (applied at boot)
 bool l4yDmxOutOn = false;
 int8_t l4yDmxOutPin = -1;
+uint16_t l4yDmxOutFixtures = 0;   // how many fixtures follow the LEDs (0 = as many as fit in the 512 channels)
 static bool l4yDmxOutStarted = false;
 
 void handleDMXOutput()
@@ -38,6 +39,8 @@ void handleDMXOutput()
    }
 
   uint16_t len = strip.getLengthTotal();
+  // LED4YOU: stop at the chosen number of fixtures and never write past channel 512 (the ESP32 DMX buffer has no bounds check)
+  if (l4yDmxOutFixtures && DMXStartLED + l4yDmxOutFixtures < len) len = DMXStartLED + l4yDmxOutFixtures;
   for (int i = DMXStartLED; i < len; i++) {        // uses the amount of LEDs as fixture count
 
     uint32_t in = strip.getPixelColor(i);     // get the colors for the individual fixtures as suggested by Aircoookie in issue #462
@@ -47,8 +50,10 @@ void handleDMXOutput()
     byte b = B(in);
 
     int DMXFixtureStart = DMXStart + (DMXGap * (i - DMXStartLED));
-    for (int j = 0; j < DMXChannels; j++) {
+    if (DMXFixtureStart > 512) break;
+    for (int j = 0; j < DMXChannels && j < 15; j++) {
       int DMXAddr = DMXFixtureStart + j;
+      if (DMXAddr > 512) break;
       switch (DMXFixtureMap[j]) {
         case 0:        // Set this channel to 0. Good way to tell strobe- and fade-functions to fuck right off.
           dmx.write(DMXAddr, 0);

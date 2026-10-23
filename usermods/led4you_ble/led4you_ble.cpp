@@ -320,10 +320,13 @@ class Led4youBle : public Usermod {
       releaseJSONBufferLock();
     }
 
-    // merge {"hw":{"led":{...}}} (and "l4ymx": false = no matrix) into /cfg.json; true when written
+    // merge {"hw":{"led":{...}}} (and "l4ymx": false = no matrix), {"dmx":{...}} (WLED DMX output settings) and
+    // {"l4ydmx":{"on":..,"pin":..}} (LED4YOU DMX output switch and pin) into /cfg.json; true when written
     bool saveLedCfg(JsonObject cmd) {
       JsonObject nled = cmd[F("hw")][F("led")];
-      if (nled.isNull()) return false;
+      JsonObject ndmx = cmd[F("dmx")];
+      JsonObject nl4d = cmd[F("l4ydmx")];
+      if (nled.isNull() && ndmx.isNull() && nl4d.isNull()) return false;
       const bool noMatrix = cmd[F("l4ymx")].is<bool>() && !cmd[F("l4ymx")].as<bool>();
       DynamicJsonDocument d(12288);
       {
@@ -333,10 +336,26 @@ class Led4youBle : public Usermod {
         f.close();
         if (e) return false;
       }
-      JsonObject led = d[F("hw")][F("led")];
-      if (led.isNull()) led = d.createNestedObject(F("hw")).createNestedObject(F("led"));
-      for (JsonPair kv : nled) led[String(kv.key().c_str())] = kv.value();   // String key: copied into this document   // ins, total, maxpwr, matrix... replace the old ones
-      if (noMatrix) led.remove(F("matrix"));
+      if (!nled.isNull()) {
+        JsonObject led = d[F("hw")][F("led")];
+        if (led.isNull()) led = d.createNestedObject(F("hw")).createNestedObject(F("led"));
+        for (JsonPair kv : nled) led[String(kv.key().c_str())] = kv.value();   // String key: copied into this document   // ins, total, maxpwr, matrix... replace the old ones
+        if (noMatrix) led.remove(F("matrix"));
+      }
+      if (!ndmx.isNull()) {   // chan, gap, start, start-led, fixmap
+        JsonObject dm = d[F("dmx")];
+        if (dm.isNull()) dm = d.createNestedObject(F("dmx"));
+        for (JsonPair kv : ndmx) dm[String(kv.key().c_str())] = kv.value();
+      }
+      if (!nl4d.isNull()) {
+        JsonObject um = d[F("um")];
+        if (um.isNull()) um = d.createNestedObject(F("um"));
+        JsonObject ex = um[F("LED4YOU Extras")];
+        if (ex.isNull()) ex = um.createNestedObject(F("LED4YOU Extras"));
+        if (nl4d[F("on")].is<bool>()) ex[F("DMX output")] = nl4d[F("on")].as<bool>();
+        if (nl4d[F("pin")].is<int>()) ex[F("DMX output GPIO")] = nl4d[F("pin")].as<int>();
+        if (nl4d[F("n")].is<int>()) ex[F("DMX fixtures")] = nl4d[F("n")].as<int>();
+      }
       if (d.overflowed()) return false;
       backupConfig();
       File f = WLED_FS.open(F("/cfg.json"), "w");
@@ -549,7 +568,21 @@ class Led4youBle : public Usermod {
       }
 #endif
       pj += ']';
-      out = F("{\"d\":"); out += dg; out += F(",\"z\":"); out += zj; out += F(",\"pn\":"); out += pj; out += F(",\"m\":"); out += mapFile ? 1 : 0; out += F(",\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
+      // DMX output settings: [on, pin, channels per fixture, gap, start address, first LED, fixtures, [channel map]]
+      String dx;
+#ifdef WLED_ENABLE_DMX
+      {
+        extern bool l4yDmxOutOn; extern int8_t l4yDmxOutPin; extern uint16_t l4yDmxOutFixtures;
+        char db[56];
+        snprintf_P(db, sizeof(db), PSTR("[%u,%d,%u,%u,%u,%u,%u,["), l4yDmxOutOn ? 1 : 0, (int)l4yDmxOutPin, DMXChannels, DMXGap, DMXStart, DMXStartLED, l4yDmxOutFixtures);
+        dx = db;
+        for (unsigned i = 0; i < 15; i++) { if (i) dx += ','; dx += DMXFixtureMap[i]; }
+        dx += F("]]");
+      }
+#else
+      dx = F("null");
+#endif
+      out = F("{\"d\":"); out += dg; out += F(",\"z\":"); out += zj; out += F(",\"pn\":"); out += pj; out += F(",\"dx\":"); out += dx; out += F(",\"m\":"); out += mapFile ? 1 : 0; out += F(",\"f\":"); out += fontCount; out += F(",\"g\":"); out += gifJson; out += F(",\"p\":"); out += presetJson; out += F(",\"x\":"); out += x; out += '}';
       if (out == lastList) return;
       lastList = out;
       // a Bluetooth value holds at most 512 bytes: the list is cut into pages "~" + page + count + up to 480 bytes,
