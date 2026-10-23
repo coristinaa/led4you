@@ -76,7 +76,10 @@ static void mode_myleds(void) {
   if (SEGENV.call == 0 || SEGENV.aux0 != myLedsVersion) {
     SEGENV.aux0 = myLedsVersion;
     SEGENV.aux1 = 0;
-    File f = WLED_FS.open(MYLEDS_FILE, "r");
+    // a zone can have its own design: /mylz<zone>.bin, else the shared /myleds.bin
+    char fn[16];
+    snprintf_P(fn, sizeof(fn), PSTR("/mylz%u.bin"), (unsigned)strip.getCurrSegmentId());
+    File f = WLED_FS.exists(fn) ? WLED_FS.open(fn, "r") : WLED_FS.open(MYLEDS_FILE, "r");
     if (f) {
       uint8_t hdr[6];
       if (f.read(hdr, 6) == 6 && hdr[0] == 'L' && hdr[1] == '4' && hdr[2] == 'Y' && hdr[3] == 1) {
@@ -383,6 +386,8 @@ class Led4youBle : public Usermod {
       // only images, the My LEDs table, the LED map and the LED4YOU text fonts (l4yf0..4.wbf) may be written over Bluetooth (never config files)
       if (strcmp_P(n, PSTR("ledmap.json")) == 0) return true;   // LED positions from the camera scan (used after a restart)
       if (l == 9 && strncmp_P(n, PSTR("l4yf"), 4) == 0 && n[4] >= '0' && n[4] <= '4' && strcmp_P(n + 5, PSTR(".wbf")) == 0) return true;
+      // My LEDs design of one zone: mylz0.bin .. mylz15.bin
+      if (strncmp_P(n, PSTR("mylz"), 4) == 0 && strcmp_P(n + l - 4, PSTR(".bin")) == 0 && l >= 9 && l <= 10 && isdigit((unsigned char)n[4]) && (l == 9 || isdigit((unsigned char)n[5]))) return atoi(n + 4) < 16;
       return strcmp_P(n, PSTR("myleds.bin")) == 0 || strcasecmp(n + l - 4, ".gif") == 0;
     }
 

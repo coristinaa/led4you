@@ -134,6 +134,7 @@
 		['ESP32-C3: one panel at a time can show a GIF (not enough memory for more). Text, effects and seasons work on every panel.', 'ESP32-C3: só um painel de cada vez pode mostrar um GIF (não há memória para mais). Texto, efeitos e épocas funcionam em todos os painéis.', 'ESP32-C3: solo un panel a la vez puede mostrar un GIF (no hay memoria para más). Texto, efectos y temporadas funcionan en todos los paneles.', 'ESP32-C3 : un seul panneau à la fois peut afficher un GIF (pas assez de mémoire). Texte, effets et saisons marchent sur tous les panneaux.'],
 
 		['Zones', 'Zonas', 'Zonas', 'Zones'],
+		['Choose a zone to give it its own design, or all the lights.', 'Escolhe uma zona para lhe dares um desenho só dela, ou todas as luzes.', 'Elige una zona para darle su propio diseño, o todas las luces.', 'Choisissez une zone pour lui donner son propre dessin, ou toutes les lumières.'],
 		['All panels (each its own)', 'Todos os painéis (cada um o seu)', 'Todos los paneles (cada uno el suyo)', 'Tous les panneaux (chacun le sien)'],
 		['All zones (each its own)', 'Todas as zonas (cada uma a sua)', 'Todas las zonas (cada una la suya)', 'Toutes les zones (chacune la sienne)'],
 		['All as one picture', 'Tudo como uma imagem', 'Todo como una imagen', 'Tout comme une image'],

@@ -205,12 +205,39 @@
 	}
 
 	// ---------- My LEDs ----------
+	// The editor works on the whole lights, or on the zone chosen under "Send to" (that zone gets its own design,
+	// stored on the lights as mylz<zone>.bin; the whole lights use myleds.bin).
 	function myLedsCards(t, toast) {
+		const wrap = h('div', {}), inner = h('div', {});
+		let shown;
+		const build = () => {
+			const z = TARGET !== null ? (t.info().zg || []).find(q => q[0] === TARGET) : null;
+			const key = z ? z.join(',') : 'all';
+			if (key === shown) return;
+			shown = key;
+			inner.replaceChildren(...myLedsEditor(t, toast, z));
+		};
+		const tb = targetBar(t);
+		wrap.append(h('section', { class: 'card' }, h('div', { class: 'note' }, 'Choose a zone to give it its own design, or all the lights.'), tb), inner);
+		targetListeners.add(() => { if (!wrap.isConnected && shown) return; build(); });
+		build();
+		// no zones: nothing to choose
+		const hideIfOne = () => { wrap.firstChild.hidden = tb.hidden; };
+		hideIfOne(); setTimeout(hideIfOne, 1600); targetListeners.add(hideIfOne);
+		return [wrap];
+	}
+	function myLedsEditor(t, toast, zone) {
 		const inf = t.info();
-		const isMatrix = !!(inf.mw && inf.mh);
-		const count = Math.max(1, Math.min(MAX_LEDS, isMatrix ? inf.mw * inf.mh : (inf.leds || 30)));
-		const cols = isMatrix ? inf.mw : Math.min(10, count);
-		const KEY = 'l4yMyLeds' + count;
+		// zone: [id, start, stop, startY, stopY, ...]; a matrix zone is a rectangle, a strip zone a range of LEDs
+		const area = inf.mw && inf.mh ? inf.mw * inf.mh : 0;
+		const zMx = zone && area && zone[1] < area;
+		const isMatrix = zone ? !!zMx : !!(inf.mw && inf.mh);
+		const zw = zone ? (zMx ? zone[2] - zone[1] : zone[2] - zone[1]) : 0, zh = zone && zMx ? Math.max(1, zone[4] - zone[3]) : 1;
+		const count = Math.max(1, Math.min(MAX_LEDS, zone ? zw * zh : isMatrix ? inf.mw * inf.mh : (inf.leds || 30)));
+		const cols = isMatrix ? (zone ? zw : inf.mw) : Math.min(10, count);
+		const KEY = zone ? 'l4yMyLedsZ' + zone[0] + ':' + count : 'l4yMyLeds' + count;
+		const FILE = zone ? 'mylz' + zone[0] + '.bin' : 'myleds.bin';
+		const zoneName = zone ? zoneLabel(t, zone[0], (inf.zg || []).indexOf(zone)) : '';
 		// one entry per LED: [r, g, b, mode, speed, phase]
 		let leds = Array.from({ length: count }, () => [0, 0, 0, 0, 128, 0]);
 		try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (Array.isArray(s) && s.length === count) leds = s; } catch (e) {}
@@ -268,7 +295,7 @@
 			if (!liveReady) { liveReady = true; leds.forEach((l, i) => pairs.push(i, hex(l))); pending.clear(); }   // first stroke: show the whole design
 			else { pending.forEach((v, i) => pairs.push(i, v)); pending.clear(); }
 			// small messages: they also travel over Bluetooth
-			for (let k = 0; k < pairs.length; k += 120) t.send({ on: true, seg: { i: pairs.slice(k, k + 120) } }).catch(() => {});
+			for (let k = 0; k < pairs.length; k += 120) t.send({ on: true, seg: Object.assign(zone ? { id: zone[0] } : {}, { i: pairs.slice(k, k + 120) }) }).catch(() => {});
 		};
 		const paintOne = i => {
 			if (i < 0 || i >= count) return;
@@ -373,7 +400,9 @@
 			if (sending) return;
 			sending = true; sendBtn.disabled = true; prog.textContent = 'Sending…';
 			try {
-				const ok = await t.upload('myleds.bin', toBin(), 2, p => { prog.textContent = 'Sending… ' + Math.round(p * 100) + '%'; });
+				let ok = await t.upload(FILE, toBin(), zone ? 0 : 2, p => { prog.textContent = 'Sending… ' + Math.round(p * 100) + '%'; });
+				// a zone: start My LEDs on that zone only (and reload the designs)
+				if (ok && zone) await t.send({ on: true, l4y: { rl: 1 }, seg: { id: zone[0], fx: inf.mfx, frz: false } }).catch(() => { ok = false; });
 				prog.textContent = ok ? (quiet ? 'Saved on the lights. Keep drawing or pick another behaviour.' : 'Done. Your design is playing and stays saved on the lights.') : 'The lights did not accept the design. Try again.';
 				liveReady = false;
 			} catch (e) { prog.textContent = 'Could not send. Move closer and try again.'; }
@@ -383,7 +412,7 @@
 		const clearAll = () => { leds = leds.map(() => [0, 0, 0, 0, 128, 0]); save(); liveReady = false; toast('All LEDs set to off. Tap "Send to lights" to keep it.'); };
 
 		// start from the design stored on the lights when the page can read it (Wi-Fi)
-		if (t.loadTable) t.loadTable().then(b => {
+		if (t.loadTable) t.loadTable(FILE).then(b => {
 			if (!b || b.length < 6 || b[0] !== 76 || b[1] !== 52 || b[2] !== 89) return;
 			const n = Math.min(count, b[4] | (b[5] << 8));
 			for (let i = 0; i < n; i++) leds[i] = Array.from(b.slice(6 + i * 6, 12 + i * 6));
@@ -391,7 +420,7 @@
 
 		return [
 			h('section', { class: 'card' },
-				h('div', { class: 'ct' }, 'My LEDs ', h('span', {}, count + (isMatrix ? ' (' + inf.mw + '×' + inf.mh + ')' : ' LEDs'))),
+				h('div', { class: 'ct' }, 'My LEDs ', h('span', { 'data-notr': '' }, (zone ? zoneName + ': ' : '') + count + (isMatrix ? ' (' + cols + '×' + Math.ceil(count / cols) + ')' : ' LEDs'))),
 				h('div', { class: 'segs tools' }, toolBtns),
 				hint,
 				brushRow,

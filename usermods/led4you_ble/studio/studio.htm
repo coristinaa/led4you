@@ -122,7 +122,7 @@ const wifi = {
 		setTimeout(() => wifi.send({ rb: true }).catch(() => {}), 1500);   // restart after the settings are written
 	},
 	remove: name => fetch('/edit?func=delete&path=/' + encodeURIComponent(name)).then(r => { if (!r.ok) throw new Error(r.status); }),
-	loadTable: () => fetch('/myleds.bin', { cache: 'no-store' }).then(r => r.ok ? r.arrayBuffer() : null).then(b => b ? new Uint8Array(b) : null)
+	loadTable: name => fetch('/' + (name || 'myleds.bin'), { cache: 'no-store' }).then(r => r.ok ? r.arrayBuffer() : null).then(b => b ? new Uint8Array(b) : null)
 };
 document.getElementById('langBox').append(L4YI18n.picker());
 document.getElementById('updBox').append(L4YStudio.updateCard(toast));
