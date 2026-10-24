@@ -985,7 +985,7 @@
 			targetBar(t),
 			h('div', { class: 'note' }, 'Effects that move with music. Use this phone\'s microphone, or connect a microphone to the lights and set its pins below.'),
 			t.audio ? phoneMic(t, toast) : '',
-			h('div', { class: 'themes' }, SOUND_FX.map(([n, id]) => h('button', { type: 'button', class: 'theme sound', onclick: () => t.send({ on: true, seg: segOut(t, { fx: id }, true) }).then(ok(n + ' is on.')).catch(fail()) }, h('span', {}, n), PV.mini({ name: n, d2: /matrix/.test(n), w: 104, h: 12 })))),
+			h('div', { class: 'themes' }, SOUND_FX.map(([n, id]) => h('button', { type: 'button', class: 'theme sound', onclick: () => t.send({ on: true, seg: segOut(t, { fx: id, fxdef: true }, true) }).then(ok(n + ' is on.')).catch(fail()) }, h('span', {}, n), PV.mini({ name: n, d2: /matrix/.test(n), w: 104, h: 12 })))),
 			h('details', { class: 'more' }, h('summary', {}, 'Microphone setup'),
 				h('label', { class: 'chk' }, micOn, ' Microphone on'),
 				field('Type', micType),
