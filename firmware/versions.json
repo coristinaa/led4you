@@ -1,3 +1,3 @@
-[{ "version": 75, "manifest": "manifest-v75.json", "notes": "DMX: status line and a test button (all lights white) in the app; settings cannot be overwritten before the restart" },
- { "version": 74, "manifest": "manifest-v74.json", "notes": "Fix: DMX on/off and LED settings were not saved once the config had grown; app warns when DMX does not start" },
- { "version": 73, "manifest": "manifest-v73.json", "notes": "Choosing an effect loads its own settings (GEQ and other sound effects looked wrong after another effect)" }]
+[{ "version": 76, "manifest": "manifest-v76.json", "notes": "DMX strobe: a clear full flash on every beat, beats found also in loud music" },
+ { "version": 75, "manifest": "manifest-v75.json", "notes": "DMX: status line and a test button (all lights white) in the app; settings cannot be overwritten before the restart" },
+ { "version": 74, "manifest": "manifest-v74.json", "notes": "Fix: DMX on/off and LED settings were not saved once the config had grown; app warns when DMX does not start" }]
