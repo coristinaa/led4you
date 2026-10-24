@@ -85,16 +85,22 @@ static void l4yDmxMusicFrame(uint8_t brightness, bool hasShutter) {
   const float thr  = 1.7f - l4yDmxSens / 400.0f;          // a beat is bass this much above its average (1.7 .. 1.06)
   avgBass = avgBass * 0.93f + bass * 0.07f;
   const uint32_t now = millis();
-  const bool beat = now - lastBeat > 180 && ((bass > avgBass * thr && bass > 24) || (peak && !lastPeak));
-  lastPeak = peak;
-  if (beat) { lastBeat = now; beats++; flash = flashS = 255; hueF += 37; strobeHue += 85 + (beats & 3) * 13; }
-  flash *= 0.82f;                                         // colour on the beat: fades in about 0.2 s
-  flashS *= 0.55f;                                        // strobe: short flash
-  hueF += 0.4f;                                           // slow colour drift between beats
-  const uint8_t hue = (uint8_t)((int)hueF & 0xFF);
   const float sn = l4yDmxSens / 255.0f;
   const uint8_t lvVol = eVol.level(vol, sn);
   const uint8_t lvBass = eBass.level(bass, sn), lvMid = eMid.level(mid, sn), lvTre = eTre.level(tre, sn);
+  // a beat: bass well above its average, the bass level jumping up (works also when loud music keeps the bass band
+  // near the top all the time), or the sound's own peak flag
+  static uint8_t prevLvBass = 0;
+  const bool bassJump = lvBass >= 200 && prevLvBass < 120;
+  prevLvBass = lvBass;
+  const bool beat = now - lastBeat > 150 && ((bass > avgBass * thr && bass > 24) || bassJump || (peak && !lastPeak));
+  lastPeak = peak;
+  static uint32_t strobeUntil = 0;
+  if (beat) { lastBeat = now; beats++; flash = 255; hueF += 37; strobeHue += 85 + (beats & 3) * 13; strobeUntil = now + 70; }
+  flash *= 0.82f;                                         // colour on the beat: fades in about 0.2 s
+  flashS = (int32_t)(strobeUntil - now) > 0 ? 255 : 0;    // strobe: full on for 70 ms on each beat, then dark
+  hueF += 0.4f;                                           // slow colour drift between beats
+  const uint8_t hue = (uint8_t)((int)hueF & 0xFF);
   const int n = l4yDmxOutFixtures ? l4yDmxOutFixtures : 1;
   for (int k = 0; k < n; k++) {
     const int start = DMXStart + DMXGap * k;
