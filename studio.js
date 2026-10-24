@@ -1094,7 +1094,9 @@
 	const segOut = (t, obj, whole) => {
 		const z = zonesOf(t);
 		if (TARGET !== null && z.includes(TARGET)) return Object.assign({ id: TARGET }, obj);
-		if (z.length <= 1) return whole ? Object.assign(wholeSeg(t), obj) : obj;
+		// one zone: "whole" stretches it over all LEDs, but only when the lights really reported one zone (an empty or old
+		// zone list, e.g. just after a restart, must never stretch zone 0 over the other zones)
+		if (z.length <= 1) { const zg = t.info().zg || []; return whole && zg.length === 1 ? Object.assign(wholeSeg(t), { id: zg[0][0] }, obj) : obj; }
 		return z.map(id => Object.assign({ id }, obj));    // the same on every zone
 	};
 	// a GIF on more zones than the board can play at once: say so (the others keep what they show)
