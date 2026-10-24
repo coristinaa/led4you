@@ -1343,65 +1343,136 @@
 	// Same data a WLED board with a microphone sends to others ("audio sync" V2, 44 bytes), about 20 times a second:
 	// volume, a beat flag and 16 frequency bands. The lights use it for the sound effects while it keeps coming.
 	const MIC_BANDS = [43, 86, 129, 216, 301, 430, 560, 818, 1120, 1421, 1895, 2412, 3015, 3704, 4479, 7106, 9259];   // WLED's 16 GEQ bands (Hz)
-	let micRun = null;   // one microphone for the whole page
+	// Sound from this phone for the lights: its microphone, or a song from the phone played in the app. Either way the
+	// app turns the sound into WLED's audio packet (16 bands, volume, beat) and sends it about 20 times a second, so the
+	// LED sound effects and the DMX "music" mode move with it. One source for the whole page; every card that shows
+	// these controls stays in step.
+	const SND = { kind: null, ctx: null, an: null, timer: 0, stream: null, el: null, srcNode: null, name: '', t: null, sens: 50, ui: new Set() };
+	const sndUi = () => SND.ui.forEach(f => { try { f(); } catch (e) {} });
+	function sndStop(keepSong) {
+		clearInterval(SND.timer); SND.timer = 0;
+		if (SND.stream) { SND.stream.getTracks().forEach(k => k.stop()); SND.stream = null; }
+		if (SND.kind === 'mic' && SND.ctx) { try { SND.ctx.close(); } catch (e) {} SND.ctx = null; SND.an = null; }
+		if (SND.kind === 'song' && SND.el && !keepSong) SND.el.pause();
+		SND.kind = null; sndUi();
+	}
+	function sndAnalyse(t, an, ctx) {
+		const hz = ctx.sampleRate / an.fftSize, fr = new Float32Array(an.frequencyBinCount), td = new Float32Array(an.fftSize);
+		const pkt = new Uint8Array(45), dv = new DataView(pkt.buffer);
+		pkt[0] = 0xA5; [48, 48, 48, 48, 50].forEach((c, i) => { pkt[1 + i] = c; });   // marker + header "00002"
+		// one level for all bands keeps the shape of the music (more bass than treble); high bands get a lift like WLED does
+		const TILT = [1, 1, 1, 1.05, 1.1, 1.2, 1.3, 1.4, 1.6, 1.8, 2, 2.4, 2.8, 3.5, 5, 7], vals = new Array(16).fill(0);
+		let agc = .02, bandTop = 1e-6, smooth = 0, avg = 0, lastPeak = 0, busy = false;
+		SND.bands = new Array(16).fill(0);
+		return () => {
+			an.getFloatTimeDomainData(td); an.getFloatFrequencyData(fr);
+			let rms = 0; for (let i = 0; i < td.length; i++) rms += td[i] * td[i]; rms = Math.sqrt(rms / td.length);
+			const gain = Math.pow(2, (SND.sens - 50) / 15);   // sensitivity slider: x0.1 .. x10
+			agc = Math.max(rms, agc * .995, .002);             // follows the loudest recent sound
+			const raw = Math.min(255, 255 * rms / agc * .8 * gain);
+			smooth = smooth * .6 + raw * .4; avg = avg * .95 + raw * .05;
+			const now = performance.now(), peak = raw > 60 && raw > avg * 1.6 && now - lastPeak > 120;
+			if (peak) lastPeak = now;
+			let maxMag = 0, maxBin = 1;
+			for (let b = 0; b < 16; b++) {
+				const lo = Math.max(1, Math.floor(MIC_BANDS[b] / hz)), hi = Math.max(lo + 1, Math.ceil(MIC_BANDS[b + 1] / hz));
+				let sum = 0; for (let i = lo; i < hi && i < fr.length; i++) { const m = Math.pow(10, fr[i] / 20); sum += m; if (m > maxMag) { maxMag = m; maxBin = i; } }
+				vals[b] = sum / (hi - lo) * TILT[b];
+			}
+			bandTop = Math.max(Math.max(...vals), bandTop * .997, 1e-6);
+			for (let b = 0; b < 16; b++) {
+				const out = raw < 4 ? 0 : Math.max(0, Math.min(255, Math.round(255 * vals[b] / bandTop * gain)));
+				pkt[19 + b] = out; SND.bands[b] = out;
+			}
+			dv.setFloat32(9, raw, true); dv.setFloat32(13, smooth, true); pkt[17] = peak ? 1 : 0;
+			dv.setFloat32(37, maxMag * 4096 * gain, true); dv.setFloat32(41, raw < 4 ? 1 : maxBin * hz, true);
+			if (!busy) { busy = true; t.audio(pkt).catch(() => {}).finally(() => { busy = false; }); }   // skip a frame rather than queue up
+			SND.ui.forEach(f => f.bars && f.bars());
+		};
+	}
+	async function sndMic(t, toast) {
+		if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('This browser cannot use the microphone here.'); return; }
+		let stream;
+		// no echo cancelling or noise removal: those would hide the music
+		try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false }); }
+		catch (e) { toast('The microphone was not allowed.'); return; }
+		sndStop();
+		const AC = window.AudioContext || window.webkitAudioContext, ctx = new AC();
+		const an = ctx.createAnalyser(); an.fftSize = 2048; an.smoothingTimeConstant = .55;
+		ctx.createMediaStreamSource(stream).connect(an);
+		Object.assign(SND, { kind: 'mic', ctx, an, stream, t });
+		SND.timer = setInterval(sndAnalyse(t, an, ctx), 50);
+		sndUi(); toast('Listening. Pick a sound effect to see it move with the music.');
+	}
+	// a song from the phone: it plays in the app (a little later than it is analysed, so the lights keep up with it)
+	function sndSongEl() {
+		if (SND.el) return SND.el;
+		const el = SND.el = new Audio(); el.preload = 'auto';
+		const AC = window.AudioContext || window.webkitAudioContext;
+		SND.sctx = new AC();
+		SND.srcNode = SND.sctx.createMediaElementSource(el);
+		SND.san = SND.sctx.createAnalyser(); SND.san.fftSize = 2048; SND.san.smoothingTimeConstant = .55;
+		const delay = SND.sctx.createDelay(1); delay.delayTime.value = .12;   // the lights get the sound over Bluetooth a moment later
+		SND.srcNode.connect(SND.san); SND.srcNode.connect(delay); delay.connect(SND.sctx.destination);
+		['play', 'pause', 'ended', 'timeupdate', 'loadedmetadata'].forEach(ev => el.addEventListener(ev, () => {
+			if (ev === 'play' && SND.kind !== 'song') { if (SND.kind) sndStop(true); SND.kind = 'song'; SND.timer = setInterval(sndAnalyse(SND.t, SND.san, SND.sctx), 50); }
+			if ((ev === 'pause' || ev === 'ended') && SND.kind === 'song') { clearInterval(SND.timer); SND.timer = 0; SND.kind = null; }
+			sndUi();
+		}));
+		return el;
+	}
+	function sndSong(t, toast, file) {
+		const el = sndSongEl();
+		if (SND.url) URL.revokeObjectURL(SND.url);
+		SND.url = URL.createObjectURL(file); SND.name = file.name.replace(/\.[^.]+$/, ''); SND.t = t;
+		if (SND.kind === 'mic') sndStop();
+		el.src = SND.url;
+		SND.sctx.resume().catch(() => {});
+		el.play().then(() => toast('Playing. Pick a sound effect (or DMX music) to see the lights move with it.')).catch(() => toast('This song cannot be played here.'));
+	}
+	const fmtT = v => !isFinite(v) ? '0:00' : Math.floor(v / 60) + ':' + String(Math.floor(v % 60)).padStart(2, '0');
 	function phoneMic(t, toast) {
-		const btn = h('button', { class: 'btn primary', type: 'button' }, 'Use this phone\'s microphone');
+		SND.t = SND.t || t;
+		const micBtn = h('button', { class: 'btn', type: 'button' }, 'Use this phone\'s microphone');
+		const file = h('input', { type: 'file', accept: 'audio/*', hidden: '' });
+		const songBtn = h('button', { class: 'btn', type: 'button' }, 'Play a song from this phone');
+		const play = h('button', { class: 'btn', type: 'button', 'aria-label': 'Play or pause' }, '▶');
+		const name = h('span', { class: 'sndname', 'data-notr': '' });
+		const time = h('span', { class: 'sndtime', 'data-notr': '' });
+		const seek = h('input', { type: 'range', min: '0', max: '1000', value: '0', 'aria-label': 'Position in the song' });
+		const player = h('div', { class: 'sndplay', hidden: '' }, h('div', { class: 'sndrow' }, play, name, time), seek);
 		const meter = h('div', { class: 'micbars', 'aria-hidden': 'true' }, Array.from({ length: 16 }, () => h('i', {})));
-		const sens = track(h('input', { type: 'range', min: '1', max: '100', value: '50', 'aria-label': 'Sensitivity' }));
-		const note = h('div', { class: 'note' }, 'Keep the app open with the screen on, near the music. The lights use the phone\'s sound while it keeps coming, and go back to their own microphone a moment after you stop.');
+		const sens = track(h('input', { type: 'range', min: '1', max: '100', value: String(SND.sens), 'aria-label': 'Sensitivity' }));
+		const note = h('div', { class: 'note' }, 'Keep the app open with the screen on. The lights follow the phone\'s sound while it keeps coming, and go back to their own microphone a moment after it stops.');
 		const bars = [...meter.children];
-		const show = on => { btn.textContent = on ? 'Stop the phone\'s microphone' : 'Use this phone\'s microphone'; btn.classList.toggle('primary', !on); meter.classList.toggle('on', on); };
-		const stop = () => {
-			if (!micRun) return;
-			clearInterval(micRun.timer); micRun.stream.getTracks().forEach(k => k.stop()); try { micRun.ctx.close(); } catch (e) {}
-			micRun = null; show(false); bars.forEach(b => b.style.height = '0');
+		let seeking = false;
+		const draw = () => {
+			if (!box.isConnected && draw.seen) { SND.ui.delete(draw); return; }
+			draw.seen = true;
+			const mic = SND.kind === 'mic', song = SND.el && SND.el.src && SND.name;
+			micBtn.textContent = mic ? 'Stop the phone\'s microphone' : 'Use this phone\'s microphone';
+			micBtn.classList.toggle('primary', mic);
+			player.hidden = !song;
+			if (song) {
+				play.textContent = SND.el.paused ? '▶' : '❚❚'; name.textContent = SND.name;
+				time.textContent = fmtT(SND.el.currentTime) + ' / ' + fmtT(SND.el.duration);
+				if (!seeking && SND.el.duration) { seek.value = String(Math.round(1000 * SND.el.currentTime / SND.el.duration)); track(seek); }
+			}
+			meter.classList.toggle('on', !!SND.kind);
+			if (!SND.kind) bars.forEach(b => b.style.height = '0');
+			if (sens.value !== String(SND.sens)) { sens.value = String(SND.sens); track(sens); }
 		};
-		const start = async () => {
-			if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('This browser cannot use the microphone here.'); return; }
-			let stream;
-			// no echo cancelling or noise removal: those would hide the music
-			try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false }); }
-			catch (e) { toast('The microphone was not allowed.'); return; }
-			const AC = window.AudioContext || window.webkitAudioContext, ctx = new AC();
-			const an = ctx.createAnalyser(); an.fftSize = 2048; an.smoothingTimeConstant = .55;
-			ctx.createMediaStreamSource(stream).connect(an);
-			const hz = ctx.sampleRate / an.fftSize, fr = new Float32Array(an.frequencyBinCount), td = new Float32Array(an.fftSize);
-			const pkt = new Uint8Array(45), dv = new DataView(pkt.buffer);
-			pkt[0] = 0xA5; [48, 48, 48, 48, 50].forEach((c, i) => { pkt[1 + i] = c; });   // marker + header "00002"
-			// one level for all bands keeps the shape of the music (more bass than treble); high bands get a lift like WLED does
-			const TILT = [1, 1, 1, 1.05, 1.1, 1.2, 1.3, 1.4, 1.6, 1.8, 2, 2.4, 2.8, 3.5, 5, 7], vals = new Array(16).fill(0);
-			let agc = .02, bandTop = 1e-6, smooth = 0, avg = 0, lastPeak = 0, busy = false;
-			const tick = () => {
-				an.getFloatTimeDomainData(td); an.getFloatFrequencyData(fr);
-				let rms = 0; for (let i = 0; i < td.length; i++) rms += td[i] * td[i]; rms = Math.sqrt(rms / td.length);
-				const gain = Math.pow(2, (+sens.value - 50) / 15);   // sensitivity slider: x0.1 .. x10
-				agc = Math.max(rms, agc * .995, .002);                 // follows the loudest recent sound
-				const raw = Math.min(255, 255 * rms / agc * .8 * gain);
-				smooth = smooth * .6 + raw * .4; avg = avg * .95 + raw * .05;
-				const now = performance.now(), peak = raw > 60 && raw > avg * 1.6 && now - lastPeak > 120;
-				if (peak) lastPeak = now;
-				let maxMag = 0, maxBin = 1;
-				for (let b = 0; b < 16; b++) {
-					const lo = Math.max(1, Math.floor(MIC_BANDS[b] / hz)), hi = Math.max(lo + 1, Math.ceil(MIC_BANDS[b + 1] / hz));
-					let sum = 0; for (let i = lo; i < hi && i < fr.length; i++) { const m = Math.pow(10, fr[i] / 20); sum += m; if (m > maxMag) { maxMag = m; maxBin = i; } }
-					vals[b] = sum / (hi - lo) * TILT[b];
-				}
-				bandTop = Math.max(Math.max(...vals), bandTop * .997, 1e-6);
-				for (let b = 0; b < 16; b++) {
-					const out = raw < 4 ? 0 : Math.max(0, Math.min(255, Math.round(255 * vals[b] / bandTop * gain)));
-					pkt[19 + b] = out; bars[b].style.height = Math.round(out / 2.55) + '%';
-				}
-				dv.setFloat32(9, raw, true); dv.setFloat32(13, smooth, true); pkt[17] = peak ? 1 : 0;
-				dv.setFloat32(37, maxMag * 4096 * gain, true); dv.setFloat32(41, raw < 4 ? 1 : maxBin * hz, true);
-				if (!busy) { busy = true; t.audio(pkt).catch(() => {}).finally(() => { busy = false; }); }   // skip a frame rather than queue up
-			};
-			micRun = { stream, ctx, timer: setInterval(tick, 50) };
-			show(true);
-			toast('Listening. Pick a sound effect to see it move with the music.');
-		};
-		btn.onclick = () => micRun ? stop() : start();
-		if (micRun) show(true);
-		return h('div', { class: 'micbox' }, btn, meter, h('div', { class: 'lbl' }, h('span', {}, 'Sensitivity')), sens, note);
+		draw.bars = () => { if (SND.bands) bars.forEach((b, i) => b.style.height = Math.round(SND.bands[i] / 2.55) + '%'); };
+		micBtn.onclick = () => SND.kind === 'mic' ? sndStop() : sndMic(t, toast);
+		songBtn.onclick = () => file.click();
+		file.onchange = () => { if (file.files && file.files[0]) sndSong(t, toast, file.files[0]); file.value = ''; };
+		play.onclick = () => { if (!SND.el) return; if (SND.el.paused) { SND.t = t; SND.sctx.resume().catch(() => {}); SND.el.play().catch(() => {}); } else SND.el.pause(); };
+		seek.oninput = () => { seeking = true; track(seek); };
+		seek.onchange = () => { seeking = false; if (SND.el && SND.el.duration) SND.el.currentTime = SND.el.duration * +seek.value / 1000; };
+		sens.oninput = () => { SND.sens = +sens.value; SND.ui.forEach(f => f !== draw && f()); };
+		const box = h('div', { class: 'micbox' }, h('div', { class: 'row' }, micBtn, songBtn), file, player, meter, h('div', { class: 'lbl' }, h('span', {}, 'Sensitivity')), sens, note);
+		SND.ui.add(draw); draw();
+		return box;
 	}
 
 	// ---------- GIF pack: original 16×16 animations hosted with the app ----------
@@ -1763,6 +1834,7 @@
 		extrasCards,
 		gifPackCard,
 		zonesCard,
+		phoneSound: phoneMic,
 		targetBar,
 		segOut,
 		target: () => TARGET,
@@ -1835,6 +1907,12 @@
 .micbox { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
 .micbars { display: flex; align-items: flex-end; gap: 3px; height: 40px; opacity: .35; }
 .micbars.on { opacity: 1; }
+.sndplay { display: flex; flex-direction: column; gap: 6px; }
+.sndrow { display: flex; align-items: center; gap: 8px; }
+.sndrow .btn { min-width: 44px; padding: 8px 12px; }
+.sndname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.sndtime { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.micbox .row { flex-wrap: wrap; }
 .micbars i { flex: 1; height: 0; min-height: 2px; border-radius: 2px; background: linear-gradient(to top, #2bd576, #ffd23f, #ff4d4d); transition: height .05s; }
 canvas.pvbig { display: block; width: 100%; max-width: 260px; height: auto; margin: 0 auto; border-radius: 12px; background: #05060a; }
 canvas.pv { display: block; width: 104px; max-width: 100%; height: 12px; border-radius: 6px; }
