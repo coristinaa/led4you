@@ -1347,7 +1347,8 @@
 	// app turns the sound into WLED's audio packet (16 bands, volume, beat) and sends it about 20 times a second, so the
 	// LED sound effects and the DMX "music" mode move with it. One source for the whole page; every card that shows
 	// these controls stays in step.
-	const SND = { kind: null, ctx: null, an: null, timer: 0, stream: null, el: null, srcNode: null, name: '', t: null, sens: 50, ui: new Set() };
+	const SND = { kind: null, ctx: null, an: null, timer: 0, stream: null, el: null, srcNode: null, name: '', t: null, sens: 50, ui: new Set(),
+		list: [], idx: -1, shuffle: false, repeat: true };   // list: the songs picked on this phone [{ name, url }] (kept while the app is open)
 	const sndUi = () => SND.ui.forEach(f => { try { f(); } catch (e) {} });
 	function sndStop(keepSong) {
 		clearInterval(SND.timer); SND.timer = 0;
@@ -1417,30 +1418,61 @@
 		['play', 'pause', 'ended', 'timeupdate', 'loadedmetadata'].forEach(ev => el.addEventListener(ev, () => {
 			if (ev === 'play' && SND.kind !== 'song') { if (SND.kind) sndStop(true); SND.kind = 'song'; SND.timer = setInterval(sndAnalyse(SND.t, SND.san, SND.sctx), 50); }
 			if ((ev === 'pause' || ev === 'ended') && SND.kind === 'song') { clearInterval(SND.timer); SND.timer = 0; SND.kind = null; }
+			if (ev === 'ended') { const n = sndNextIdx(1, true); if (n >= 0) sndPlayIdx(n); }
 			sndUi();
 		}));
 		return el;
 	}
-	function sndSong(t, toast, file) {
+	// next song in the playlist (dir 1 / -1); at the end: back to the start when "repeat" is on, otherwise -1
+	function sndNextIdx(dir, auto) {
+		const n = SND.list.length; if (!n) return -1;
+		if (SND.shuffle && n > 1) { let k; do { k = Math.floor(Math.random() * n); } while (k === SND.idx); return k; }
+		const k = SND.idx + dir;
+		if (k >= n) return SND.repeat || !auto ? 0 : -1;
+		if (k < 0) return n - 1;
+		return k;
+	}
+	function sndPlayIdx(i) {
+		const s = SND.list[i]; if (!s) return;
 		const el = sndSongEl();
-		if (SND.url) URL.revokeObjectURL(SND.url);
-		SND.url = URL.createObjectURL(file); SND.name = file.name.replace(/\.[^.]+$/, ''); SND.t = t;
 		if (SND.kind === 'mic') sndStop();
-		el.src = SND.url;
+		SND.idx = i; SND.name = s.name;
+		el.src = s.url;
 		SND.sctx.resume().catch(() => {});
-		el.play().then(() => toast('Playing. Pick a sound effect (or DMX music) to see the lights move with it.')).catch(() => toast('This song cannot be played here.'));
+		el.play().catch(() => SND.toast && SND.toast('This song cannot be played here.'));
+		sndUi();
+	}
+	function sndAdd(t, toast, files) {
+		SND.t = t; SND.toast = toast;
+		const first = SND.list.length;
+		[...files].forEach(f => SND.list.push({ name: f.name.replace(/\.[^.]+$/, ''), url: URL.createObjectURL(f) }));
+		sndSongEl();
+		if (SND.kind !== 'song') { sndPlayIdx(first); toast(files.length > 1 ? 'Playing your songs. Pick a sound effect (or DMX music) to see the lights move with them.' : 'Playing. Pick a sound effect (or DMX music) to see the lights move with it.'); }
+		else { toast('Added to the list.'); sndUi(); }
+	}
+	function sndClear() {
+		if (SND.el) { SND.el.pause(); SND.el.removeAttribute('src'); SND.el.load(); }
+		SND.list.forEach(s => URL.revokeObjectURL(s.url)); SND.list = []; SND.idx = -1; SND.name = '';
+		sndUi();
 	}
 	const fmtT = v => !isFinite(v) ? '0:00' : Math.floor(v / 60) + ':' + String(Math.floor(v % 60)).padStart(2, '0');
 	function phoneMic(t, toast) {
 		SND.t = SND.t || t;
 		const micBtn = h('button', { class: 'btn', type: 'button' }, 'Use this phone\'s microphone');
-		const file = h('input', { type: 'file', accept: 'audio/*', hidden: '' });
-		const songBtn = h('button', { class: 'btn', type: 'button' }, 'Play a song from this phone');
+		const file = h('input', { type: 'file', accept: 'audio/*', multiple: '', hidden: '' });
+		const songBtn = h('button', { class: 'btn', type: 'button' }, 'Play songs from this phone');
 		const play = h('button', { class: 'btn', type: 'button', 'aria-label': 'Play or pause' }, '▶');
 		const name = h('span', { class: 'sndname', 'data-notr': '' });
 		const time = h('span', { class: 'sndtime', 'data-notr': '' });
 		const seek = h('input', { type: 'range', min: '0', max: '1000', value: '0', 'aria-label': 'Position in the song' });
-		const player = h('div', { class: 'sndplay', hidden: '' }, h('div', { class: 'sndrow' }, play, name, time), seek);
+		const prev = h('button', { class: 'btn', type: 'button', 'aria-label': 'Previous song' }, '⏮');
+		const next = h('button', { class: 'btn', type: 'button', 'aria-label': 'Next song' }, '⏭');
+		const shuf = h('button', { class: 'btn', type: 'button', 'aria-label': 'Shuffle' }, '🔀');
+		const rep = h('button', { class: 'btn', type: 'button', 'aria-label': 'Repeat the list' }, '🔁');
+		const clear = h('button', { class: 'btn', type: 'button' }, 'Clear the list');
+		const list = h('div', { class: 'sndlist' });
+		const player = h('div', { class: 'sndplay', hidden: '' }, h('div', { class: 'sndrow' }, prev, play, next, name, time), seek,
+			h('div', { class: 'sndrow' }, shuf, rep, h('span', { class: 'sndname' }), clear), list);
 		const meter = h('div', { class: 'micbars', 'aria-hidden': 'true' }, Array.from({ length: 16 }, () => h('i', {})));
 		const sens = track(h('input', { type: 'range', min: '1', max: '100', value: String(SND.sens), 'aria-label': 'Sensitivity' }));
 		const note = h('div', { class: 'note' }, 'Keep the app open with the screen on. The lights follow the phone\'s sound while it keeps coming, and go back to their own microphone a moment after it stops.');
@@ -1452,7 +1484,13 @@
 			const mic = SND.kind === 'mic', song = SND.el && SND.el.src && SND.name;
 			micBtn.textContent = mic ? 'Stop the phone\'s microphone' : 'Use this phone\'s microphone';
 			micBtn.classList.toggle('primary', mic);
-			player.hidden = !song;
+			player.hidden = !SND.list.length;
+			shuf.classList.toggle('primary', SND.shuffle); rep.classList.toggle('primary', SND.repeat);
+			prev.disabled = next.disabled = SND.list.length < 2;
+			if (list.dataset.n !== SND.list.length + ':' + SND.idx) {
+				list.dataset.n = SND.list.length + ':' + SND.idx;
+				list.replaceChildren(...SND.list.map((it, i) => h('button', { type: 'button', class: 'sndit' + (i === SND.idx ? ' sel' : ''), 'data-notr': '', onclick: () => { SND.t = t; SND.toast = toast; sndPlayIdx(i); } }, (i + 1) + '. ' + it.name)));
+			}
 			if (song) {
 				play.textContent = SND.el.paused ? '▶' : '❚❚'; name.textContent = SND.name;
 				time.textContent = fmtT(SND.el.currentTime) + ' / ' + fmtT(SND.el.duration);
@@ -1465,8 +1503,13 @@
 		draw.bars = () => { if (SND.bands) bars.forEach((b, i) => b.style.height = Math.round(SND.bands[i] / 2.55) + '%'); };
 		micBtn.onclick = () => SND.kind === 'mic' ? sndStop() : sndMic(t, toast);
 		songBtn.onclick = () => file.click();
-		file.onchange = () => { if (file.files && file.files[0]) sndSong(t, toast, file.files[0]); file.value = ''; };
-		play.onclick = () => { if (!SND.el) return; if (SND.el.paused) { SND.t = t; SND.sctx.resume().catch(() => {}); SND.el.play().catch(() => {}); } else SND.el.pause(); };
+		file.onchange = () => { if (file.files && file.files.length) sndAdd(t, toast, file.files); file.value = ''; };
+		prev.onclick = () => { SND.t = t; const k = sndNextIdx(-1); if (k >= 0) sndPlayIdx(k); };
+		next.onclick = () => { SND.t = t; const k = sndNextIdx(1); if (k >= 0) sndPlayIdx(k); };
+		shuf.onclick = () => { SND.shuffle = !SND.shuffle; sndUi(); };
+		rep.onclick = () => { SND.repeat = !SND.repeat; sndUi(); };
+		clear.onclick = sndClear;
+		play.onclick = () => { if (!SND.el || !SND.el.src) { if (SND.list.length) sndPlayIdx(Math.max(0, SND.idx)); return; } if (SND.el.paused) { SND.t = t; SND.sctx.resume().catch(() => {}); SND.el.play().catch(() => {}); } else SND.el.pause(); };
 		seek.oninput = () => { seeking = true; track(seek); };
 		seek.onchange = () => { seeking = false; if (SND.el && SND.el.duration) SND.el.currentTime = SND.el.duration * +seek.value / 1000; };
 		sens.oninput = () => { SND.sens = +sens.value; SND.ui.forEach(f => f !== draw && f()); };
@@ -1910,6 +1953,10 @@
 .sndplay { display: flex; flex-direction: column; gap: 6px; }
 .sndrow { display: flex; align-items: center; gap: 8px; }
 .sndrow .btn { min-width: 44px; padding: 8px 12px; }
+.sndrow .btn.primary { filter: none; }
+.sndlist { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+.sndit { text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--raise); color: inherit; font: inherit; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sndit.sel { border-color: var(--hot, #ff7a00); font-weight: 600; }
 .sndname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .sndtime { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .micbox .row { flex-wrap: wrap; }
