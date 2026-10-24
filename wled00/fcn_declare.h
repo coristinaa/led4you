@@ -104,6 +104,8 @@ void handleDMXOutput();
 #define L4Y_DMXF_TREBLE  5
 #define L4Y_DMXF_STROBE  6   // flash on the beat
 #define L4Y_DMXF_FIXED   7   // one colour (v = 0xRRGGBB)
+#define L4Y_DMXF_STROBE1 8   // flash on the beat in one colour (v = 0xRRGGBB, 0 = white)
+#define L4Y_DMXF_LAST    8
 struct L4yDmxLight { uint8_t f = L4Y_DMXF_LED; uint32_t v = 0; };
 extern L4yDmxLight l4yDmxLight[L4Y_DMX_LIGHTS];
 

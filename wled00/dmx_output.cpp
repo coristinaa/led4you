@@ -44,8 +44,27 @@ static void l4yDmxFixture(int start, uint8_t r, uint8_t g, uint8_t b, uint8_t w,
   }
 }
 
+// follows one sound value and turns it into 0..255 relative to how loud it has been lately, so a light really moves with
+// the music instead of sitting near full (the band values stay high all through a loud song)
+struct L4yEnv {
+  float avg = 0, pk = 1, out = 0;
+  uint8_t level(float e, float sens) {               // sens 0..1: higher = reacts to smaller changes
+    avg = avg * 0.97f + e * 0.03f;                   // about 1 s average
+    pk = max(e, pk * 0.996f);                        // recent loudest, falls slowly
+    if (pk < avg + 10) pk = avg + 10;
+    const float floorV = avg * (1.05f - 0.55f * sens);
+    float x = e < 3 ? 0 : (e - floorV) / (pk - floorV);
+    x = x < 0 ? 0 : x > 1 ? 1 : x;
+    x *= x;                                          // more contrast: quiet parts dark, hits bright
+    out = max(x, out * 0.80f);                       // jumps up at once, fades in about 0.1 s
+    return (uint8_t)(out * 255);
+  }
+};
+
 static void l4yDmxMusicFrame(uint8_t brightness, bool hasShutter) {
   static float avgBass = 0, flash = 0, flashS = 0, hueF = 0;
+  static L4yEnv eVol, eBass, eMid, eTre;
+  static uint8_t strobeHue = 0;
   static uint32_t lastBeat = 0;
   static uint16_t beats = 0;
   static bool lastPeak = false;
@@ -61,18 +80,19 @@ static void l4yDmxMusicFrame(uint8_t brightness, bool hasShutter) {
     for (int i = 10; i < 16; i++) tre += fft[i];
     bass /= 4; mid /= 6; tre /= 6;
   }
-  const float gain = 0.5f + l4yDmxSens / 128.0f;          // 0.5 .. 2.5
   const float thr  = 1.7f - l4yDmxSens / 400.0f;          // a beat is bass this much above its average (1.7 .. 1.06)
   avgBass = avgBass * 0.93f + bass * 0.07f;
   const uint32_t now = millis();
   const bool beat = now - lastBeat > 180 && ((bass > avgBass * thr && bass > 24) || (peak && !lastPeak));
   lastPeak = peak;
-  if (beat) { lastBeat = now; beats++; flash = flashS = 255; hueF += 37; }
+  if (beat) { lastBeat = now; beats++; flash = flashS = 255; hueF += 37; strobeHue += 85 + (beats & 3) * 13; }
   flash *= 0.82f;                                         // colour on the beat: fades in about 0.2 s
   flashS *= 0.55f;                                        // strobe: short flash
   hueF += 0.4f;                                           // slow colour drift between beats
   const uint8_t hue = (uint8_t)((int)hueF & 0xFF);
-  const uint8_t lvVol = constrain((int)(vol * gain), 0, 255);
+  const float sn = l4yDmxSens / 255.0f;
+  const uint8_t lvVol = eVol.level(vol, sn);
+  const uint8_t lvBass = eBass.level(bass, sn), lvMid = eMid.level(mid, sn), lvTre = eTre.level(tre, sn);
   const int n = l4yDmxOutFixtures ? l4yDmxOutFixtures : 1;
   for (int k = 0; k < n; k++) {
     const int start = DMXStart + DMXGap * k;
@@ -96,12 +116,14 @@ static void l4yDmxMusicFrame(uint8_t brightness, bool hasShutter) {
       }
       case L4Y_DMXF_PULSE: c = own ? oc : (CRGB)CHSV(hue + k * 24, 255, 255); level = lvVol; break;
       case L4Y_DMXF_BEAT:  c = CHSV(hue + k * (256 / (n > 1 ? n : 2)), 255, 255); level = max((int)flash, lvVol / 2); break;
-      case L4Y_DMXF_BASS:  c = own ? oc : CRGB(255, 0, 0); level = constrain((int)(bass * gain), 0, 255); break;
-      case L4Y_DMXF_MIDS:  c = own ? oc : CRGB(0, 255, 0); level = constrain((int)(mid * gain), 0, 255); break;
-      case L4Y_DMXF_TREBLE:c = own ? oc : CRGB(0, 0, 255); level = constrain((int)(tre * gain), 0, 255); break;
-      case L4Y_DMXF_STROBE:
-        c = own ? oc : CRGB(255, 255, 255); w = own ? 0 : 255;
+      case L4Y_DMXF_BASS:  c = own ? oc : CRGB(255, 0, 0); level = lvBass; break;
+      case L4Y_DMXF_MIDS:  c = own ? oc : CRGB(0, 255, 0); level = lvMid; break;
+      case L4Y_DMXF_TREBLE:c = own ? oc : CRGB(0, 0, 255); level = lvTre; break;
+      case L4Y_DMXF_STROBE:                                // a new colour on every flash (or the colour chosen in the app)
+        c = own ? oc : (CRGB)CHSV(strobeHue + k * 40, 255, 255);
         level = ((beats + k) & 1) || n == 1 || l4yDmxMusic == 5 ? (uint8_t)flashS : (uint8_t)(flashS / 4); break;
+      case L4Y_DMXF_STROBE1:                               // flash on the beat in one colour
+        c = own ? oc : CRGB(255, 255, 255); w = own ? 0 : 255; level = (uint8_t)flashS; break;
       default:             c = oc; level = 255; break;    // fixed colour
     }
     l4yDmxFixture(start, c.r, c.g, c.b, w, level, brightness, hasShutter);
