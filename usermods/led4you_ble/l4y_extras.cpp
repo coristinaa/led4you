@@ -13,7 +13,7 @@
 #include "wled.h"
 #include <WiFiUdp.h>
 
-#define L4Y_FW_VERSION 68      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
+#define L4Y_FW_VERSION 69      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
 #define L4Y_HOUSE_PORT 21329   // UDP port for house scenes ("L4YS" packets)
 extern const int l4yFwVersion = L4Y_FW_VERSION;   // shown by Improv (installer, Wi-Fi setup) as "v.."
 
@@ -516,6 +516,12 @@ class Led4youExtras : public Usermod {
         save = true;
       }
 
+      // preset applied when the lights start (WLED's "Apply preset at boot"), set from the app's Setup: {"l4y":{"bp":3}}, 0 = none
+      if (l[F("bp")].is<int>()) {
+        const int bp = l[F("bp")];
+        if (bp >= 0 && bp <= 250 && bp != bootPreset) { bootPreset = bp; save = true; }
+      }
+
       JsonObject cd = l[F("cd")];
       if (!cd.isNull()) {
         cdOn = cd[F("on")] | cdOn;
@@ -580,6 +586,7 @@ class Led4youExtras : public Usermod {
       o[F("ma")] = BusManager::ablMilliampsMax();
       o[F("nl")] = nightlightActive ? (int)(nightlightDelayMs - (millis() - nightlightStartTime)) / 1000 : -1;
       o[F("pl")] = currentPlaylist;
+      o[F("bp")] = bootPreset;
     }
 
     void addToJsonState(JsonObject& root) override {
