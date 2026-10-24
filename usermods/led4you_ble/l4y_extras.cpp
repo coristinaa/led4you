@@ -13,7 +13,7 @@
 #include "wled.h"
 #include <WiFiUdp.h>
 
-#define L4Y_FW_VERSION 70      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
+#define L4Y_FW_VERSION 71      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
 #define L4Y_HOUSE_PORT 21329   // UDP port for house scenes ("L4YS" packets)
 extern const int l4yFwVersion = L4Y_FW_VERSION;   // shown by Improv (installer, Wi-Fi setup) as "v.."
 
@@ -521,7 +521,18 @@ class Led4youExtras : public Usermod {
       // DMX lights follow the music: {"l4y":{"dxm":{"m":2,"s":128}}} (m 0 = follow the LEDs), live, kept in the config
       JsonObject dxm = l[F("dxm")];
       if (!dxm.isNull()) {
-        if (dxm["m"].is<int>()) { const int m = dxm["m"]; if (m >= 0 && m <= 4 && m != l4yDmxMusic) { l4yDmxMusic = m; save = true; } }
+        if (dxm["m"].is<int>()) { const int m = dxm["m"]; if (m >= 0 && m <= 5 && m != l4yDmxMusic) { l4yDmxMusic = m; save = true; } }
+        // each light's own job (mode 5): "f":[[job, LED number or colour 0xRRGGBB], ...] from light 1
+        JsonArray fl = dxm["f"];
+        if (!fl.isNull()) {
+          for (size_t k = 0; k < L4Y_DMX_LIGHTS; k++) {
+            JsonArray e = fl[k];
+            if (e.isNull()) continue;
+            const uint8_t f = constrain((int)(e[0] | 0), 0, L4Y_DMXF_FIXED);
+            const uint32_t v = e[1] | 0UL;
+            if (l4yDmxLight[k].f != f || l4yDmxLight[k].v != v) { l4yDmxLight[k].f = f; l4yDmxLight[k].v = v; save = true; }
+          }
+        }
         if (dxm["s"].is<int>()) { const int v = constrain((int)dxm["s"], 0, 255); if (v != l4yDmxSens) { l4yDmxSens = v; save = true; } }
       }
       #endif
@@ -597,7 +608,10 @@ class Led4youExtras : public Usermod {
       o[F("pl")] = currentPlaylist;
       o[F("bp")] = bootPreset;
       #ifdef WLED_ENABLE_DMX
-      { JsonArray dm = o.createNestedArray(F("dxm")); dm.add(l4yDmxMusic); dm.add(l4yDmxSens); }
+      { JsonArray dm = o.createNestedArray(F("dxm")); dm.add(l4yDmxMusic); dm.add(l4yDmxSens);
+        JsonArray fl = dm.createNestedArray();   // each light's job, for as many lights as are set up (at most 32)
+        const unsigned n = min((unsigned)(l4yDmxOutFixtures ? l4yDmxOutFixtures : 1), (unsigned)L4Y_DMX_LIGHTS);
+        for (unsigned k = 0; k < n; k++) { JsonArray e = fl.createNestedArray(); e.add(l4yDmxLight[k].f); e.add(l4yDmxLight[k].v); } }
       #endif
     }
 
@@ -630,6 +644,8 @@ class Led4youExtras : public Usermod {
       top[F("DMX fixtures")] = l4yDmxOutFixtures;
       top[F("DMX music")] = l4yDmxMusic;
       top[F("DMX music sensitivity")] = l4yDmxSens;
+      { JsonArray fl = top.createNestedArray(F("DMX lights"));
+        for (unsigned k = 0; k < L4Y_DMX_LIGHTS; k++) { JsonArray e = fl.createNestedArray(); e.add(l4yDmxLight[k].f); e.add(l4yDmxLight[k].v); } }
       #endif
       #ifdef WLED_ENABLE_DMX_INPUT
       top[F("DMX input")] = l4yDmxInOn;
@@ -643,7 +659,7 @@ class Led4youExtras : public Usermod {
       #ifdef WLED_ENABLE_DMX
       oappend(F("addInfo('LED4YOU Extras:DMX output',1,'<i>(sends the LEDs to DMX fixtures; channels in Config &gt; DMX Output; restart after changing)</i>');"));
       oappend(F("addInfo('LED4YOU Extras:DMX output GPIO',1,'<i>(pin to the RS-485 module DI input, -1 = none; must not be the LED pin)</i>');"));
-      oappend(F("addInfo('LED4YOU Extras:DMX music',1,'<i>(0 = DMX lights follow the LEDs, 1 pulse, 2 colour on the beat, 3 bass / mids / treble, 4 strobe on the beat)</i>');"));
+      oappend(F("addInfo('LED4YOU Extras:DMX music',1,'<i>(0 = DMX lights follow the LEDs, 1 pulse, 2 colour on the beat, 3 bass / mids / treble, 4 strobe on the beat, 5 each light its own job, set in the LED4YOU app)</i>');"));
       #endif
     }
 
@@ -663,6 +679,14 @@ class Led4youExtras : public Usermod {
       l4yDmxOutFixtures = top[F("DMX fixtures")] | l4yDmxOutFixtures;
       l4yDmxMusic = top[F("DMX music")] | l4yDmxMusic;
       l4yDmxSens = top[F("DMX music sensitivity")] | l4yDmxSens;
+      {
+        JsonArray fl = top[F("DMX lights")];
+        for (unsigned k = 0; k < L4Y_DMX_LIGHTS; k++) {
+          JsonArray e = fl.isNull() ? JsonArray() : fl[k].as<JsonArray>();
+          if (e.isNull()) { l4yDmxLight[k].f = L4Y_DMXF_LED; l4yDmxLight[k].v = DMXStartLED + k; }   // not set yet: follow the LEDs
+          else { l4yDmxLight[k].f = constrain((int)(e[0] | 0), 0, L4Y_DMXF_FIXED); l4yDmxLight[k].v = e[1] | 0UL; }
+        }
+      }
       #endif
       #ifdef WLED_ENABLE_DMX_INPUT
       l4yDmxInOn = top[F("DMX input")] | l4yDmxInOn;

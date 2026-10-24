@@ -94,6 +94,18 @@ typedef struct WiFiConfig {
 //dmx_output.cpp
 void initDMXOutput();
 void handleDMXOutput();
+// LED4YOU: what each DMX light does when they do not all follow the same music style (DMX music mode 5)
+#define L4Y_DMX_LIGHTS   32
+#define L4Y_DMXF_LED     0   // follow an LED (v = LED number, 0-based)
+#define L4Y_DMXF_PULSE   1   // pulse with the volume
+#define L4Y_DMXF_BEAT    2   // new colour on each beat
+#define L4Y_DMXF_BASS    3
+#define L4Y_DMXF_MIDS    4
+#define L4Y_DMXF_TREBLE  5
+#define L4Y_DMXF_STROBE  6   // flash on the beat
+#define L4Y_DMXF_FIXED   7   // one colour (v = 0xRRGGBB)
+struct L4yDmxLight { uint8_t f = L4Y_DMXF_LED; uint32_t v = 0; };
+extern L4yDmxLight l4yDmxLight[L4Y_DMX_LIGHTS];
 
 //dmx_input.cpp
 void initDMXInput();
