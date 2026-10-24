@@ -310,8 +310,12 @@ class Led4youBle : public Usermod {
       DeserializationError err = deserializeJson(*pDoc, (const char*)d, len);
       if (!err) {
         JsonObject root = pDoc->as<JsonObject>();
-        JsonObject cfg = root[F("l4ycfg")];
-        if (!cfg.isNull()) {
+        JsonObject cfgIn = root[F("l4ycfg")];
+        if (!cfgIn.isNull()) {
+          // the command is copied out of the shared JSON buffer: saveLedCfg() reads cfg.json into that buffer
+          DynamicJsonDocument cc(len * 2 + 1024);
+          cc.set(cfgIn);
+          JsonObject cfg = cc.as<JsonObject>();
           // LED hardware (pin, type, count, matrix): written straight into cfg.json, then a restart applies it.
           // Changing outputs and matrix mode while the LEDs run (and saving the running state afterwards) could
           // lose the change, e.g. matrix -> strip right after strip -> matrix.
@@ -319,6 +323,7 @@ class Led4youBle : public Usermod {
           else {   // no cfg.json yet (brand-new board): apply through WLED and restart once it has saved
             if (cfg[F("l4ymx")].is<bool>() && !cfg[F("l4ymx")].as<bool>()) { strip.isMatrix = false; strip.panel.clear(); }
             deserializeConfig(cfg, false);
+            applyL4yDmx(cfg[F("l4ydmx")]);   // not a WLED setting: deserializeConfig() leaves it out
             configNeedsWrite = true;
             rebootWhenSaved = true;
           }
@@ -331,6 +336,17 @@ class Led4youBle : public Usermod {
 
     // merge {"hw":{"led":{...}}} (and "l4ymx": false = no matrix), {"dmx":{...}} (WLED DMX output settings) and
     // {"l4ydmx":{"on":..,"pin":..}} (LED4YOU DMX output switch and pin) into /cfg.json; true when written
+    // LED4YOU DMX output switch, pin and number of lights straight into the running settings (saved with the config)
+    static void applyL4yDmx(JsonObject nl4d) {
+#ifdef WLED_ENABLE_DMX
+      extern bool l4yDmxOutOn; extern int8_t l4yDmxOutPin; extern uint16_t l4yDmxOutFixtures;
+      if (nl4d.isNull()) return;
+      if (nl4d[F("on")].is<bool>()) l4yDmxOutOn = nl4d[F("on")].as<bool>();
+      if (nl4d[F("pin")].is<int>()) l4yDmxOutPin = nl4d[F("pin")].as<int>();
+      if (nl4d[F("n")].is<int>()) l4yDmxOutFixtures = nl4d[F("n")].as<int>();
+#endif
+    }
+
     bool saveLedCfg(JsonObject cmd) {
       JsonObject nled = cmd[F("hw")][F("led")];
       JsonObject ndmx = cmd[F("dmx")];
@@ -338,7 +354,10 @@ class Led4youBle : public Usermod {
       JsonObject nlight = cmd[F("light")];   // only "aseg": one zone per LED output after a restart
       if (nled.isNull() && ndmx.isNull() && nl4d.isNull() && nlight.isNull()) return false;
       const bool noMatrix = cmd[F("l4ymx")].is<bool>() && !cmd[F("l4ymx")].as<bool>();
-      DynamicJsonDocument d(12288);
+      // cfg.json is read into WLED's own JSON buffer (32 KB, the caller holds its lock): a separate 12 KB document
+      // ran out of room once the config had grown, and then nothing was saved (e.g. DMX could not be switched on again)
+      JsonDocument& d = *pDoc;
+      d.clear();
       {
         File f = WLED_FS.open(F("/cfg.json"), "r");
         if (!f) return false;
@@ -611,16 +630,16 @@ class Led4youBle : public Usermod {
         oj += ob;
       }
       oj += ']';
-      // DMX output settings: [on, pin, channels per fixture, gap, start address, first LED, fixtures, [channel map]]
+      // DMX output settings: [on, pin, channels per fixture, gap, start address, first LED, fixtures, [channel map], running]
       String dx;
 #ifdef WLED_ENABLE_DMX
       {
-        extern bool l4yDmxOutOn; extern int8_t l4yDmxOutPin; extern uint16_t l4yDmxOutFixtures;
+        extern bool l4yDmxOutOn, l4yDmxOutStarted; extern int8_t l4yDmxOutPin; extern uint16_t l4yDmxOutFixtures;
         char db[56];
         snprintf_P(db, sizeof(db), PSTR("[%u,%d,%u,%u,%u,%u,%u,["), l4yDmxOutOn ? 1 : 0, (int)l4yDmxOutPin, DMXChannels, DMXGap, DMXStart, DMXStartLED, l4yDmxOutFixtures);
         dx = db;
         for (unsigned i = 0; i < 15; i++) { if (i) dx += ','; dx += DMXFixtureMap[i]; }
-        dx += F("]]");
+        dx += F("],"); dx += l4yDmxOutStarted ? '1' : '0'; dx += ']';   // [8]: the DMX output really runs
       }
 #else
       dx = F("null");

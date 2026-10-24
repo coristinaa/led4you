@@ -16,7 +16,7 @@
 bool l4yDmxOutOn = false;
 int8_t l4yDmxOutPin = -1;
 uint16_t l4yDmxOutFixtures = 0;   // how many fixtures follow the LEDs (0 = as many as fit in the 512 channels)
-static bool l4yDmxOutStarted = false;
+bool l4yDmxOutStarted = false;   // DMX output running (reported to the app: on but not started = pin busy)
 // LED4YOU: "music" mode, the DMX lights follow the sound (AudioReactive: INMP441 or the phone's microphone) instead of
 // the LEDs. 0 = follow the LEDs, 1 = pulse with the volume, 2 = new colour on each beat, 3 = bass / mids / treble
 // (one band per light), 4 = strobe on the beat. Sensitivity 0..255. Changed live from the app, kept in the config.

@@ -68,6 +68,7 @@
 		['My LEDs', 'Os meus LEDs', 'Mis LEDs', 'Mes LEDs'],
 		['Images', 'Imagens', 'Imágenes', 'Images'],
 		['More', 'Mais', 'Más', 'Plus'],
+		['DMX is switched on but did not start: the pin is busy (LEDs, microphone, sensor) or not usable. Choose another pin and save.', 'O DMX está ligado mas não arrancou: o pino está ocupado (LEDs, microfone, sensor) ou não pode ser usado. Escolhe outro pino e grava.', 'El DMX está activado pero no arrancó: el pin está ocupado (LED, micrófono, sensor) o no se puede usar. Elige otro pin y guarda.', 'Le DMX est activé mais n\'a pas démarré : la broche est occupée (LED, micro, capteur) ou inutilisable. Choisis une autre broche et enregistre.'],
 		['Each light its own job', 'Cada luz com a sua função', 'Cada luz con su función', 'Chaque projecteur sa fonction'],
 		['Follow an LED', 'Seguir um LED', 'Seguir un LED', 'Suivre une LED'],
 		['Pulse with the volume', 'Pulsar com o volume', 'Pulsar con el volumen', 'Pulser avec le volume'],
