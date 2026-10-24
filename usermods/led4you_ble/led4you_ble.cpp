@@ -580,7 +580,7 @@ class Led4youBle : public Usermod {
       String zj = F("[");
       for (unsigned i = 0; i < strip.getSegmentsNum() && i < 16; i++) {
         Segment& sg = strip.getSegment(i);
-        if (!sg.isActive()) continue;
+        if (sg.stop <= sg.start) continue;   // listed even without a pixel buffer (low memory), so the app never loses it
         if (zj.length() > 1) zj += ',';
         char zb[48];
         snprintf_P(zb, sizeof(zb), PSTR("[%u,%u,%u,%u,%u,%u,%u,%u]"), i, sg.start, sg.stop, sg.startY, sg.stopY, sg.on ? 1 : 0, sg.reverse ? 1 : 0, sg.mirror ? 1 : 0);
@@ -668,7 +668,7 @@ class Led4youBle : public Usermod {
     // active segments (zones) as a bit mask, for the app's "send to" choice
     static uint32_t zoneMask() {
       uint32_t m = 0;
-      for (unsigned i = 0; i < strip.getSegmentsNum() && i < 32; i++) if (strip.getSegment(i).isActive()) m |= 1UL << i;
+      for (unsigned i = 0; i < strip.getSegmentsNum() && i < 32; i++) if (strip.getSegment(i).stop > strip.getSegment(i).start) m |= 1UL << i;
       return m;
     }
     String buildState() {
