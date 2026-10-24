@@ -1,3 +1,3 @@
-[{ "version": 68, "manifest": "manifest-v68.json", "notes": "Zones are kept after a restart; the app never stretches zone 1 over the others" },
- { "version": 67, "manifest": "manifest-v67.json", "notes": "Text: left / right now also scrolls short text (it stood still in the middle)" },
- { "version": 66, "manifest": "manifest-v66.json", "notes": "Switch Bluetooth on: the lights restart with Bluetooth on for 5 minutes (reliable)" }]
+[{ "version": 69, "manifest": "manifest-v69.json", "notes": "Setup: choose the preset the lights start with (also over Bluetooth)" },
+ { "version": 68, "manifest": "manifest-v68.json", "notes": "Zones are kept after a restart; the app never stretches zone 1 over the others" },
+ { "version": 67, "manifest": "manifest-v67.json", "notes": "Text: left / right now also scrolls short text (it stood still in the middle)" }]
