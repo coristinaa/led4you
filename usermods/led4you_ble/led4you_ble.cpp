@@ -319,7 +319,7 @@ class Led4youBle : public Usermod {
           // LED hardware (pin, type, count, matrix): written straight into cfg.json, then a restart applies it.
           // Changing outputs and matrix mode while the LEDs run (and saving the running state afterwards) could
           // lose the change, e.g. matrix -> strip right after strip -> matrix.
-          if (saveLedCfg(cfg)) rebootAfterSave = true;
+          if (saveLedCfg(cfg)) { rebootAfterSave = true; applyL4yDmx(cfg[F("l4ydmx")]); }   // running copy too, in case it is written again before the restart
           else {   // no cfg.json yet (brand-new board): apply through WLED and restart once it has saved
             if (cfg[F("l4ymx")].is<bool>() && !cfg[F("l4ymx")].as<bool>()) { strip.isMatrix = false; strip.panel.clear(); }
             deserializeConfig(cfg, false);
@@ -819,6 +819,7 @@ class Led4youBle : public Usermod {
         else if (m.kind == 2) handleJsonCmd(m.data, m.len);
         else                  handleFile(m.data, m.len);
         free(m.data);
+        if (rebootAfterSave) break;   // settings saved: restart before anything else can change (and re-save) them
       }
       if (improvState == ST_PROVISIONING) {
         if (WLED_CONNECTED) {

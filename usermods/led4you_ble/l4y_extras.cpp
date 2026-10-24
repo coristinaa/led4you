@@ -13,7 +13,7 @@
 #include "wled.h"
 #include <WiFiUdp.h>
 
-#define L4Y_FW_VERSION 74      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
+#define L4Y_FW_VERSION 75      // LED4YOU firmware version, compared with firmware/latest.json on the LED4YOU site
 #define L4Y_HOUSE_PORT 21329   // UDP port for house scenes ("L4YS" packets)
 extern const int l4yFwVersion = L4Y_FW_VERSION;   // shown by Improv (installer, Wi-Fi setup) as "v.."
 
@@ -131,6 +131,7 @@ extern bool l4yDmxOutOn;     // dmx_output.cpp: DMX output on/off and its data p
 extern int8_t l4yDmxOutPin;
 extern uint16_t l4yDmxOutFixtures;
 extern uint8_t l4yDmxMusic, l4yDmxSens;   // dmx_output.cpp: DMX lights follow the music (0 = follow the LEDs)
+extern bool l4yDmxOutStarted; extern uint32_t l4yDmxLastFrame, l4yDmxTestUntil;   // dmx_output.cpp: running, last frame, test
 #endif
 
 // ---------------- status for the Bluetooth usermod ----------------
@@ -518,6 +519,8 @@ class Led4youExtras : public Usermod {
       }
 
       #ifdef WLED_ENABLE_DMX
+      // test the DMX lights from the app: {"l4y":{"dxt":5}} = all lights full white for 5 s
+      if (l[F("dxt")].is<int>()) { const int sec = constrain((int)l[F("dxt")], 0, 30); l4yDmxTestUntil = sec ? millis() + sec * 1000UL : 0; if (!l4yDmxTestUntil && sec) l4yDmxTestUntil = 1; }
       // DMX lights follow the music: {"l4y":{"dxm":{"m":2,"s":128}}} (m 0 = follow the LEDs), live, kept in the config
       JsonObject dxm = l[F("dxm")];
       if (!dxm.isNull()) {
@@ -612,6 +615,8 @@ class Led4youExtras : public Usermod {
         JsonArray fl = dm.createNestedArray();   // each light's job, for as many lights as are set up (at most 32)
         const unsigned n = min((unsigned)(l4yDmxOutFixtures ? l4yDmxOutFixtures : 1), (unsigned)L4Y_DMX_LIGHTS);
         for (unsigned k = 0; k < n; k++) { JsonArray e = fl.createNestedArray(); e.add(l4yDmxLight[k].f); e.add(l4yDmxLight[k].v); } }
+      { JsonArray ds = o.createNestedArray(F("dxs"));   // DMX output: [on, started, pin, frames going out now, E1.31 proxy universe (non-zero = DMX taken by the network)]
+        ds.add(l4yDmxOutOn ? 1 : 0); ds.add(l4yDmxOutStarted ? 1 : 0); ds.add(l4yDmxOutPin); ds.add(l4yDmxLastFrame && millis() - l4yDmxLastFrame < 1000 ? 1 : 0); ds.add(e131ProxyUniverse); }
       #endif
     }
 

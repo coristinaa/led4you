@@ -17,6 +17,8 @@ bool l4yDmxOutOn = false;
 int8_t l4yDmxOutPin = -1;
 uint16_t l4yDmxOutFixtures = 0;   // how many fixtures follow the LEDs (0 = as many as fit in the 512 channels)
 bool l4yDmxOutStarted = false;   // DMX output running (reported to the app: on but not started = pin busy)
+uint32_t l4yDmxLastFrame = 0;    // millis() of the last DMX frame sent (the app shows "sending")
+uint32_t l4yDmxTestUntil = 0;    // millis() until which every light is full white (test from the app)
 // LED4YOU: "music" mode, the DMX lights follow the sound (AudioReactive: INMP441 or the phone's microphone) instead of
 // the LEDs. 0 = follow the LEDs, 1 = pulse with the volume, 2 = new colour on each beat, 3 = bass / mids / treble
 // (one band per light), 4 = strobe on the beat. Sensitivity 0..255. Changed live from the app, kept in the config.
@@ -152,6 +154,15 @@ void handleDMXOutput()
      if (DMXFixtureMap[i] == 5) calc_brightness = false;
    }
 
+  l4yDmxLastFrame = millis(); if (!l4yDmxLastFrame) l4yDmxLastFrame = 1;
+  // test from the app: every light at full white (colour, white and dimmer channels at 255), whatever else is set
+  if (l4yDmxTestUntil && (int32_t)(millis() - l4yDmxTestUntil) < 0) {
+    const int n = l4yDmxOutFixtures ? l4yDmxOutFixtures : 1;
+    for (int k = 0; k < n; k++) { const int st = DMXStart + DMXGap * k; if (st > 512) break; l4yDmxFixture(st, 255, 255, 255, 255, 255, 255, true); }
+    dmx.update();
+    return;
+  }
+  l4yDmxTestUntil = 0;
   if (l4yDmxMusic) { l4yDmxMusicFrame(brightness, !calc_brightness); return; }
 
   uint16_t len = strip.getLengthTotal();
