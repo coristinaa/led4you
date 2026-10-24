@@ -6497,7 +6497,14 @@ void mode_2Dscrollingtext(void) {
   // y-offset calculation
   int yoffset = map(SEGMENT.intensity, 0, 255, -rows / 2, rows / 2);
 
-  if (totalTextWidth <= cols) {
+#ifdef LED4YOU_BLE
+  // LED4YOU: the app's left / right buttons always scroll the text sideways, also when it is shorter than the matrix
+  // (Y Offset 0 or 255 still selects WLED's vertical scrolling for short text)
+  const bool scrollX = totalTextWidth > cols || (SEGMENT.intensity != 0 && SEGMENT.intensity != 255);
+#else
+  const bool scrollX = totalTextWidth > cols;
+#endif
+  if (!scrollX) {
     // if text fits matrix width, scroll vertically
     int speed = map(SEGMENT.speed, 0, 255, 5000, 1000);
     int frac = strip.now % speed + 1;
@@ -6510,7 +6517,7 @@ void mode_2Dscrollingtext(void) {
 
   // scroll step (AUX0 is current scrolling offset)
   if (SEGENV.step < strip.now) {
-    if (totalTextWidth > cols) {
+    if (scrollX) {
       if (SEGMENT.check3) { // reverse direction
         if (SEGENV.aux0 == 0) SEGENV.aux0 = totalTextWidth + cols - 1;
         else --SEGENV.aux0;
