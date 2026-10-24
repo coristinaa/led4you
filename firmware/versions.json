@@ -1,3 +1,3 @@
-[{ "version": 71, "manifest": "manifest-v71.json", "notes": "DMX: each light can have its own job (follow an LED, pulse, beat colour, bass, mids, treble, strobe, one colour)" },
- { "version": 70, "manifest": "manifest-v70.json", "notes": "DMX lights can follow the music: pulse, colour on the beat, bass / mids / treble, strobe" },
- { "version": 69, "manifest": "manifest-v69.json", "notes": "Setup: choose the preset the lights start with (also over Bluetooth)" }]
+[{ "version": 72, "manifest": "manifest-v72.json", "notes": "DMX music: bass / mids / treble react much more, strobe changes colour (or one chosen colour)" },
+ { "version": 71, "manifest": "manifest-v71.json", "notes": "DMX: each light can have its own job (follow an LED, pulse, beat colour, bass, mids, treble, strobe, one colour)" },
+ { "version": 70, "manifest": "manifest-v70.json", "notes": "DMX lights can follow the music: pulse, colour on the beat, bass / mids / treble, strobe" }]
