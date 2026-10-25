@@ -68,6 +68,7 @@
 		['My LEDs', 'Os meus LEDs', 'Mis LEDs', 'Mes LEDs'],
 		['Images', 'Imagens', 'Imágenes', 'Images'],
 		['More', 'Mais', 'Más', 'Plus'],
+		['Part of the matrix has no LEDs (dotted area): check X and Y of the panels. Pictures and text there would be cut off.', 'Parte da matriz não tem LEDs (zona tracejada): confirma o X e o Y dos painéis. Imagens e texto ficariam cortados aí.', 'Parte de la matriz no tiene LED (zona punteada): revisa la X y la Y de los paneles. Las imágenes y el texto quedarían cortados ahí.', 'Une partie de la matrice n\'a pas de LED (zone en pointillés) : vérifie X et Y des panneaux. Images et texte y seraient coupés.'],
 		['Picture size', 'Tamanho da imagem', 'Tamaño de la imagen', 'Taille de l\'image'],
 		['In proportion', 'Na proporção', 'En proporción', 'En proportion'],
 		['Stretched to the matrix', 'Esticada à matriz', 'Estirada a la matriz', 'Étirée à la matrice'],
