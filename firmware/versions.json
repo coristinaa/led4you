@@ -1,3 +1,3 @@
-[{ "version": 77, "manifest": "manifest-v77.json", "notes": "Drawing on the lights no longer freezes them (updates go out one at a time; design saved after a pause)" },
- { "version": 76, "manifest": "manifest-v76.json", "notes": "DMX strobe: a clear full flash on every beat, beats found also in loud music" },
- { "version": 75, "manifest": "manifest-v75.json", "notes": "DMX: status line and a test button (all lights white) in the app; settings cannot be overwritten before the restart" }]
+[{ "version": 78, "manifest": "manifest-v78.json", "notes": "Pictures (GIFs) keep their proportions on the matrix and small details such as eyes stay when they are shrunk" },
+ { "version": 77, "manifest": "manifest-v77.json", "notes": "Drawing on the lights no longer freezes them (updates go out one at a time; design saved after a pause)" },
+ { "version": 76, "manifest": "manifest-v76.json", "notes": "DMX strobe: a clear full flash on every beat, beats found also in loud music" }]
