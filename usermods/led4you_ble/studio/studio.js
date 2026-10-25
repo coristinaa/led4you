@@ -288,14 +288,22 @@
 		let tool = 'select', brush = 1, drawing = false, liveReady = false, flushTimer = 0;
 		const pending = new Map();
 		const hex = l => l.slice(0, 3).map(v => v.toString(16).padStart(2, '0')).join('');
-		const flush = () => {
+		// one message at a time: firing them all at once (the whole design is up to 18 messages) filled the lights'
+		// queue and memory and froze them, over Bluetooth and over Wi-Fi alike
+		let liveBusy = false;
+		const flush = async () => {
 			flushTimer = 0;
-			if (!pending.size) return;
-			let pairs = [];
-			if (!liveReady) { liveReady = true; leds.forEach((l, i) => pairs.push(i, hex(l))); pending.clear(); }   // first stroke: show the whole design
-			else { pending.forEach((v, i) => pairs.push(i, v)); pending.clear(); }
-			// small messages: they also travel over Bluetooth
-			for (let k = 0; k < pairs.length; k += 120) t.send({ on: true, seg: Object.assign(zone ? { id: zone[0] } : {}, { i: pairs.slice(k, k + 120) }) }).catch(() => {});
+			if (liveBusy || !pending.size) return;
+			liveBusy = true;
+			try {
+				let pairs = [], first = !liveReady;
+				if (!liveReady) { liveReady = true; leds.forEach((l, i) => { if (l[0] | l[1] | l[2]) pairs.push(i, hex(l)); }); pending.forEach((v, i) => pairs.push(i, v)); pending.clear(); }   // first stroke: the whole design (lit LEDs only)
+				else { pending.forEach((v, i) => pairs.push(i, v)); pending.clear(); }
+				if (first && !pairs.length) pairs = [0, '000000'];
+				for (let k = 0; k < pairs.length; k += 120)
+					await t.send(Object.assign(first && k === 0 ? { on: true } : {}, { seg: Object.assign(zone ? { id: zone[0] } : {}, { i: pairs.slice(k, k + 120) }) })).catch(() => {});
+			} finally { liveBusy = false; }
+			if (pending.size && !flushTimer) flushTimer = setTimeout(flush, 120);   // painted while this was going out
 		};
 		const paintOne = i => {
 			if (i < 0 || i >= count) return;
@@ -338,8 +346,10 @@
 		const stopDraw = () => {
 			if (!drawing) return;
 			drawing = false; save(); clearTimeout(flushTimer); flush();
+			// store the design on the lights once drawing has paused (not after every stroke) and the live part is out
 			clearTimeout(autoTimer);
-			autoTimer = setTimeout(() => sendTable(true), 1200);
+			const auto = () => { if (drawing || liveBusy || pending.size) { autoTimer = setTimeout(auto, 1000); return; } sendTable(true); };
+			autoTimer = setTimeout(auto, 3000);
 		};
 		grid.addEventListener('pointerup', stopDraw);
 		grid.addEventListener('pointercancel', stopDraw);
