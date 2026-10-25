@@ -4650,7 +4650,11 @@ void mode_image(void) {
   //   Serial.println(status);
   // }
 }
+#ifdef LED4YOU_BLE
+static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,,,Fit;;;12;sx=128,ix=0,c3=0";   // LED4YOU: Fit 0-10 in proportion, 11-20 stretched, 21-31 fill (cut)
+#else
 static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,;;;12;sx=128,ix=0";
+#endif
 
 /*
   Blends random colors across palette

@@ -34,7 +34,8 @@ struct GifSlot {
   unsigned long retryAt = 0;                       // not enough memory for the decoder: try again at this time
   uint16_t gifWidth = 0, gifHeight = 0;
   uint16_t perPixelX = 1, perPixelY = 1;           // scaling factors when upscaling
-  uint16_t fitW = 0, fitH = 0, fitX = 0, fitY = 0;  // LED4YOU: picture size and position on the matrix (kept in proportion)
+  uint16_t fitW = 0, fitH = 0; int16_t fitX = 0, fitY = 0;  // LED4YOU: picture size and position on the matrix
+  uint8_t fitMode = 255;                             // LED4YOU: 0 in proportion, 1 stretched, 2 filling the matrix (cut)
   uint8_t* fitTag = nullptr; uint8_t fitFrame = 1; // LED4YOU: frame each LED was last painted in (smaller than the GIF: keep the brightest pixel)
   GifPixelCb drawCb = nullptr;                     // pixel callback that fits this GIF and segment size
 };
@@ -152,6 +153,21 @@ void drawPixelCallback2DFit(int16_t x, int16_t y, uint8_t red, uint8_t green, ui
     }
     s->setPixelColorXY(cur->fitX + xx, cur->fitY + yy, red, green, blue);
   }
+}
+
+// picture size and place for the segment: Fit (custom3) 0-10 = in proportion, 11-20 = stretched, 21-31 = filling the
+// matrix (in proportion, the parts that stick out are cut off)
+static void l4yFit(GifSlot& sl, Segment& seg) {
+  const int W = seg.vWidth(), H = seg.vHeight(), gw = sl.gifWidth, gh = sl.gifHeight;
+  const uint8_t mode = seg.custom3 > 20 ? 2 : seg.custom3 > 10 ? 1 : 0;
+  sl.fitMode = mode;
+  const bool tall = (long)W * gh <= (long)H * gw;   // the matrix is narrower than the picture
+  if (mode == 1) { sl.fitW = W; sl.fitH = H; }
+  else if (tall == (mode == 0)) { sl.fitW = W; sl.fitH = max(1, (int)((long)gh * W / gw)); }
+  else { sl.fitH = H; sl.fitW = max(1, (int)((long)gw * H / gh)); }
+  sl.fitX = (W - (int)sl.fitW) / 2; sl.fitY = (H - (int)sl.fitH) / 2;
+  free(sl.fitTag); sl.fitTag = nullptr;
+  if (sl.fitW < gw || sl.fitH < gh) { sl.fitTag = (uint8_t*)calloc((size_t)sl.fitW * sl.fitH, 1); sl.fitFrame = 1; }   // only when shrinking
 }
 // AI: end
 #endif
@@ -277,13 +293,8 @@ byte renderImageToSegment(Segment &seg) {
       sl.perPixelY   = (seg.vHeight() + sl.gifHeight-1) / sl.gifHeight;
 #ifdef LED4YOU_BLE
       if (seg.vWidth() != sl.gifWidth || seg.vHeight() != sl.gifHeight) {
-        const int W = seg.vWidth(), H = seg.vHeight();
-        if ((long)W * sl.gifHeight <= (long)H * sl.gifWidth) { sl.fitW = W; sl.fitH = max(1, (int)((long)sl.gifHeight * W / sl.gifWidth)); }
-        else { sl.fitH = H; sl.fitW = max(1, (int)((long)sl.gifWidth * H / sl.gifHeight)); }
-        sl.fitX = (W - sl.fitW) / 2; sl.fitY = (H - sl.fitH) / 2;
+        l4yFit(sl, seg);
         sl.drawCb = drawPixelCallback2DFit;
-        free(sl.fitTag); sl.fitTag = nullptr;
-        if (sl.fitW < sl.gifWidth || sl.fitH < sl.gifHeight) { sl.fitTag = (uint8_t*)calloc((size_t)sl.fitW * sl.fitH, 1); sl.fitFrame = 1; }   // only when shrinking
       }
 #else
       if (seg.vWidth() != sl.gifWidth || seg.vHeight() != sl.gifHeight) sl.drawCb = drawPixelCallback2D;  // 2D callback with scaling
@@ -296,6 +307,10 @@ byte renderImageToSegment(Segment &seg) {
     }
   }
 
+#ifdef LED4YOU_BLE
+  // Fit changed from the app while the picture plays: new size and place, start from a clear matrix
+  if (!sl.failed && sl.drawCb == drawPixelCallback2DFit && sl.fitMode != (seg.custom3 > 20 ? 2 : seg.custom3 > 10 ? 1 : 0)) { l4yFit(sl, seg); seg.fill(0); }
+#endif
   if (sl.failed) return IMAGE_ERROR_PREV;
   if (!sl.file) { sl.failed = true; return IMAGE_ERROR_FILE_MISSING; }
 

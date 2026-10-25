@@ -1109,6 +1109,23 @@
 		if (z.length <= 1) { const zg = t.info().zg || []; return whole && zg.length === 1 ? Object.assign(wholeSeg(t), { id: zg[0][0] }, obj) : obj; }
 		return z.map(id => Object.assign({ id }, obj));    // the same on every zone
 	};
+	// how a picture fills the matrix (LED4YOU firmware v79+, Image effect "Fit" = custom3): 0 in proportion,
+	// 1 stretched to the whole matrix, 2 filling the matrix in proportion (the parts that stick out are cut off)
+	const FIT_C3 = [0, 15, 25];
+	const gifFit = () => { try { const v = +localStorage.getItem('l4yGifFit'); return v >= 0 && v <= 2 ? v : 0; } catch (e) { return 0; } };
+	let lastGif = null;
+	const gifSeg = name => { lastGif = name; return { fx: 53, n: name, frz: false, sx: 128, ix: 0, c3: FIT_C3[gifFit()] }; };
+	function fitRow(t, toast) {
+		const s = h('select', { 'aria-label': 'Picture size' }, [[0, 'In proportion'], [1, 'Stretched to the matrix'], [2, 'Filling the matrix (edges cut)']].map(([v, n]) => h('option', { value: String(v) }, n)));
+		s.value = String(gifFit());
+		s.onchange = () => {
+			try { localStorage.setItem('l4yGifFit', s.value); } catch (e) {}
+			document.querySelectorAll('select[data-fit]').forEach(o => { if (o !== s) o.value = s.value; });
+			if (lastGif) t.send({ on: true, seg: segOut(t, gifSeg(lastGif)) }).catch(() => {});   // the picture showing now changes at once
+		};
+		s.dataset.fit = '1';
+		return h('label', { class: 'fld' }, h('span', {}, 'Picture size'), s);
+	}
 	// a GIF on more zones than the board can play at once: say so (the others keep what they show)
 	const gifWarn = (t, toast) => {
 		const z = zonesOf(t), gs = t.info().gs;
@@ -1545,14 +1562,14 @@
 				stored.add(name);
 			}
 			// Image effect: speed 128 = the GIF's own timing, Blur 0 (otherwise the last effect's intensity blurs the GIF)
-			if (play) { gifWarn(t, toast); await t.send({ on: true, seg: segOut(t, { fx: 53, n: name, frz: false, sx: 128, ix: 0 }) }); }
+			if (play) { gifWarn(t, toast); await t.send({ on: true, seg: segOut(t, gifSeg(name)) }); }
 			prog.textContent = '';
 		};
 		const card = h('section', { class: 'card' },
 			h('div', { class: 'ct' }, 'GIF pack'),
 			targetBar(t),
 			h('div', { class: 'note' }, 'Tap an animation to send it to the lights and play it. Made for matrices; on a strip it is squeezed into one line.'),
-			grid, prog);
+			t.info().mw && t.info().mh ? fitRow(t, toast) : '', grid, prog);
 		const refreshStored = () => t.status ? t.status().then(s => { if (s && Array.isArray(s.g)) stored = new Set(s.g); }).catch(() => {}) : Promise.resolve();
 		fetch(base + 'pack.json').then(r => r.json()).then(async pack => {
 			await refreshStored();
@@ -1569,7 +1586,7 @@
 						// then play them one after the other: the lights change to the next one every 10 s (same file name start)
 						const pre = list[0].f.split('-')[0] + '-';
 						gifWarn(t, toast);
-						await t.send({ on: true, seg: segOut(t, { fx: 53, n: list[0].f, frz: false, sx: 128, ix: 0 }), l4y: { gr: { p: pre, s: 10, id: TARGET === null ? -1 : TARGET } } });
+						await t.send({ on: true, seg: segOut(t, gifSeg(list[0].f)), l4y: { gr: { p: pre, s: 10, id: TARGET === null ? -1 : TARGET } } });
 						toast(th + ': playing all ' + list.length + ' animations, a new one every 10 seconds.');
 					} catch (e) {
 						// say which one stopped it and why, so a full memory and a lost connection can be told apart
@@ -1797,7 +1814,7 @@
 			const name = cleanName(f.name);
 			try {
 				const ok = await t.upload(name, new Uint8Array(await f.arrayBuffer()), 0, p => { gifMsg.textContent = 'Sending… ' + Math.round(p * 100) + '%'; });
-				if (ok) { gifWarn(t, toast); await t.send({ on: true, seg: segOut(t, { fx: 53, n: name, frz: false, sx: 128, ix: 0 }) }); }
+				if (ok) { gifWarn(t, toast); await t.send({ on: true, seg: segOut(t, gifSeg(name)) }); }
 				gifMsg.textContent = ok ? 'Playing ' + name + '.' : 'The lights could not save the GIF.';
 				if (ok) setTimeout(loadList, 800);
 			} catch (e) { gifMsg.textContent = 'Could not send the GIF.'; }
@@ -1821,7 +1838,7 @@
 					try { if (!t.remove) throw 0; await t.remove(name); toast(name + ' deleted.'); setTimeout(loadList, 600); } catch (e) { toast('Could not delete.'); }
 				};
 				return h('div', { class: 'gifrow2' }, h('span', { 'data-notr': '' }, name),
-					h('button', { type: 'button', class: 'btn small', onclick: () => { gifWarn(t, toast); t.send({ on: true, seg: segOut(t, { fx: 53, n: name, frz: false, sx: 128, ix: 0 }) }).then(() => toast('Playing ' + name + '.')).catch(() => toast('Could not send.')); } }, 'Play'),
+					h('button', { type: 'button', class: 'btn small', onclick: () => { gifWarn(t, toast); t.send({ on: true, seg: segOut(t, gifSeg(name)) }).then(() => toast('Playing ' + name + '.')).catch(() => toast('Could not send.')); } }, 'Play'),
 					del);
 			}));
 		}).catch(() => {});
@@ -1887,6 +1904,7 @@
 		extrasCards,
 		gifPackCard,
 		zonesCard,
+		gifSeg, fitRow,
 		phoneSound: phoneMic,
 		targetBar,
 		segOut,
