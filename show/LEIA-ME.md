@@ -1,4 +1,4 @@
-# Cubo das crianças (LED4YOU) — v4
+# Cubo das crianças (LED4YOU) — v5
 
 As crianças leem o código QR na parede e, no telemóvel, escrevem uma mensagem (ou escolhem uma pronta do tema),
 escolhem uma imagem animada ou fazem um desenho.
@@ -52,14 +52,24 @@ Cada zona é uma matriz com o seu tamanho.
 - **Procurar placas na rede** → escolha a placa do cubo.
 - **Lados do cubo**: marque as zonas que são lados e dê-lhes um nome. As crianças escolhem o lado pelo nome.
   "Todos os lados" só aparece quando os lados têm todos o mesmo tamanho.
-- **Tema**: Halloween, Natal, outras festas ou todas. Muda as imagens e as mensagens prontas que aparecem na página.
+- **Tema**: só conta para quem abre a página sem tema no endereço. Os QR do Halloween e do Natal já trazem o tema.
 - **Tempo** de cada mensagem, imagem e desenho.
 - **Deixar escrever texto livre**: ligado de origem. Se o desligar, só se podem enviar as mensagens prontas.
 - **Aprovar cada pedido**: os pedidos ficam em "Por aprovar", com os botões Mostrar / Recusar.
-- **Código QR**: o endereço para o cartaz. **É sempre o mesmo**: pode mudar lados, tema ou tempos sem reimprimir.
+- **Códigos QR**: dois, um para cada tema, com o botão Copiar endereço. **Não mudam**: pode mudar lados ou tempos
+  sem reimprimir.
 - **Testar** e **Registo**.
 
 Carregue em **Guardar** depois de mudar. As escolhas ficam em `show_config.json`.
+
+## Halloween e Natal: um QR para cada
+
+| Tema | Endereço | Página |
+|---|---|---|
+| Halloween | `https://coristinaa.github.io/led4you/show/?t=l4yshow-3352b4beefd1&tema=hw` | roxo e laranja, mensagens e imagens de Halloween |
+| Natal | `https://coristinaa.github.io/led4you/show/?t=l4yshow-3352b4beefd1&tema=xm` | verde e vermelho, mensagens e imagens de Natal |
+
+Ponha no cartaz de Halloween o QR do Halloween e no cartaz de Natal o QR do Natal.
 
 ## Como funciona
 

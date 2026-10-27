@@ -7,6 +7,8 @@
 <title>Light Show Biscoitos – Põe a tua mensagem nas luzes</title>
 <style>
 :root { --bg: #120b1f; --card: #1d1430; --raise: #281c40; --line: #3a2d52; --fg: #ffffff; --muted: #c9bddc; --hot: #ff7a1a; --ok: #39d353; --rad: 18px; }
+/* Natal: verde escuro com vermelho */
+:root[data-tema="xm"] { --bg: #08180f; --card: #0f2619; --raise: #163422; --line: #24503a; --muted: #c4dccd; --hot: #ff3b3b; --ok: #7fe08a; }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 main { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; display: flex; flex-direction: column; gap: 16px; }
@@ -46,7 +48,7 @@ input[type=text] { width: 100%; min-height: 52px; padding: 10px 14px; border-rad
 <body>
 <main>
   <div>
-    <div class="kick">Light Show Biscoitos</div>
+    <div class="kick" id="kick">Light Show Biscoitos</div>
     <h1>Põe a tua mensagem nas luzes!</h1>
   </div>
   <p class="note" id="intro">Escolhe uma mensagem, uma imagem ou faz um desenho. Aparece nas luzes daqui a pouco, um pedido de cada vez.</p>
@@ -115,6 +117,13 @@ input[type=text] { width: 100%; min-height: 52px; padding: 10px 14px; border-rad
 
 	// what the lights allow (from the bridge's status): sides [{n, w, h}], theme, free text or ready messages only
 	let cfg = { faces: [{ n: '', w: 16, h: 16 }], theme: '', free: true };
+	// &tema=hw (Halloween) or &tema=xm (Natal) in the QR address fixes the theme of this page
+	const URL_THEME = ['hw', 'xm'].includes(q.get('tema')) ? q.get('tema') : '';
+	if (URL_THEME) {
+		cfg.theme = URL_THEME; document.documentElement.dataset.tema = URL_THEME;
+		$('kick').textContent = 'Light Show Biscoitos · ' + (URL_THEME === 'xm' ? 'Natal 🎄' : 'Halloween 🎃');
+		document.querySelector('meta[name=theme-color]').content = URL_THEME === 'xm' ? '#08180f' : '#120b1f';
+	}
 	let face = -1;   // -1 = all sides
 	let closed = !TOPIC;
 	if (!TOPIC) $('noShow').hidden = false;
@@ -140,7 +149,7 @@ input[type=text] { width: 100%; min-height: 52px; padding: 10px 14px; border-rad
 	};
 
 	// ---- message ----
-	let txtCol = 3, quick = null;
+	let txtCol = URL_THEME === 'xm' ? 2 : 3, quick = null;
 	const chosenText = () => cfg.free ? ($('txt').value.trim() || (quick ? (SHOWN[quick] || quick) : '')) : (quick ? (SHOWN[quick] || quick) : '');
 	const updPrev = () => { const v = chosenText(); $('txtPrev').textContent = v || '…'; $('txtPrev').style.color = '#' + PAL[txtCol]; };
 	const drawQuick = () => {
@@ -213,7 +222,7 @@ input[type=text] { width: 100%; min-height: 52px; padding: 10px 14px; border-rad
 		let st = null; try { st = last && JSON.parse(last.message); } catch (e) {}
 		closed = !st || !st.on || Date.now() / 1000 - (st.at || 0) > 7200;   // no news for 2 hours: the bridge is off
 		if (st && Array.isArray(st.faces) && st.faces.length) cfg.faces = st.faces.slice(0, 8).map(f => ({ n: String(f.n || '').slice(0, 20), w: Math.max(4, Math.min(64, f.w | 0)), h: Math.max(4, Math.min(64, f.h | 0)) }));
-		if (st) { cfg.theme = ['hw', 'xm', 'ev', ''].includes(st.theme) ? st.theme : ''; cfg.free = !!st.free; }
+		if (st) { cfg.theme = URL_THEME || (['hw', 'xm', 'ev', ''].includes(st.theme) ? st.theme : ''); cfg.free = !!st.free; }
 		if (face >= cfg.faces.length) face = -1;
 		apply();
 	}).catch(() => {});

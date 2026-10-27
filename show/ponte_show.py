@@ -76,8 +76,9 @@ def save():
         json.dump(S, f, indent=1)
 
 
-def qr_url():
-    return "%s?t=%s" % (PAGE, S["topic"])   # o resto (lados, tamanho, tema) a página lê do estado publicado
+def qr_url(tema=""):
+    # um endereço por tema (Halloween / Natal); sem tema, a página usa o tema escolhido aqui
+    return "%s?t=%s%s" % (PAGE, S["topic"], "&tema=" + tema if tema else "")
 
 
 # ---------------------------------------------------------------------------------------- matriz ----
@@ -329,7 +330,7 @@ select,input[type=number],input[type=text]{width:100%;min-height:44px;padding:8p
 .three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.big{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:700}
 .big input{width:26px;height:26px}.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:700}
 .on{background:var(--ok);color:#06240f}.off{background:#5a4d6b}.url{word-break:break-all;font-size:14px;background:#000;padding:10px;border-radius:10px}
-#qr{background:#fff;padding:12px;border-radius:12px;align-self:center}.item{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px}
+.qr{background:#fff;padding:10px;border-radius:12px;align-self:center}.qrs{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}.qrb{display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center;max-width:240px}.item{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px}
 .item .what{flex:1;min-width:0;word-break:break-word}.zrow{display:flex;gap:10px;align-items:center}.zrow input[type=checkbox]{width:24px;height:24px;flex:none}.zrow span{flex:none;min-width:120px}canvas{image-rendering:pixelated;background:#000;border-radius:6px}
 pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:0;max-height:220px;overflow:auto}
 [hidden]{display:none!important}
@@ -348,7 +349,7 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:0;max-height:2
 </div>
 <div class="card">
   <div class="ct">Como aparecem</div>
-  <label for="theme">Tema (imagens e mensagens rápidas da página)</label>
+  <label for="theme">Tema de quem abre a página sem tema no endereço</label>
   <select id="theme"><option value="hw">Halloween</option><option value="xm">Natal</option><option value="ev">Outras festas</option><option value="">Todas</option></select>
   <div class="three">
     <div><label for="sText">Texto (s)</label><input type="number" id="sText" min="3" max="120"></div>
@@ -364,10 +365,13 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:0;max-height:2
   <div class="ct">Por aprovar</div><div id="pend" style="display:flex;flex-direction:column;gap:8px"></div>
 </div>
 <div class="card">
-  <div class="ct">Código QR para o cartaz</div>
-  <div id="qr"></div><div class="url" id="url"></div>
-  <div class="row"><button class="btn" id="copy" type="button">Copiar endereço</button>
-  <input type="text" id="testTxt" placeholder="Texto de teste" style="flex:1;min-width:140px"><button class="btn" id="test" type="button">Testar</button></div>
+  <div class="ct">Códigos QR para os cartazes</div>
+  <div class="note">Um para o Halloween e outro para o Natal: cada um abre a página com as cores, mensagens e imagens desse tema.</div>
+  <div class="qrs">
+   <div class="qrb"><b>Halloween</b><div class="qr" id="qr_hw"></div><div class="url" id="url_hw"></div><button class="btn" type="button" data-copy="hw">Copiar endereço</button></div>
+   <div class="qrb"><b>Natal</b><div class="qr" id="qr_xm"></div><div class="url" id="url_xm"></div><button class="btn" type="button" data-copy="xm">Copiar endereço</button></div>
+  </div>
+  <div class="row"><input type="text" id="testTxt" placeholder="Texto de teste" style="flex:1;min-width:140px"><button class="btn" id="test" type="button">Testar</button></div>
 </div>
 <div class="card"><div class="ct">Registo</div><div class="note" id="now"></div><pre id="log"></pre></div>
 </main><script>
@@ -386,7 +390,8 @@ function render(){
   if(zonesFor!==st.board){zonesFor=st.board;loadZones(st.board,st.faces);}
   $('free').checked=st.free;
   $('theme').value=st.theme;$('sText').value=st.seconds.text;$('sGif').value=st.seconds.gif;$('sDraw').value=st.seconds.draw;$('approve').checked=st.approve;}
- $('url').textContent=st.url;if(qrFor!==st.url&&window.QRCode){$('qr').replaceChildren();new QRCode($('qr'),{text:st.url,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});qrFor=st.url;}
+ const qk=st.urls.hw+st.urls.xm;$('url_hw').textContent=st.urls.hw;$('url_xm').textContent=st.urls.xm;
+ if(qrFor!==qk&&window.QRCode){for(const t of ['hw','xm']){$('qr_'+t).replaceChildren();new QRCode($('qr_'+t),{text:st.urls[t],width:200,height:200,correctLevel:QRCode.CorrectLevel.M});}qrFor=qk;}
  $('pendCard').hidden=!st.pending.length;
  $('pend').replaceChildren(...st.pending.map(p=>{const d=document.createElement('div');d.className='item';const w=document.createElement('div');w.className='what';
   if(p.kind==='draw'){const c=document.createElement('canvas');c.width=p.info.w;c.height=p.info.h;c.style.width=(p.info.w*5)+'px';const g=c.getContext('2d');[...p.info.p].forEach((v,i)=>{if(v!=='0'){g.fillStyle='#'+['000000','ffffff','ff2a2a','ff7a1a','ffd23f','39d353','2bb7ff','9b5cff','ff4fd8'][+v];g.fillRect(i%p.info.w,Math.floor(i/p.info.w),1,1);}});w.append(c);}
@@ -404,7 +409,7 @@ $('save').onclick=async()=>{const b=st.boards.find(x=>x.ip===$('board').value);c
  if(!faces.length){$('saveMsg').textContent='Marque pelo menos um lado.';return;}
  await api('settings',{board:$('board').value,boardName:b?b.name:(st.board===$('board').value?st.boardName:''),faces,theme:$('theme').value,approve:$('approve').checked,free:$('free').checked,seconds:{text:+$('sText').value,gif:+$('sGif').value,draw:+$('sDraw').value}});
  editing=false;$('saveMsg').textContent='Guardado.';setTimeout(()=>$('saveMsg').textContent='',2500);refresh();};
-$('copy').onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(st.url).then(()=>{$('copy').textContent='Copiado';setTimeout(()=>$('copy').textContent='Copiar endereço',2000);});
+document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(st.urls[b.dataset.copy]).then(()=>{b.textContent='Copiado';setTimeout(()=>b.textContent='Copiar endereço',2000);}));
 $('test').onclick=()=>api('test',{t:$('testTxt').value||'Ola!'}).then(refresh);
 refresh();setInterval(()=>{if(!editing)refresh();},3000);
 </script></body></html>"""
@@ -435,7 +440,7 @@ class Admin(BaseHTTPRequestHandler):
             return self.send(200, ADMIN, "text/html")
         if p == "/api/state":
             with lock:
-                return self.send(200, dict(S, boards=boards, url=qr_url(), log=logs[-40:], now=now_showing["what"], queue=jobs.qsize(),
+                return self.send(200, dict(S, boards=boards, url=qr_url(), urls={"hw": qr_url("hw"), "xm": qr_url("xm")}, log=logs[-40:], now=now_showing["what"], queue=jobs.qsize(),
                                          pending=[{k: v for k, v in x.items() if k != "cmd"} for x in pending]))
         if p == "/api/zones":
             ip = self.path.split("ip=", 1)[-1] if "ip=" in self.path else ""
