@@ -4,40 +4,42 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#120b1f">
-<title>Light Show Biscoitos – A sua mensagem na matriz</title>
+<title>Light Show Biscoitos – Põe a tua mensagem nas luzes</title>
 <style>
-:root { --bg: #120b1f; --card: #1d1430; --raise: #281c40; --line: #3a2d52; --fg: #ffffff; --muted: #c9bddc; --hot: #ff7a1a; --ok: #39d353; --rad: 16px; }
+:root { --bg: #120b1f; --card: #1d1430; --raise: #281c40; --line: #3a2d52; --fg: #ffffff; --muted: #c9bddc; --hot: #ff7a1a; --ok: #39d353; --rad: 18px; }
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 main { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; display: flex; flex-direction: column; gap: 16px; }
-h1 { margin: 4px 0 0; font-size: 28px; line-height: 1.15; }
+h1 { margin: 4px 0 0; font-size: 30px; line-height: 1.15; }
 .kick { font-size: 13px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
-.note { font-size: 14px; color: var(--muted); }
+.note { font-size: 15px; color: var(--muted); margin: 0; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--rad); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; background: var(--card); border: 1px solid var(--line); border-radius: var(--rad); padding: 5px; }
-.tabs button { min-height: 44px; border: 0; border-radius: 12px; background: none; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; }
+.tabs.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tabs button { min-height: 52px; border: 0; border-radius: 14px; background: none; color: var(--muted); font: inherit; font-weight: 700; cursor: pointer; }
 .tabs button[aria-selected="true"] { background: var(--raise); color: var(--fg); }
-label { font-size: 14px; color: var(--muted); }
-input[type=text] { width: 100%; min-height: 48px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--raise); color: var(--fg); font: inherit; font-size: 18px; }
+.lab { font-size: 15px; color: var(--muted); font-weight: 600; }
+input[type=text] { width: 100%; min-height: 52px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--raise); color: var(--fg); font: inherit; font-size: 19px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--raise); color: var(--fg); font: inherit; cursor: pointer; }
+.chip { min-height: 48px; padding: 8px 16px; border-radius: 999px; border: 2px solid var(--line); background: var(--raise); color: var(--fg); font: inherit; font-weight: 600; cursor: pointer; }
+.chip[aria-pressed="true"] { border-color: var(--hot); }
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
-.sw { width: 44px; height: 44px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
-.sw[aria-pressed="true"] { border-color: #fff; box-shadow: 0 0 0 2px var(--bg) inset; }
-.sw.erase { background: repeating-linear-gradient(45deg, #000 0 6px, #333 6px 12px); }
-.prev { min-height: 64px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: #000; padding: 12px; font-size: 24px; font-weight: 800; text-align: center; word-break: break-word; }
+.sw { width: 48px; height: 48px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
+.sw[aria-pressed="true"] { border-color: #fff; box-shadow: 0 0 0 3px var(--bg) inset; }
+.sw.erase { background: repeating-linear-gradient(45deg, #000 0 6px, #444 6px 12px); }
+.prev { min-height: 64px; display: flex; align-items: center; justify-content: center; border-radius: 14px; background: #000; padding: 12px; font-size: 26px; font-weight: 800; text-align: center; word-break: break-word; }
 .gifs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.gif { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border-radius: 14px; border: 2px solid var(--line); background: var(--raise); color: var(--fg); font: inherit; font-size: 13px; cursor: pointer; }
-.gif img { width: 72px; height: 72px; image-rendering: pixelated; background: #000; border-radius: 8px; }
+.gif { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border-radius: 16px; border: 3px solid var(--line); background: var(--raise); color: var(--fg); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.gif img { width: 76px; height: 76px; image-rendering: pixelated; background: #000; border-radius: 8px; }
 .gif[aria-pressed="true"] { border-color: var(--hot); }
-.grid { display: grid; gap: 2px; background: #000; padding: 6px; border-radius: 12px; touch-action: none; user-select: none; }
+.grid { display: grid; gap: 2px; background: #000; padding: 6px; border-radius: 14px; touch-action: none; user-select: none; }
 .cell { aspect-ratio: 1; border-radius: 3px; background: #1a1a1a; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.btn { min-height: 48px; padding: 10px 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--raise); color: var(--fg); font: inherit; font-weight: 600; cursor: pointer; }
-.btn.primary { background: var(--hot); border-color: var(--hot); color: #120b1f; font-size: 18px; width: 100%; }
+.btn { min-height: 52px; padding: 10px 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--raise); color: var(--fg); font: inherit; font-weight: 700; cursor: pointer; }
+.btn.primary { background: var(--hot); border-color: var(--hot); color: #120b1f; font-size: 20px; width: 100%; min-height: 60px; }
 .btn:disabled { opacity: .5; cursor: default; }
-.msg { min-height: 22px; font-size: 15px; text-align: center; }
-.msg.ok { color: var(--ok); } .msg.err { color: #ff8a8a; }
+.msg { min-height: 22px; font-size: 16px; text-align: center; margin: 0; }
+.msg.ok { color: var(--ok); } .msg.err { color: #ff9a9a; }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -45,63 +47,77 @@ input[type=text] { width: 100%; min-height: 48px; padding: 10px 14px; border-rad
 <main>
   <div>
     <div class="kick">Light Show Biscoitos</div>
-    <h1>Mostre a sua mensagem na matriz</h1>
+    <h1>Põe a tua mensagem nas luzes!</h1>
   </div>
-  <p class="note" id="intro">Escreva um texto, escolha uma imagem ou faça um desenho. Os pedidos aparecem na matriz um de cada vez, por ordem de chegada.</p>
-  <p class="msg err" id="noShow" hidden>Este endereço não tem o código do show. Leia outra vez o código QR do cartaz.</p>
-  <p class="msg err" id="closed" hidden>A matriz não está a receber pedidos neste momento. Volte a tentar durante o show (18:00 – 00:00).</p>
+  <p class="note" id="intro">Escolhe uma mensagem, uma imagem ou faz um desenho. Aparece nas luzes daqui a pouco, um pedido de cada vez.</p>
+  <p class="msg err" id="noShow" hidden>Este endereço não está completo. Lê outra vez o código QR da parede.</p>
+  <p class="msg err" id="closed" hidden>As luzes não estão a receber pedidos agora. Volta a tentar mais logo!</p>
+
+  <section class="card" id="faceCard" hidden>
+    <div class="lab">Em que lado aparece?</div>
+    <div class="chips" id="faces"></div>
+  </section>
 
   <div class="tabs" role="tablist" id="tabs">
-    <button type="button" role="tab" aria-selected="true" data-tab="text">Texto</button>
+    <button type="button" role="tab" aria-selected="true" data-tab="text">Mensagem</button>
     <button type="button" role="tab" aria-selected="false" data-tab="gif">Imagem</button>
     <button type="button" role="tab" aria-selected="false" data-tab="draw">Desenhar</button>
   </div>
 
   <section class="card" id="pText">
-    <label for="txt">A sua mensagem (até 40 letras)</label>
-    <input type="text" id="txt" maxlength="40" autocomplete="off" placeholder="Feliz Halloween!">
+    <div id="freeBox">
+      <label class="lab" for="txt">Escreve a tua mensagem (até 40 letras)</label>
+      <input type="text" id="txt" maxlength="40" autocomplete="off">
+    </div>
+    <div class="lab" id="quickLab">Ou escolhe uma destas</div>
     <div class="chips" id="quick"></div>
-    <label>Cor</label>
+    <div class="lab">Cor</div>
     <div class="swatches" id="txtCols"></div>
-    <div class="prev" id="txtPrev">Feliz Halloween!</div>
+    <div class="prev" id="txtPrev"></div>
   </section>
 
   <section class="card" id="pGif" hidden>
-    <label>Escolha uma imagem animada</label>
+    <div class="lab">Escolhe uma imagem</div>
     <div class="gifs" id="gifs"></div>
   </section>
 
   <section class="card" id="pDraw" hidden>
-    <label>Desenhe com o dedo</label>
+    <div class="lab">Desenha com o dedo</div>
     <div class="swatches" id="drawCols"></div>
     <div class="grid" id="grid"></div>
     <div class="row"><button class="btn" type="button" id="clear">Apagar tudo</button></div>
   </section>
 
-  <button class="btn primary" type="button" id="send">Enviar para a matriz</button>
-  <div class="msg" id="msg" role="status"></div>
-  <p class="note">Mensagens ofensivas não são mostradas. Pode enviar um pedido por minuto.</p>
+  <button class="btn primary" type="button" id="send">Mostrar nas luzes!</button>
+  <p class="msg" id="msg" role="status"></p>
+  <p class="note">Podes enviar um pedido por minuto.</p>
 </main>
 <script>
 (() => {
 	const $ = id => document.getElementById(id);
 	const q = new URLSearchParams(location.search);
-	// ?t=<show code>&w=<width>&h=<height>&tema=hw|xm|ev (from the QR on the poster)
+	// ?t=<show code> (from the QR on the wall); the rest (sides, size, theme, free text) comes from the lights' status
 	const TOPIC = (q.get('t') || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
-	const W = Math.max(4, Math.min(32, +q.get('w') || 16)), H = Math.max(4, Math.min(32, +q.get('h') || 16));
-	const THEME = (q.get('tema') || '').replace(/[^a-z]/g, '');
 	const RELAY = 'https://ntfy.sh/';
 	const WAIT_MS = 60000;
-	// the same 9 colours as the bridge (index 0 = off)
+	// the same 9 colours and ready messages as the bridge (ponte_show.py)
 	const PAL = ['000000', 'ffffff', 'ff2a2a', 'ff7a1a', 'ffd23f', '39d353', '2bb7ff', '9b5cff', 'ff4fd8'];
-	const QUICK = THEME === 'xm' ? ['Feliz Natal!', 'Boas Festas!', 'Ho ho ho!', 'Olá!'] : ['Feliz Halloween!', 'Boo!', 'Doçura ou travessura!', 'Olá!'];
+	const QUICK = {
+		hw: ['Feliz Halloween!', 'Boo!', 'Docura ou travessura!', 'Ola!', 'Uuuuh!', 'Abobora!'],
+		xm: ['Feliz Natal!', 'Boas Festas!', 'Ho ho ho!', 'Ola!', 'Pai Natal!', 'Neve!'],
+		ev: ['Parabens!', 'Viva!', 'Ola!', 'Feliz Ano Novo!', 'Boa Pascoa!', 'Amo-te!'],
+		'': ['Ola!', 'Viva!', 'Boo!', 'Feliz Natal!', 'Feliz Halloween!', 'Parabens!'] };
+	const SHOWN = { 'Docura ou travessura!': 'Doçura ou travessura!', 'Ola!': 'Olá!', 'Abobora!': 'Abóbora!', 'Parabens!': 'Parabéns!', 'Boa Pascoa!': 'Boa Páscoa!' };
 	const PT = { Pumpkin: 'Abóbora', Ghost: 'Fantasma', Bat: 'Morcego', Spider: 'Aranha', Skull: 'Caveira', Cauldron: 'Caldeirão', 'Eyes in the dark': 'Olhos no escuro', 'Christmas tree': 'Árvore de Natal', Snowfall: 'Neve', Snowman: 'Boneco de neve', Present: 'Presente', 'Candy cane': 'Bengala doce', Star: 'Estrela', Bell: 'Sino', Wreath: 'Coroa', Stocking: 'Meia', Gingerbread: 'Bolacha', Holly: 'Azevinho', Ornament: 'Bola de Natal', Moon: 'Lua', Cat: 'Gato', Grave: 'Campa', Hand: 'Mão', 'Witch hat': 'Chapéu de bruxa', 'Candy corn': 'Doce' };
-	// words that are not shown (checked again by the bridge)
 	const BAD = ['merda', 'caralho', 'foda', 'fodase', 'puta', 'cabrao', 'cona', 'piroca', 'pila', 'paneleiro', 'filhodaputa', 'corno', 'cu', 'mamas', 'boceta', 'porra', 'fuck', 'shit', 'bitch', 'dick', 'pussy', 'cunt', 'nigger', 'nazi', 'hitler'];
 	const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[0@]/g, 'o').replace(/[1!]/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a').replace(/[5$]/g, 's');
 	const isBad = s => { const n = norm(s), words = n.split(/[^a-z]+/), joined = n.replace(/[^a-z]/g, ''); return BAD.some(b => words.includes(b) || (b.length >= 5 && joined.includes(b))); };
 
-	if (!TOPIC) { $('noShow').hidden = false; $('send').disabled = true; }
+	// what the lights allow (from the bridge's status): sides [{n, w, h}], theme, free text or ready messages only
+	let cfg = { faces: [{ n: '', w: 16, h: 16 }], theme: '', free: false };
+	let face = -1;   // -1 = all sides
+	let closed = !TOPIC;
+	if (!TOPIC) $('noShow').hidden = false;
 
 	// ---- tabs ----
 	let tab = 'text';
@@ -110,10 +126,9 @@ input[type=text] { width: 100%; min-height: 48px; padding: 10px 14px; border-rad
 		tab = b.dataset.tab;
 		$('tabs').querySelectorAll('button').forEach(x => x.setAttribute('aria-selected', String(x === b)));
 		Object.entries(panes).forEach(([k, p]) => p.hidden = k !== tab);
-		$('msg').textContent = '';
+		say('');
 	});
 
-	// ---- colours ----
 	const swatches = (box, list, sel, onPick) => {
 		box.replaceChildren(...list.map(i => {
 			const b = document.createElement('button'); b.type = 'button'; b.className = 'sw' + (i === 0 ? ' erase' : '');
@@ -124,34 +139,50 @@ input[type=text] { width: 100%; min-height: 48px; padding: 10px 14px; border-rad
 		}));
 	};
 
-	// ---- text ----
-	let txtCol = 3;
-	const updPrev = () => { const v = $('txt').value.trim() || $('txt').placeholder; $('txtPrev').textContent = v; $('txtPrev').style.color = '#' + PAL[txtCol]; };
-	$('txt').placeholder = QUICK[0];
-	$('quick').replaceChildren(...QUICK.map(t => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = t; b.onclick = () => { $('txt').value = t; updPrev(); }; return b; }));
+	// ---- message ----
+	let txtCol = 3, quick = null;
+	const chosenText = () => cfg.free ? ($('txt').value.trim() || (quick ? (SHOWN[quick] || quick) : '')) : (quick ? (SHOWN[quick] || quick) : '');
+	const updPrev = () => { const v = chosenText(); $('txtPrev').textContent = v || '…'; $('txtPrev').style.color = '#' + PAL[txtCol]; };
+	const drawQuick = () => {
+		const list = QUICK[cfg.theme] || QUICK[''];
+		if (!list.includes(quick)) quick = list[0];
+		$('quick').replaceChildren(...list.map(t => {
+			const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = SHOWN[t] || t; b.setAttribute('aria-pressed', String(t === quick));
+			b.onclick = () => { quick = t; $('txt').value = ''; drawQuick(); updPrev(); };
+			return b;
+		}));
+		$('freeBox').hidden = !cfg.free; $('quickLab').textContent = cfg.free ? 'Ou escolhe uma destas' : 'Escolhe uma mensagem';
+	};
 	swatches($('txtCols'), [1, 2, 3, 4, 5, 6, 7, 8], txtCol, i => { txtCol = i; updPrev(); });
-	$('txt').oninput = updPrev; updPrev();
+	$('txt').oninput = () => { if ($('txt').value.trim()) { quick = null; $('quick').querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', 'false')); } updPrev(); };
 
 	// ---- pictures (the LED4YOU GIF pack) ----
-	let gif = null;
-	fetch('../gifs/pack.json').then(r => r.json()).then(pack => {
-		const list = pack.filter(f => !THEME || f.f.startsWith(THEME + '-'));
+	let gif = null, pack = [];
+	const drawGifs = () => {
+		const list = pack.filter(f => !cfg.theme || f.f.startsWith(cfg.theme + '-'));
 		$('gifs').replaceChildren(...list.map(f => {
-			const b = document.createElement('button'); b.type = 'button'; b.className = 'gif'; b.setAttribute('aria-pressed', 'false');
+			const b = document.createElement('button'); b.type = 'button'; b.className = 'gif'; b.setAttribute('aria-pressed', String(f.f === gif));
 			const im = document.createElement('img'); im.src = '../gifs/' + f.f; im.alt = '';
 			const s = document.createElement('span'); s.textContent = PT[f.n] || f.n;
 			b.append(im, s);
-			b.onclick = () => { gif = f.f; $('gifs').querySelectorAll('.gif').forEach(x => x.setAttribute('aria-pressed', String(x === b))); };
+			b.onclick = () => { gif = f.f; drawGifs(); };
 			return b;
 		}));
-	}).catch(() => { $('gifs').textContent = 'As imagens não carregaram. Tente outra vez.'; });
+	};
+	fetch('../gifs/pack.json').then(r => r.json()).then(p => { pack = p; drawGifs(); }).catch(() => { $('gifs').textContent = 'As imagens não carregaram. Tenta outra vez.'; });
 
-	// ---- drawing ----
-	let pen = 3, pixels = new Array(W * H).fill(0), down = false;
+	// ---- drawing (grid the size of the chosen side) ----
+	let pen = 3, pixels = [], cells = [], down = false, gw = 0, gh = 0;
 	swatches($('drawCols'), [1, 2, 3, 4, 5, 6, 7, 8, 0], pen, i => pen = i);
 	const grid = $('grid');
-	grid.style.gridTemplateColumns = 'repeat(' + W + ', minmax(0, 1fr))';
-	const cells = pixels.map((_, i) => { const c = document.createElement('div'); c.className = 'cell'; c.dataset.i = i; grid.append(c); return c; });
+	const sizeNow = () => { const f = cfg.faces[Math.max(0, face)] || cfg.faces[0]; return [f.w, f.h]; };
+	const buildGrid = () => {
+		const [w, h] = sizeNow();
+		if (w === gw && h === gh) return;
+		gw = w; gh = h; pixels = new Array(w * h).fill(0);
+		grid.style.gridTemplateColumns = 'repeat(' + w + ', minmax(0, 1fr))';
+		grid.replaceChildren(); cells = pixels.map((_, i) => { const c = document.createElement('div'); c.className = 'cell'; c.dataset.i = i; grid.append(c); return c; });
+	};
 	const paint = e => {
 		const el = document.elementFromPoint(e.clientX, e.clientY);
 		if (!el || el.dataset.i === undefined || !grid.contains(el)) return;
@@ -162,47 +193,68 @@ input[type=text] { width: 100%; min-height: 48px; padding: 10px 14px; border-rad
 	['pointerup', 'pointercancel'].forEach(ev => grid.addEventListener(ev, () => down = false));
 	$('clear').onclick = () => { pixels.fill(0); cells.forEach(c => c.style.background = ''); };
 
-	// ---- sending (one request a minute from this phone) ----
-	const last = () => { try { return +localStorage.getItem('l4yShowSent') || 0; } catch (e) { return 0; } };
-	const say = (t, k) => { $('msg').textContent = t; $('msg').className = 'msg ' + (k || ''); };
-	let timer = 0;
-	const tick = () => {
-		const left = Math.ceil((last() + WAIT_MS - Date.now()) / 1000);
-		if (left > 0) { $('send').disabled = true; $('send').textContent = 'Pode enviar outra vez daqui a ' + left + ' s'; timer = setTimeout(tick, 1000); }
-		else { $('send').disabled = !TOPIC || closed; $('send').textContent = 'Enviar para a matriz'; }
+	// ---- sides of the cube ----
+	const drawFaces = () => {
+		$('faceCard').hidden = cfg.faces.length < 2;
+		const sameSize = cfg.faces.every(f => f.w === cfg.faces[0].w && f.h === cfg.faces[0].h);
+		if (face === -1 && !sameSize) face = 0;
+		const opts = (sameSize ? [[-1, 'Todos os lados']] : []).concat(cfg.faces.map((f, i) => [i, f.n || 'Lado ' + (i + 1)]));
+		$('faces').replaceChildren(...opts.map(([v, t]) => {
+			const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = t; b.setAttribute('aria-pressed', String(v === face));
+			b.onclick = () => { face = v; drawFaces(); buildGrid(); };
+			return b;
+		}));
 	};
-	// is the option switched on at home? The bridge posts its state on "<code>-estado" (every 30 minutes and on each change)
-	let closed = false;
+
+	// ---- state of the lights (posted by the bridge on "<code>-estado") ----
+	const apply = () => { drawFaces(); drawQuick(); drawGifs(); buildGrid(); updPrev(); $('closed').hidden = !TOPIC || !closed; tick(); };
 	const checkOpen = () => fetch(RELAY + TOPIC + '-estado/json?poll=1&since=all').then(r => r.text()).then(txt => {
 		const last = txt.trim().split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(e => e && e.event === 'message').pop();
 		let st = null; try { st = last && JSON.parse(last.message); } catch (e) {}
 		closed = !st || !st.on || Date.now() / 1000 - (st.at || 0) > 7200;   // no news for 2 hours: the bridge is off
-		$('closed').hidden = !closed; clearTimeout(timer); tick();
+		if (st && Array.isArray(st.faces) && st.faces.length) cfg.faces = st.faces.slice(0, 8).map(f => ({ n: String(f.n || '').slice(0, 20), w: Math.max(4, Math.min(64, f.w | 0)), h: Math.max(4, Math.min(64, f.h | 0)) }));
+		if (st) { cfg.theme = ['hw', 'xm', 'ev', ''].includes(st.theme) ? st.theme : ''; cfg.free = !!st.free; }
+		if (face >= cfg.faces.length) face = -1;
+		apply();
 	}).catch(() => {});
-	if (TOPIC) { checkOpen(); setInterval(checkOpen, 60000); }
-	tick();
+
+	// ---- sending (one request a minute from this phone) ----
+	const last = () => { try { return +localStorage.getItem('l4yShowSent') || 0; } catch (e) { return 0; } };
+	function say(t, k) { $('msg').textContent = t; $('msg').className = 'msg ' + (k || ''); }
+	let timer = 0;
+	function tick() {
+		clearTimeout(timer);
+		const left = Math.ceil((last() + WAIT_MS - Date.now()) / 1000);
+		if (left > 0) { $('send').disabled = true; $('send').textContent = 'Podes enviar outra vez daqui a ' + left + ' s'; timer = setTimeout(tick, 1000); }
+		else { $('send').disabled = closed; $('send').textContent = 'Mostrar nas luzes!'; }
+	}
 	$('send').onclick = async () => {
 		let body;
 		if (tab === 'text') {
-			const t = ($('txt').value.trim() || $('txt').placeholder).slice(0, 40);
-			if (isBad(t)) { say('Essa mensagem não pode ser mostrada. Escreva outra, por favor.', 'err'); return; }
-			body = { k: 'text', t, c: txtCol };
+			const t = chosenText().slice(0, 40);
+			if (!t) { say('Escolhe ou escreve uma mensagem.', 'err'); return; }
+			if (isBad(t)) { say('Essa mensagem não pode aparecer. Escolhe outra!', 'err'); return; }
+			body = cfg.free && $('txt').value.trim() ? { k: 'text', t, c: txtCol } : { k: 'quick', q: quick, c: txtCol };
 		} else if (tab === 'gif') {
-			if (!gif) { say('Escolha primeiro uma imagem.', 'err'); return; }
+			if (!gif) { say('Escolhe primeiro uma imagem.', 'err'); return; }
 			body = { k: 'gif', f: gif };
 		} else {
-			if (!pixels.some(v => v)) { say('Faça primeiro um desenho.', 'err'); return; }
-			body = { k: 'draw', w: W, h: H, p: pixels.join('') };
+			if (!pixels.some(v => v)) { say('Faz primeiro um desenho.', 'err'); return; }
+			body = { k: 'draw', w: gw, h: gh, p: pixels.join('') };
 		}
+		body.z = face;
 		$('send').disabled = true;
 		try {
 			const r = await fetch(RELAY + TOPIC, { method: 'POST', body: JSON.stringify(body) });
 			if (!r.ok) throw new Error(r.status);
 			try { localStorage.setItem('l4yShowSent', String(Date.now())); } catch (e) {}
-			say('Enviado! Olhe para a matriz: aparece daqui a pouco.', 'ok');
-		} catch (e) { say('Não foi possível enviar. Verifique a internet e tente outra vez.', 'err'); }
-		clearTimeout(timer); tick();
+			say('Enviado! Olha para as luzes: aparece daqui a pouco.', 'ok');
+		} catch (e) { say('Não foi possível enviar. Tenta outra vez.', 'err'); }
+		tick();
 	};
+
+	apply();
+	if (TOPIC) { checkOpen(); setInterval(checkOpen, 60000); }
 })();
 </script>
 </body>

@@ -31,8 +31,17 @@ FX_TEXT, FX_IMAGE = 122, 53          # efeitos do WLED: texto a passar, imagem (
 GIF_OK = re.compile(r"^(hw|xm|ev)-[a-z0-9]{2,20}\.gif$")
 
 S = {   # definições (guardadas em show_config.json)
-    "on": False, "topic": "l4yshow-3352b4beefd1", "board": "", "boardName": "", "zone": 0, "w": 16, "h": 16,
+    "on": False, "topic": "l4yshow-3352b4beefd1", "board": "", "boardName": "",
+    "faces": [],          # lados (zonas) onde aparecem os pedidos: [{"zone": id, "n": nome, "w": largura, "h": altura}]
     "seconds": {"text": 20, "gif": 12, "draw": 15}, "theme": "hw", "approve": False,
+    "free": False,        # False = só as mensagens prontas (bom para crianças); True = também texto escrito
+}
+# mensagens prontas (iguais às da página dos visitantes)
+QUICK = {
+    "hw": ["Feliz Halloween!", "Boo!", "Docura ou travessura!", "Ola!", "Uuuuh!", "Abobora!"],
+    "xm": ["Feliz Natal!", "Boas Festas!", "Ho ho ho!", "Ola!", "Pai Natal!", "Neve!"],
+    "ev": ["Parabens!", "Viva!", "Ola!", "Feliz Ano Novo!", "Boa Pascoa!", "Amo-te!"],
+    "": ["Ola!", "Viva!", "Boo!", "Feliz Natal!", "Feliz Halloween!", "Parabens!"],
 }
 lock = threading.RLock()
 jobs = queue.Queue(QUEUE_MAX)
@@ -68,7 +77,7 @@ def save():
 
 
 def qr_url():
-    return "%s?t=%s&w=%d&h=%d&tema=%s" % (PAGE, S["topic"], S["w"], S["h"], S["theme"])
+    return "%s?t=%s" % (PAGE, S["topic"])   # o resto (lados, tamanho, tema) a página lê do estado publicado
 
 
 # ---------------------------------------------------------------------------------------- matriz ----
@@ -115,42 +124,53 @@ def check(msg):
         m = json.loads(msg)
     except Exception:
         return None
-    if not isinstance(m, dict):
+    if not isinstance(m, dict) or not S["faces"]:
         return None
-    k, z = m.get("k"), S["zone"]
-    if k == "text":
-        t = str(m.get("t", ""))[:40].strip()
-        if not t or is_bad(t):
-            return None
-        t = re.sub(r"[^ -~]", "", plain(t)).strip()
-        if not t:
-            return None
+    k, z = m.get("k"), m.get("z", -1)
+    if not isinstance(z, int) or z < -1 or z >= len(S["faces"]):
+        return None
+    faces = S["faces"] if z == -1 else [S["faces"][z]]
+    where = "todos os lados" if z == -1 or len(S["faces"]) == 1 else (S["faces"][z].get("n") or "lado %d" % (z + 1))
+    segs = lambda part: {"on": True, "seg": [dict(part, id=f["zone"]) for f in faces]}
+    if k in ("text", "quick"):
+        if k == "quick":
+            t = str(m.get("q", ""))
+            if not any(t in v for v in QUICK.values()):
+                return None
+        else:
+            if not S["free"]:
+                return None
+            t = str(m.get("t", ""))[:40].strip()
+            if not t or is_bad(t):
+                return None
+            t = re.sub(r"[^ -~]", "", plain(t)).strip()
+            if not t:
+                return None
         c = m.get("c", 3)
         c = PAL[c] if isinstance(c, int) and 1 <= c < len(PAL) else PAL[3]
         rgb = [int(c[i:i + 2], 16) for i in (0, 2, 4)]
-        return "text", {"on": True, "seg": {"id": z, "fx": FX_TEXT, "n": t, "col": [rgb, [0, 0, 0], rgb], "sx": 140, "ix": 128,
-                                           "c1": 0, "c2": 128, "c3": 16, "o1": False, "o2": False, "o3": False, "tp": False, "frz": False}}, \
-               {"t": t, "c": c}
+        return "text", segs({"fx": FX_TEXT, "n": t, "col": [rgb, [0, 0, 0], rgb], "sx": 140, "ix": 128, "c1": 0, "c2": 128, "c3": 16,
+                             "o1": False, "o2": False, "o3": False, "tp": False, "frz": False}), {"t": t, "c": c, "where": where}
     if k == "gif":
         f = str(m.get("f", ""))
         if not GIF_OK.match(f):
             return None
-        return "gif", {"on": True, "seg": {"id": z, "fx": FX_IMAGE, "n": f, "sx": 128, "ix": 0, "c3": 0, "frz": False}}, {"f": f}
+        return "gif", segs({"fx": FX_IMAGE, "n": f, "sx": 128, "ix": 0, "c3": 0, "frz": False}), {"f": f, "where": where}
     if k == "draw":
         p = str(m.get("p", ""))
         w, h = m.get("w"), m.get("h")
-        if w != S["w"] or h != S["h"] or len(p) != w * h or not re.fullmatch(r"[0-8]+", p):
+        if any(f["w"] != w or f["h"] != h for f in faces) or not isinstance(w, int) or len(p) != w * h or not re.fullmatch(r"[0-8]+", p):
             return None
         pix = [0, w * h, "000000"]
         for i, ch in enumerate(p):
             if ch != "0":
                 pix += [i, PAL[int(ch)]]
-        return "draw", {"on": True, "seg": {"id": z, "frz": True, "i": pix}}, {"w": w, "h": h, "p": p}
+        return "draw", segs({"frz": True, "i": pix}), {"w": w, "h": h, "p": p, "where": where}
     return None
 
 
 def add(msg):
-    if not S["on"] or not S["board"]:
+    if not S["on"] or not S["board"] or not S["faces"]:
         log("pedido ignorado: a opção está desligada")
         return
     job = check(msg)
@@ -201,10 +221,10 @@ def show_loop():
         try:
             if saved is None:
                 saved = (ip, http_json(ip, "/json/state"))
-            if kind == "gif" and not upload_gif(ip, cmd["seg"]["n"]):
+            if kind == "gif" and not upload_gif(ip, cmd["seg"][0]["n"]):
                 continue
             http_json(ip, "/json/state", cmd)
-            now_showing["what"] = kind + ": " + (info.get("t") or info.get("f") or "desenho")
+            now_showing["what"] = kind + ": " + (info.get("t") or info.get("f") or "desenho") + " (" + info.get("where", "") + ")"
             log("a mostrar", now_showing["what"])
             time.sleep(max(3, int(S["seconds"].get(kind, 15))))
         except Exception as e:
@@ -216,7 +236,8 @@ def show_loop():
 def publish_status():
     """a página dos visitantes lê isto para saber se a opção está ligada"""
     try:
-        body = json.dumps({"on": bool(S["on"] and S["board"]), "w": S["w"], "h": S["h"], "at": int(time.time())}).encode()
+        body = json.dumps({"on": bool(S["on"] and S["board"] and S["faces"]), "faces": [{"n": f.get("n", ""), "w": f["w"], "h": f["h"]} for f in S["faces"]],
+                           "theme": S["theme"], "free": S["free"], "at": int(time.time())}).encode()
         urllib.request.urlopen(urllib.request.Request(RELAY + S["topic"] + "-estado", data=body, headers={"Cache": "yes"}), timeout=10).read()
     except Exception as e:
         log("não consegui avisar a página do estado:", e)
@@ -309,7 +330,7 @@ select,input[type=number],input[type=text]{width:100%;min-height:44px;padding:8p
 .big input{width:26px;height:26px}.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:700}
 .on{background:var(--ok);color:#06240f}.off{background:#5a4d6b}.url{word-break:break-all;font-size:14px;background:#000;padding:10px;border-radius:10px}
 #qr{background:#fff;padding:12px;border-radius:12px;align-self:center}.item{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px}
-.item .what{flex:1;min-width:0;word-break:break-word}canvas{image-rendering:pixelated;background:#000;border-radius:6px}
+.item .what{flex:1;min-width:0;word-break:break-word}.zrow{display:flex;gap:10px;align-items:center}.zrow input[type=checkbox]{width:24px;height:24px;flex:none}.zrow span{flex:none;min-width:120px}canvas{image-rendering:pixelated;background:#000;border-radius:6px}
 pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:0;max-height:220px;overflow:auto}
 [hidden]{display:none!important}
 </style></head><body><main>
@@ -322,8 +343,8 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:0;max-height:2
   <div class="ct">Matriz</div>
   <div class="row"><button class="btn" id="scan" type="button">Procurar placas na rede</button><span class="note" id="scanMsg"></span></div>
   <label for="board">Placa</label><select id="board"></select>
-  <label for="zone">Zona onde aparecem os pedidos</label><select id="zone"></select>
-  <div class="note" id="size"></div>
+  <div class="note">Lados (zonas) onde aparecem os pedidos — marque um ou mais e dê-lhes um nome (por exemplo Frente, Topo):</div>
+  <div id="zones" style="display:flex;flex-direction:column;gap:8px"></div>
 </div>
 <div class="card">
   <div class="ct">Como aparecem</div>
@@ -334,6 +355,8 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:0;max-height:2
     <div><label for="sGif">Imagem (s)</label><input type="number" id="sGif" min="3" max="120"></div>
     <div><label for="sDraw">Desenho (s)</label><input type="number" id="sDraw" min="3" max="120"></div>
   </div>
+  <label class="big" style="font-size:16px"><input type="checkbox" id="free"> Deixar escrever texto livre</label>
+  <div class="note">Desligado (recomendado para crianças): só as mensagens prontas, as imagens e os desenhos.</div>
   <label class="big" style="font-size:16px"><input type="checkbox" id="approve"> Aprovar cada pedido antes de aparecer</label>
   <div class="row"><button class="btn primary" id="save" type="button">Guardar</button><span class="note" id="saveMsg"></span></div>
 </div>
@@ -351,29 +374,35 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:0;max-height:2
 const $=id=>document.getElementById(id);let st=null,editing=false,qrFor='',zonesFor=null;
 const api=(p,b)=>fetch('/api/'+p,b===undefined?{}:{method:'POST',body:JSON.stringify(b)}).then(r=>r.json());
 function opt(sel,list,val){sel.replaceChildren(...list.map(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;return o;}));sel.value=val;}
-async function loadZones(ip,keep){if(!ip){opt($('zone'),[],'');return;}try{const z=await api('zones?ip='+encodeURIComponent(ip));opt($('zone'),z.map(q=>[q.id,'Zona '+(q.id+1)+(q.name?' – '+q.name:'')+' ('+q.w+'×'+q.h+')']),keep);$('zone').dataset.z=JSON.stringify(z);showSize();}catch(e){opt($('zone'),[],'');}}
-function showSize(){const z=JSON.parse($('zone').dataset.z||'[]').find(q=>String(q.id)===$('zone').value);$('size').textContent=z?'Tamanho da grelha de desenho: '+z.w+' × '+z.h:'';}
+let zl=[];
+async function loadZones(ip,faces){zl=[];if(ip){try{zl=await api('zones?ip='+encodeURIComponent(ip));}catch(e){}}
+ $('zones').replaceChildren(...(zl.length?zl.map(q=>{const f=(faces||[]).find(x=>x.zone===q.id);const r=document.createElement('label');r.className='zrow';
+  const c=document.createElement('input');c.type='checkbox';c.checked=!!f;c.dataset.id=q.id;const t=document.createElement('span');t.textContent='Zona '+(q.id+1)+' ('+q.w+'×'+q.h+')';
+  const n=document.createElement('input');n.type='text';n.placeholder='Nome (opcional)';n.value=f?f.n:'';n.dataset.id=q.id;n.onfocus=()=>editing=true;c.onchange=()=>editing=true;r.append(c,t,n);return r;}):[Object.assign(document.createElement('div'),{className:'note',textContent:ip?'A placa não respondeu.':'Escolha primeiro uma placa.'})]));}
+function facesNow(){return zl.filter(q=>$('zones').querySelector('input[type=checkbox][data-id="'+q.id+'"]').checked).map(q=>({zone:q.id,w:q.w,h:q.h,n:$('zones').querySelector('input[type=text][data-id="'+q.id+'"]').value.trim()}));}
 function render(){
  $('on').checked=st.on;$('state').innerHTML=st.on&&st.board?'<span class="pill on">LIGADO</span> Os pedidos aparecem em '+(st.boardName||st.board)+'.':'<span class="pill off">DESLIGADO</span> Os pedidos dos visitantes não aparecem.';
  if(!editing){opt($('board'),[['','Escolha uma placa']].concat(st.boards.map(b=>[b.ip,b.name+' ('+b.ip+')'])).concat(st.board&&!st.boards.some(b=>b.ip===st.board)?[[st.board,(st.boardName||st.board)+' ('+st.board+')']]:[]),st.board);
-  if(zonesFor!==st.board){zonesFor=st.board;loadZones(st.board,st.zone);}
+  if(zonesFor!==st.board){zonesFor=st.board;loadZones(st.board,st.faces);}
+  $('free').checked=st.free;
   $('theme').value=st.theme;$('sText').value=st.seconds.text;$('sGif').value=st.seconds.gif;$('sDraw').value=st.seconds.draw;$('approve').checked=st.approve;}
  $('url').textContent=st.url;if(qrFor!==st.url&&window.QRCode){$('qr').replaceChildren();new QRCode($('qr'),{text:st.url,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});qrFor=st.url;}
  $('pendCard').hidden=!st.pending.length;
  $('pend').replaceChildren(...st.pending.map(p=>{const d=document.createElement('div');d.className='item';const w=document.createElement('div');w.className='what';
   if(p.kind==='draw'){const c=document.createElement('canvas');c.width=p.info.w;c.height=p.info.h;c.style.width=(p.info.w*5)+'px';const g=c.getContext('2d');[...p.info.p].forEach((v,i)=>{if(v!=='0'){g.fillStyle='#'+['000000','ffffff','ff2a2a','ff7a1a','ffd23f','39d353','2bb7ff','9b5cff','ff4fd8'][+v];g.fillRect(i%p.info.w,Math.floor(i/p.info.w),1,1);}});w.append(c);}
-  else w.textContent=p.kind==='text'?'Texto: '+p.info.t:'Imagem: '+p.info.f;
+  else w.textContent=(p.kind==='text'?'Texto: '+p.info.t:'Imagem: '+p.info.f);if(p.info.where){const s=document.createElement('div');s.className='note';s.textContent=p.info.where;w.append(s);}
   const ok=document.createElement('button');ok.className='btn primary';ok.textContent='Mostrar';ok.onclick=()=>api('approve',{id:p.id}).then(refresh);
   const no=document.createElement('button');no.className='btn';no.textContent='Recusar';no.onclick=()=>api('reject',{id:p.id}).then(refresh);
   d.append(w,ok,no);return d;}));
  $('now').textContent=st.now?'Agora na matriz: '+st.now+' · '+st.queue+' em fila':st.queue+' em fila';$('log').textContent=st.log.slice().reverse().join('\n');}
 async function refresh(){st=await api('state');render();}
 $('on').onchange=()=>api('settings',{on:$('on').checked}).then(refresh);
-$('board').onfocus=$('zone').onfocus=()=>editing=true;
-$('board').onchange=()=>{editing=true;loadZones($('board').value,0);};$('zone').onchange=showSize;
+$('board').onfocus=()=>editing=true;
+$('board').onchange=()=>{editing=true;loadZones($('board').value,[]);};$('free').onchange=()=>editing=true;
 $('scan').onclick=async()=>{$('scanMsg').textContent='A procurar… (até 10 s)';const r=await api('scan',{});$('scanMsg').textContent=r.length+' placa(s) encontrada(s)';editing=false;await refresh();};
-$('save').onclick=async()=>{const z=JSON.parse($('zone').dataset.z||'[]').find(q=>String(q.id)===$('zone').value);const b=st.boards.find(x=>x.ip===$('board').value);
- await api('settings',{board:$('board').value,boardName:b?b.name:'',zone:+($('zone').value||0),w:z?z.w:st.w,h:z?z.h:st.h,theme:$('theme').value,approve:$('approve').checked,seconds:{text:+$('sText').value,gif:+$('sGif').value,draw:+$('sDraw').value}});
+$('save').onclick=async()=>{const b=st.boards.find(x=>x.ip===$('board').value);const faces=facesNow();
+ if(!faces.length){$('saveMsg').textContent='Marque pelo menos um lado.';return;}
+ await api('settings',{board:$('board').value,boardName:b?b.name:(st.board===$('board').value?st.boardName:''),faces,theme:$('theme').value,approve:$('approve').checked,free:$('free').checked,seconds:{text:+$('sText').value,gif:+$('sGif').value,draw:+$('sDraw').value}});
  editing=false;$('saveMsg').textContent='Guardado.';setTimeout(()=>$('saveMsg').textContent='',2500);refresh();};
 $('copy').onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(st.url).then(()=>{$('copy').textContent='Copiado';setTimeout(()=>$('copy').textContent='Copiar endereço',2000);});
 $('test').onclick=()=>api('test',{t:$('testTxt').value||'Ola!'}).then(refresh);
@@ -424,14 +453,17 @@ class Admin(BaseHTTPRequestHandler):
         if p == "/api/settings":
             changed_on = "on" in b and bool(b["on"]) != S["on"]
             with lock:
-                for k in ("on", "approve"):
+                for k in ("on", "approve", "free"):
                     if k in b:
                         S[k] = bool(b[k])
                 if "board" in b and (b["board"] == "" or re.fullmatch(r"[0-9.]{7,15}", str(b["board"]))):
                     S["board"] = b["board"]; S["boardName"] = str(b.get("boardName", ""))[:40]
-                for k in ("zone", "w", "h"):
-                    if isinstance(b.get(k), int) and 0 <= b[k] <= 128:
-                        S[k] = b[k]
+                if isinstance(b.get("faces"), list):
+                    fs = []
+                    for f in b["faces"][:8]:
+                        if isinstance(f, dict) and all(isinstance(f.get(k), int) and 0 <= f[k] <= 128 for k in ("zone", "w", "h")):
+                            fs.append({"zone": f["zone"], "w": f["w"], "h": f["h"], "n": str(f.get("n", ""))[:20]})
+                    S["faces"] = fs
                 if b.get("theme") in ("hw", "xm", "ev", ""):
                     S["theme"] = b["theme"]
                 if isinstance(b.get("seconds"), dict):
@@ -459,7 +491,9 @@ class Admin(BaseHTTPRequestHandler):
                 enqueue(item["kind"], item["cmd"], item["info"])
             return self.send(200, {"ok": bool(item)})
         if p == "/api/test":
-            job = check(json.dumps({"k": "text", "t": str(b.get("t", "Ola!"))[:40], "c": 3}))
+            was, S["free"] = S["free"], True   # o teste pode ter texto escrito
+            job = check(json.dumps({"k": "text", "t": str(b.get("t", "Ola!"))[:40], "c": 3, "z": -1}))
+            S["free"] = was
             if job and S["board"]:
                 enqueue(*job)
             return self.send(200, {"ok": bool(job)})
