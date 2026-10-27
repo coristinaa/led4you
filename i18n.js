@@ -333,6 +333,11 @@
 		['Confetti', 'Confetti', 'Confeti', 'Confettis'], ['Lucky clover', 'Trevo da sorte', 'Trébol de la suerte', 'Trèfle porte-bonheur'], ['Birthday cake', 'Bolo de anos', 'Tarta de cumpleaños', 'Gâteau d’anniversaire'],
 		['Balloons', 'Balões', 'Globos', 'Ballons'], ['New Year 2027', 'Ano Novo 2027', 'Año Nuevo 2027', 'Nouvel An 2027'], ['Floating hearts', 'Corações a flutuar', 'Corazones flotando', 'Cœurs flottants'],
 		['Bunny', 'Coelhinho', 'Conejito', 'Lapin'], ['Rainbow', 'Arco-íris', 'Arcoíris', 'Arc-en-ciel'], ['Sun', 'Sol', 'Sol', 'Soleil'],
+		['Flying witch', 'Bruxa a voar', 'Bruja volando', 'Sorcière volante'], ['Mummy', 'Múmia', 'Momia', 'Momie'], ['Spooky candle', 'Vela assombrada', 'Vela embrujada', 'Bougie hantée'],
+		['Owl', 'Mocho', 'Búho', 'Hibou'], ['Magic potion', 'Poção mágica', 'Poción mágica', 'Potion magique'], ['Haunted house', 'Casa assombrada', 'Casa embrujada', 'Maison hantée'],
+		['Bats', 'Morcegos', 'Murciélagos', 'Chauves-souris'], ['Eyeball', 'Olho', 'Ojo', 'Œil'], ['Santa', 'Pai Natal', 'Papá Noel', 'Père Noël'],
+		['Reindeer', 'Rena', 'Reno', 'Renne'], ['Christmas lights', 'Luzes de Natal', 'Luces de Navidad', 'Guirlande lumineuse'], ['Christmas candle', 'Vela de Natal', 'Vela de Navidad', 'Bougie de Noël'],
+		['Sleigh', 'Trenó', 'Trineo', 'Traîneau'], ['Snowflake', 'Floco de neve', 'Copo de nieve', 'Flocon de neige'], ['Penguin', 'Pinguim', 'Pingüino', 'Pingouin'],
 		// --- setup ---
 		['LED setup', 'Configuração dos LEDs', 'Configuración de LEDs', 'Réglage des LEDs'],
 		['Data pin (GPIO)', 'Pino de dados (GPIO)', 'Pin de datos (GPIO)', 'Broche de données (GPIO)'],
