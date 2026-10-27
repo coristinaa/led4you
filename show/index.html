@@ -49,6 +49,7 @@ input[type=text] { width: 100%; min-height: 48px; padding: 10px 14px; border-rad
   </div>
   <p class="note" id="intro">Escreva um texto, escolha uma imagem ou faça um desenho. Os pedidos aparecem na matriz um de cada vez, por ordem de chegada.</p>
   <p class="msg err" id="noShow" hidden>Este endereço não tem o código do show. Leia outra vez o código QR do cartaz.</p>
+  <p class="msg err" id="closed" hidden>A matriz não está a receber pedidos neste momento. Volte a tentar durante o show (18:00 – 00:00).</p>
 
   <div class="tabs" role="tablist" id="tabs">
     <button type="button" role="tab" aria-selected="true" data-tab="text">Texto</button>
@@ -168,8 +169,17 @@ input[type=text] { width: 100%; min-height: 48px; padding: 10px 14px; border-rad
 	const tick = () => {
 		const left = Math.ceil((last() + WAIT_MS - Date.now()) / 1000);
 		if (left > 0) { $('send').disabled = true; $('send').textContent = 'Pode enviar outra vez daqui a ' + left + ' s'; timer = setTimeout(tick, 1000); }
-		else { $('send').disabled = !TOPIC; $('send').textContent = 'Enviar para a matriz'; }
+		else { $('send').disabled = !TOPIC || closed; $('send').textContent = 'Enviar para a matriz'; }
 	};
+	// is the option switched on at home? The bridge posts its state on "<code>-estado" (every 30 minutes and on each change)
+	let closed = false;
+	const checkOpen = () => fetch(RELAY + TOPIC + '-estado/json?poll=1&since=all').then(r => r.text()).then(txt => {
+		const last = txt.trim().split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(e => e && e.event === 'message').pop();
+		let st = null; try { st = last && JSON.parse(last.message); } catch (e) {}
+		closed = !st || !st.on || Date.now() / 1000 - (st.at || 0) > 7200;   // no news for 2 hours: the bridge is off
+		$('closed').hidden = !closed; clearTimeout(timer); tick();
+	}).catch(() => {});
+	if (TOPIC) { checkOpen(); setInterval(checkOpen, 60000); }
 	tick();
 	$('send').onclick = async () => {
 		let body;
