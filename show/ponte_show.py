@@ -34,7 +34,7 @@ S = {   # definições (guardadas em show_config.json)
     "on": False, "topic": "l4yshow-3352b4beefd1", "board": "", "boardName": "",
     "faces": [],          # lados (zonas) onde aparecem os pedidos: [{"zone": id, "n": nome, "w": largura, "h": altura}]
     "seconds": {"text": 20, "gif": 12, "draw": 15}, "theme": "hw", "approve": False,
-    "free": False,        # False = só as mensagens prontas (bom para crianças); True = também texto escrito
+    "free": True,         # True = escrever texto livre (com filtro de palavrões); False = só as mensagens prontas
 }
 # mensagens prontas (iguais às da página dos visitantes)
 QUICK = {

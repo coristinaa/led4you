@@ -1,6 +1,7 @@
-# Cubo das crianças (LED4YOU) — v3
+# Cubo das crianças (LED4YOU) — v4
 
-As crianças leem o código QR na parede e, no telemóvel, escolhem uma mensagem, uma imagem animada ou fazem um desenho.
+As crianças leem o código QR na parede e, no telemóvel, escrevem uma mensagem (ou escolhem uma pronta do tema),
+escolhem uma imagem animada ou fazem um desenho.
 O pedido aparece no cubo de matrizes, um de cada vez, por ordem de chegada.
 
 O cubo é **à parte do show**: não entra nas sequências do xLights nem no FPP. A ponte fala diretamente com a placa
@@ -51,9 +52,9 @@ Cada zona é uma matriz com o seu tamanho.
 - **Procurar placas na rede** → escolha a placa do cubo.
 - **Lados do cubo**: marque as zonas que são lados e dê-lhes um nome. As crianças escolhem o lado pelo nome.
   "Todos os lados" só aparece quando os lados têm todos o mesmo tamanho.
-- **Tema**: Halloween, Natal, outras festas ou todas (imagens e mensagens prontas).
+- **Tema**: Halloween, Natal, outras festas ou todas. Muda as imagens e as mensagens prontas que aparecem na página.
 - **Tempo** de cada mensagem, imagem e desenho.
-- **Deixar escrever texto livre**: desligado (recomendado para crianças), só se podem enviar as mensagens prontas.
+- **Deixar escrever texto livre**: ligado de origem. Se o desligar, só se podem enviar as mensagens prontas.
 - **Aprovar cada pedido**: os pedidos ficam em "Por aprovar", com os botões Mostrar / Recusar.
 - **Código QR**: o endereço para o cartaz. **É sempre o mesmo**: pode mudar lados, tema ou tempos sem reimprimir.
 - **Testar** e **Registo**.
@@ -62,7 +63,7 @@ Carregue em **Guardar** depois de mudar. As escolhas ficam em `show_config.json`
 
 ## Como funciona
 
-- **Mensagem**: as prontas do tema ou, se ligado, texto livre até 40 letras (sem acentos nas luzes).
+- **Mensagem**: escrita pela criança (até 40 letras, sem acentos nas luzes) ou uma das prontas do tema.
 - **Imagem**: GIF do LED4YOU GIF pack. Na primeira vez, a ponte vai buscá-lo ao site e envia-o para a placa.
 - **Desenho**: 9 cores, com o tamanho do lado escolhido.
 - Quando não há mais pedidos, o cubo volta ao que mostrava antes.
@@ -70,7 +71,7 @@ Carregue em **Guardar** depois de mudar. As escolhas ficam em `show_config.json`
 ## Cuidados
 
 - **Palavrões**: o texto livre passa por um filtro (português e inglês, também com números). Nenhum filtro é
-  perfeito: para crianças, deixe o texto livre desligado ou ligue a aprovação.
+  perfeito: se aparecer algo que não quer, ligue a aprovação ou desligue o texto livre.
 - **Um pedido por minuto** em cada telemóvel; no máximo 20 pedidos em fila ou por aprovar.
 - O canal do ntfy.sh é público: quem souber o código pode enviar pedidos. A ponte só aceita pedidos válidos
   (mensagens prontas, imagens do pack, desenhos do tamanho certo). Para mudar o código, mude `topic` em

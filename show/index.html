@@ -114,7 +114,7 @@ input[type=text] { width: 100%; min-height: 52px; padding: 10px 14px; border-rad
 	const isBad = s => { const n = norm(s), words = n.split(/[^a-z]+/), joined = n.replace(/[^a-z]/g, ''); return BAD.some(b => words.includes(b) || (b.length >= 5 && joined.includes(b))); };
 
 	// what the lights allow (from the bridge's status): sides [{n, w, h}], theme, free text or ready messages only
-	let cfg = { faces: [{ n: '', w: 16, h: 16 }], theme: '', free: false };
+	let cfg = { faces: [{ n: '', w: 16, h: 16 }], theme: '', free: true };
 	let face = -1;   // -1 = all sides
 	let closed = !TOPIC;
 	if (!TOPIC) $('noShow').hidden = false;
