@@ -1,3 +1,3 @@
-[{ "version": 79, "manifest": "manifest-v79.json", "notes": "Picture size for GIFs: in proportion, stretched to the matrix, or filling it (edges cut)" },
- { "version": 78, "manifest": "manifest-v78.json", "notes": "Pictures (GIFs) keep their proportions on the matrix and small details such as eyes stay when they are shrunk" },
- { "version": 77, "manifest": "manifest-v77.json", "notes": "Drawing on the lights no longer freezes them (updates go out one at a time; design saved after a pause)" }]
+[{ "version": 80, "manifest": "manifest-v80.json", "notes": "Drawings stay on the lights: the stored drawing no longer goes dark about 10 s after drawing (with Bluetooth on)" },
+ { "version": 79, "manifest": "manifest-v79.json", "notes": "Picture size for GIFs: in proportion, stretched to the matrix, or filling it (edges cut)" },
+ { "version": 78, "manifest": "manifest-v78.json", "notes": "Pictures (GIFs) keep their proportions on the matrix and small details such as eyes stay when they are shrunk" }]
