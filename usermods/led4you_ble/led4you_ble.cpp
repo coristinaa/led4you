@@ -74,60 +74,97 @@ static inline uint32_t l4yHash(uint32_t x) {
   return x;
 }
 
-// Effect function: draws the stored per-LED table. Segment speed slider scales all LED speeds.
-static void mode_myleds(void) {
-  // (re)load the table when the effect starts or a new table was uploaded
-  if (SEGENV.call == 0 || SEGENV.aux0 != myLedsVersion) {
-    SEGENV.aux0 = myLedsVersion;
-    SEGENV.aux1 = 0;
-    // a zone can have its own design: /mylz<zone>.bin, else the shared /myleds.bin
-    char fn[16];
-    snprintf_P(fn, sizeof(fn), PSTR("/mylz%u.bin"), (unsigned)strip.getCurrSegmentId());
-    File f = WLED_FS.exists(fn) ? WLED_FS.open(fn, "r") : WLED_FS.open(MYLEDS_FILE, "r");
-    if (f) {
-      uint8_t hdr[6];
-      if (f.read(hdr, 6) == 6 && hdr[0] == 'L' && hdr[1] == '4' && hdr[2] == 'Y' && hdr[3] == 1) {
-        // never load more entries than this segment can show: keeps the effect data small
-        unsigned n = min((unsigned)(hdr[4] | (hdr[5] << 8)), min((unsigned)SEGLEN, (unsigned)L4Y_MYLEDS_MAX));
-        if (n && SEGENV.allocateData(n * 6) && f.read(SEGENV.data, n * 6) == (int)(n * 6)) SEGENV.aux1 = n;
+// One LED of the My LEDs table: r, g, b, mode, speed, phase -> colour now
+static inline uint32_t myLedColor(unsigned i, const uint8_t* r, uint32_t now, uint32_t gScale) {
+  uint32_t c = RGBW32(r[0], r[1], r[2], 0);
+  // period between 3000 ms (speed 0) and ~200 ms (speed 255), scaled by the global slider
+  uint32_t period = ((3000 - r[4] * 11) * 160) / gScale;
+  if (period < 60) period = 60;
+  const uint32_t t = now + (uint32_t)r[5] * period / 256;   // phase shifts each LED within its cycle
+  const uint8_t pos = (t % period) * 256 / period;           // 0..255 position in the cycle
+  switch (r[3]) {
+    case 1: if (pos >= 128) c = BLACK; break;                                   // blink
+    case 2: c = color_fade(c, 16 + (sin8_t(pos - 64) * 239 >> 8)); break;       // breathe
+    case 3: {                                                                   // twinkle
+      // soft glow; in about half of the cycles (random per LED) a quick sparkle up to full brightness
+      const uint32_t cycle = t / period;
+      uint8_t lvl = 70;
+      if (l4yHash(i * 7919 + cycle) & 1) {
+        const uint8_t tri = pos < 128 ? pos * 2 : (255 - pos) * 2;
+        lvl = 70 + ((185 * tri) >> 8);
       }
-      f.close();
+      c = color_fade(c, lvl);
+      break;
+    }
+    case 4: c = SEGMENT.color_wheel(pos + r[5]); break;                         // rainbow
+    default: break;                                                             // fixed
+  }
+  return c;
+}
+
+// The table of each zone is kept in its own small buffer, not in WLED segment data: WLED only hands out segment
+// data while 15 KB in one block stay free, which with Bluetooth on is rarely the case, and then a drawing went
+// black about 10 s after drawing (when the app had stored it). If even this buffer cannot be had, the table is
+// read from the file while it is drawn, so the design always shows.
+struct L4yMyTbl { uint8_t* d; uint16_t n; uint16_t ver; uint32_t retry; char fn[14]; };
+static L4yMyTbl myTbl[16];
+
+static void myTblLoad(L4yMyTbl& tb, unsigned id) {
+  free(tb.d); tb.d = nullptr; tb.n = 0;
+  // a zone can have its own design: /mylz<zone>.bin, else the shared /myleds.bin
+  snprintf_P(tb.fn, sizeof(tb.fn), PSTR("/mylz%u.bin"), id);
+  if (!WLED_FS.exists(tb.fn)) strlcpy(tb.fn, MYLEDS_FILE, sizeof(tb.fn));
+  File f = WLED_FS.open(tb.fn, "r");
+  if (!f) return;
+  uint8_t hdr[6];
+  if (f.read(hdr, 6) == 6 && hdr[0] == 'L' && hdr[1] == '4' && hdr[2] == 'Y' && hdr[3] == 1) {
+    // never load more entries than this segment can show
+    const unsigned n = min((unsigned)(hdr[4] | (hdr[5] << 8)), min((unsigned)SEGLEN, (unsigned)L4Y_MYLEDS_MAX));
+    tb.n = n;
+    if (n && ESP.getFreeHeap() > n * 6 + 8192) {
+      tb.d = (uint8_t*)malloc(n * 6);
+      if (tb.d && f.read(tb.d, n * 6) != (int)(n * 6)) { free(tb.d); tb.d = nullptr; }
     }
   }
-  const unsigned n = SEGENV.aux1;
-  const uint8_t* tbl = SEGENV.data;
+  f.close();
+  tb.retry = millis() + 2000;
+}
+
+// frees the tables of zones that no longer play My LEDs (called from the usermod loop)
+static void myTblTidy() {
+  for (unsigned i = 0; i < 16; i++)
+    if (myTbl[i].d && (i >= strip.getSegmentsNum() || strip.getSegment(i).mode != myLedsFxId)) { free(myTbl[i].d); myTbl[i].d = nullptr; myTbl[i].ver = 0; }
+}
+
+// Effect function: draws the stored per-LED table. Segment speed slider scales all LED speeds.
+static void mode_myleds(void) {
+  const unsigned id = strip.getCurrSegmentId();
+  static L4yMyTbl spare;                                       // zones above 15 (not cached)
+  L4yMyTbl& tb = id < 16 ? myTbl[id] : spare;
+  // (re)load the table when the effect starts or a new table was uploaded; no buffer yet: try again every 2 s
+  if (SEGENV.call == 0 || tb.ver != myLedsVersion || (!tb.d && tb.n && (long)(millis() - tb.retry) >= 0)) {
+    tb.ver = myLedsVersion;
+    myTblLoad(tb, id);
+  }
+  const unsigned n = tb.n;
   const uint32_t now = strip.now;
   // global speed: slider 128 = recorded speed, 0 = 4x slower, 255 = 2x faster
   const uint32_t gScale = 32 + SEGMENT.speed;   // 32..287, 160 is "normal"
+  File f;
+  if (!tb.d && n) { f = WLED_FS.open(tb.fn, "r"); if (f) f.seek(6); }
+  uint8_t buf[48];   // 8 LEDs at a time when reading from the file
   for (unsigned i = 0; i < SEGLEN; i++) {
-    if (i >= n) { SEGMENT.setPixelColor(i, BLACK); continue; }
-    const uint8_t* r = tbl + i * 6;
-    uint32_t c = RGBW32(r[0], r[1], r[2], 0);
-    const uint8_t mode = r[3];
-    // period between 3000 ms (speed 0) and ~200 ms (speed 255), scaled by the global slider
-    uint32_t period = ((3000 - r[4] * 11) * 160) / gScale;
-    if (period < 60) period = 60;
-    const uint32_t t = now + (uint32_t)r[5] * period / 256;   // phase shifts each LED within its cycle
-    const uint8_t pos = (t % period) * 256 / period;           // 0..255 position in the cycle
-    switch (mode) {
-      case 1: if (pos >= 128) c = BLACK; break;                                   // blink
-      case 2: c = color_fade(c, 16 + (sin8_t(pos - 64) * 239 >> 8)); break;       // breathe
-      case 3: {                                                                   // twinkle
-        // soft glow; in about half of the cycles (random per LED) a quick sparkle up to full brightness
-        const uint32_t cycle = t / period;
-        uint8_t lvl = 70;
-        if (l4yHash(i * 7919 + cycle) & 1) {
-          const uint8_t tri = pos < 128 ? pos * 2 : (255 - pos) * 2;
-          lvl = 70 + ((185 * tri) >> 8);
-        }
-        c = color_fade(c, lvl);
-        break;
+    const uint8_t* r = nullptr;
+    if (i < n) {
+      if (tb.d) r = tb.d + i * 6;
+      else if (f) {
+        if (i % 8 == 0) { const unsigned k = min(8u, n - i) * 6; if (f.read(buf, k) != (int)k) { f.close(); } }
+        if (f) r = buf + (i % 8) * 6;
       }
-      case 4: c = SEGMENT.color_wheel(pos + r[5]); break;                         // rainbow
-      default: break;                                                             // fixed
     }
-    SEGMENT.setPixelColor(i, c);
+    SEGMENT.setPixelColor(i, r ? myLedColor(i, r, now, gScale) : BLACK);
   }
+  if (f) f.close();
 }
 static const char _data_FX_MYLEDS[] PROGMEM = "My LEDs@Speed;;;12;sx=128";
 
@@ -806,6 +843,9 @@ class Led4youBle : public Usermod {
     }
 
     void loop() override {
+      // free the My LEDs tables of zones that stopped playing them (every 2 s)
+      static uint32_t tidyAt = 0;
+      if ((long)(millis() - tidyAt) >= 0) { tidyAt = millis() + 2000; myTblTidy(); }
       // new LED settings are already in cfg.json (saveLedCfg): restart so WLED starts with them
       if (rebootAfterSave) { rebootAfterSave = false; configNeedsWrite = false; doReboot = true; }   // cfg.json already written
       if (rebootWhenSaved && !doInitBusses && !configNeedsWrite) { rebootWhenSaved = false; doReboot = true; }
